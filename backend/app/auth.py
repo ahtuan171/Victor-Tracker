@@ -1,4 +1,4 @@
-"""Password hashing and the session token.
+"""Password hashing, the session token, and the authentication boundary.
 
 One token type, one lifetime. There is no refresh token and no refresh endpoint —
 `.claude/rules/tech-defaults.md` locks the Auth row to "login + access token only", and research.md
@@ -13,16 +13,23 @@ Two things here are easy to get subtly wrong:
 * **Token lifetime is measured in *bytes* of trust, not convenience.** v0.1 has no denylist, so a
   token that leaks is valid until it expires and reissue-on-use extends that indefinitely. That
   trade is stated in R-002 and accepted for a single-user tool; it is not something to widen here.
+
+The lower half of this file is the HTTP boundary: `CurrentCreator`, which every authenticated
+endpoint depends on, and `PresentedToken`, which only logout uses.
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Annotated, Any, Final
 
 import jwt
+from fastapi import Depends, HTTPException, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 
 from app.config import get_settings
+from app.db import SessionDep
+from app.models import Creator
 
 ALGORITHM: Final = "HS256"
 
@@ -123,3 +130,102 @@ def is_past_half_life(payload: dict[str, Any]) -> bool:
     expires_at = int(payload["exp"])
     midpoint = issued_at + (expires_at - issued_at) / 2
     return datetime.now(UTC).timestamp() > midpoint
+
+
+# ---------------------------------------------------------------------------
+# The HTTP boundary
+# ---------------------------------------------------------------------------
+
+REISSUE_HEADER: Final = "X-Access-Token"
+"""Where a reissued token is returned. The one transport sliding reissue has.
+
+research.md R-001 puts all cookie handling in the Next.js proxy and none in FastAPI, so this API
+cannot "set a cookie" — it can only hand the proxy a new token and let the proxy rewrite the cookie
+with a fresh `Max-Age`. Remove this and sessions die on day 30 with nothing in the logs to say why.
+"""
+
+_bearer = HTTPBearer(
+    # Our own 401, not Starlette's. `auto_error=True` returns a 403 with `{"detail": "Not
+    # authenticated"}` for a missing header, and the contract declares 401 with a uniform Error body
+    # for every unauthenticated case.
+    auto_error=False,
+    description="The session JWT. Attached by the Next.js proxy, never by the browser (R-001).",
+)
+
+_BearerCredentials = Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)]
+
+
+def _unauthenticated() -> HTTPException:
+    """The single 401 every failure mode returns.
+
+    Absent, malformed, expired, wrong key, and "decodes but names a creator that no longer exists"
+    are one response with one message. Distinguishing them tells an attacker which half of the
+    problem to work on, and FR-002 wants no information at all in this response.
+    """
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def current_creator(
+    session: SessionDep,
+    response: Response,
+    credentials: _BearerCredentials,
+) -> Creator:
+    """Resolve the signed-in creator, reissuing the token when it is past half-life.
+
+    Endpoints depend on a `Creator` rather than on a token so that no endpoint has to know how
+    authentication works, and so the token is never decoded twice with different options.
+
+    `Response` is injected purely so the half-life branch has somewhere to put the reissued token.
+    FastAPI merges headers set on this object into the real response, which holds for endpoints that
+    return a model or a dict — every endpoint in this API. An endpoint returning its own `Response`
+    object directly would bypass it, so do not introduce one without carrying the header across.
+    """
+    if credentials is None:
+        raise _unauthenticated()
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+        creator_id = int(payload["sub"])
+    except (InvalidTokenError, KeyError, TypeError, ValueError) as exc:
+        # A token can be validly signed and still carry a `sub` that is not an integer — it would be
+        # one this deployment's own secret signed, but the claim set is still not ours.
+        raise _unauthenticated() from exc
+
+    creator = session.get(Creator, creator_id)
+    if creator is None:
+        # Valid signature, real expiry, no such row: the account was removed after the token was
+        # issued. v0.1 has no denylist, so this is the only revocation there is.
+        raise _unauthenticated()
+
+    if is_past_half_life(payload):
+        fresh_token, _ = create_access_token(creator_id)
+        response.headers[REISSUE_HEADER] = fresh_token
+
+    return creator
+
+
+CurrentCreator = Annotated[Creator, Depends(current_creator)]
+"""What every authenticated endpoint annotates. The counterpart to `SessionDep`."""
+
+
+def presented_token(credentials: _BearerCredentials) -> str:
+    """The raw token, whether or not it is still valid. **Only logout may use this.**
+
+    T014 requires sign-out to work from an expired session: a creator whose token died must still be
+    able to clear it, and `current_creator` would refuse them, leaving them unable to sign out of a
+    session they can no longer use. So logout accepts any presented credential and only refuses a
+    request that presents none — which is what the contract's 401 on `/auth/logout` covers.
+
+    Nothing is decoded here, so this returns no identity and grants no access. It exists to give
+    logout a credential-shaped precondition, not an authenticated one.
+    """
+    if credentials is None:
+        raise _unauthenticated()
+    return credentials.credentials
+
+
+PresentedToken = Annotated[str, Depends(presented_token)]
