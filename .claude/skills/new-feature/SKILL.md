@@ -13,23 +13,27 @@ Confirm the previous iteration is actually closed:
 
 - Is there a `docs/retro-NN.md` for it? If not, the Reflect stage was skipped — the lessons that
   should shape this spec are still in someone's head. Say so and offer to write it first.
-- Does `constitution.md` need an amendment from that retro? Reflect is the only stage where it
-  changes; if it was going to change, it changes now, before the new spec is written.
+- Does `.specify/memory/constitution.md` need an amendment from that retro? Reflect is the only stage
+  where it changes; if it was going to change, it changes now via `/speckit-constitution`, before the
+  new spec is written.
 
 ## Stage 1 — Plan
 
-Run in order, do not skip:
+Run in order, do not skip. Note the hyphens — the commands are `/speckit-specify`, not
+`/speckit.specify`.
 
-1. `/speckit.specify` — what and why. Zero technology in the output. If the user's description
-   contains technology, strip it and note where it went (it belongs in `plan.md`).
-2. `/speckit.clarify` — surfaces ambiguities. Never skip because the spec "feels clear". Push on
+1. `/speckit-specify` — what and why. Zero technology in the output. If the user's description
+   contains technology, strip it and note where it went (it belongs in `plan.md`). This also creates
+   and checks out a branch `<NNN>-<short-name>`.
+2. `/speckit-clarify` — surfaces ambiguities. Never skip because the spec "feels clear". Push on
    anything that would change the data model: cardinality, optionality, ordering, time handling.
-3. `/speckit.plan` — technology decisions. Constrained by `.claude/rules/tech-defaults.md`; anything
+3. `/speckit-plan` — technology decisions. Constrained by `.claude/rules/tech-defaults.md`; anything
    that conflicts with the locked stack needs an explicit reason, not a silent substitution.
-4. `/speckit.tasks` — half-day to one-day tasks. A task you cannot state in one sentence is two.
-5. `/speckit.analyze` — cross-check spec, plan, and tasks before any code exists.
+4. `/speckit-tasks` — half-day to one-day tasks. A task you cannot state in one sentence is two.
+5. `/speckit-analyze` — cross-check spec, plan, and tasks before any code exists.
 
-Commit all four files under `specs/<feature>/` before proceeding.
+Commit the files under `specs/<NNN>-<short-name>/`, then merge that branch to `main` before
+implementation starts — see the branch strategy in `.claude/rules/workflow.md`.
 
 ## Stage 2 — Design
 
@@ -44,6 +48,9 @@ wrong; resolve it now, in the spec, not later in code.
 
 Turn `tasks.md` into GitLab issues on the board. One issue per task, in build order:
 data model → API → frontend client → UI → the module's one core capability.
+
+`/speckit-taskstoissues` does not help here — it is GitHub-only and aborts on a GitLab remote. Use
+`glab issue create` or the GitLab UI.
 
 ## Scope discipline
 

@@ -16,14 +16,14 @@ Locked for v0.1. Changing any row is a Reflect-stage decision, not an in-flight 
 ## Repo layout
 
 ```
+.specify/       # SpecKit machinery — templates, scripts, and the constitution. Do not hand-edit.
+  memory/constitution.md    # project principles, shared across all features
 specs/          # SpecKit output per feature — the source of truth
-  content-calendar/{spec,plan,tasks}.md
-constitution.md # project principles, shared across all features
+  001-content-calendar/{spec,plan,tasks}.md
 design/         # Claude Design exports: screenshots + React component bundles
 backend/        # FastAPI app, Alembic migrations, pytest suite
 frontend/       # Next.js app, Playwright suite
 docs/           # retros
-drafts/         # hand-written pre-SpecKit input; delete once the canonical file exists
 ```
 
 ## Commands

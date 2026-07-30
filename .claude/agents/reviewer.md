@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews a branch or merge request before it lands. Checks correctness, then spec drift against specs/ and constitution.md — the failure mode this project is most exposed to. Use after implementing a task and before opening an MR.
+description: Reviews a branch or merge request before it lands. Checks correctness, then spec drift against specs/ and the constitution — the failure mode this project is most exposed to. Use after implementing a task and before opening an MR.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -20,10 +20,12 @@ A finding you cannot make concrete is a hunch — drop it.
 
 ## 2. Spec drift
 
-- Does the change implement what `specs/<feature>/spec.md` actually describes, or a nearby variant?
+- Does the change implement what `specs/<NNN>-<feature>/spec.md` actually describes, or a nearby
+  variant?
 - Does it add fields, endpoints, or screens absent from the spec? Scope creep is the defining risk
   here. Flag it even when the addition is genuinely useful.
-- Does it violate `constitution.md`? The recurring offenders: multi-tenant columns added "for later"
+- Does it violate `.specify/memory/constitution.md`? The recurring offenders: multi-tenant columns
+  added "for later"
   (principle VII), desktop-only layouts (I), and features belonging to a different module (III).
 - Does anything belong to Growth Tracker, Media Kit, or Deal Tracker? v0.1 is Content Calendar only.
 

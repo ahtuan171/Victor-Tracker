@@ -13,10 +13,11 @@ both and report the disagreement explicitly rather than picking whichever you fo
 
 Where things live:
 
-- `specs/<feature>/spec.md` — what and why, no technology. Acceptance criteria live here.
-- `specs/<feature>/plan.md` — technology decisions, data model, architecture.
-- `specs/<feature>/tasks.md` — implementable task breakdown, mapped to GitLab issues.
-- `constitution.md` — project-wide principles that override feature-level convenience.
+- `specs/<NNN>-<feature>/spec.md` — what and why, no technology. Acceptance criteria live here.
+- `specs/<NNN>-<feature>/plan.md` — technology decisions, data model, architecture.
+- `specs/<NNN>-<feature>/tasks.md` — implementable task breakdown, mapped to GitLab issues.
+- `.specify/memory/constitution.md` — project-wide principles that override feature-level
+  convenience. This is the only copy; there is no root `constitution.md`.
 - `design/<feature>/` — Claude Design exports; screenshots plus React components.
 - `backend/` — FastAPI, SQLModel models, Alembic migrations under `backend/alembic/versions/`.
 - `frontend/` — Next.js App Router; routes under `frontend/app/`.

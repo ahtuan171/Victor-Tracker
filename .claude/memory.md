@@ -35,7 +35,7 @@ _(none recorded yet)_
 
 **Social platform APIs (TikTok / Instagram / YouTube).** Out of scope for v0.1 — published links are
 pasted by hand. Picking this up means OAuth flows and rate-limit handling, so it needs its own
-`/speckit.clarify` pass rather than being bolted onto an existing spec.
+`/speckit-clarify` pass rather than being bolted onto an existing spec.
 
 **Multi-user.** Constitution principle VII: no speculative `user_id` columns. This becomes a real
 migration when a real second user exists.
