@@ -22,7 +22,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T007 ticked**), `checklists/requirements.md` (16/16). |
 | `backend/` | Scaffolded. `pyproject.toml` + `uv.lock`, ruff and mypy at CI strictness, one placeholder test. `app/` is **empty** — T008 onward fill it. |
 | `frontend/` | Scaffolded. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's. |
-| `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. **Never executed** — Docker Desktop was not running this session. |
+| `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` service **verified**: Postgres 17.10 healthy, `creatorhub_test` created by the init script. `backend` and `frontend` services not yet runnable — they need T016 and T026. |
 | `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/`, `docs/` | Do not exist. Correct — stage 2 and T076 create them. |
@@ -59,11 +59,13 @@ they catch different classes of defect. This is recorded as a trap in `.claude/m
 **Verified green**: `uv sync`, `uv run pytest`, `ruff check`, `ruff format --check`, `mypy` (strict),
 `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm exec playwright test` (1 passed at 375×667).
 
-**Not verified**: `docker compose up`. Docker Desktop was not running. `docker compose config`
-validates the file, but no container has started, so Postgres, the init script that creates
-`creatorhub_test`, and the two dev-server commands are all unproven. **Do this first next session** —
-T011 (Alembic) and T017 (pytest harness) both need a live database, and a compose bug found then will
-look like a migration bug.
+**Also verified**: `docker compose up -d db`. Postgres 17.10 comes up healthy,
+`scripts/init-test-db.sql` creates `creatorhub_test`, and both databases are reachable from the host
+over `psycopg` on 5432. T011 and T017 have the live database they need.
+
+**Not verified**: the `backend` and `frontend` compose services. Neither is runnable yet — their
+commands need `app.main:app` (T016) and a real `frontend/app/page.tsx` (T026). Re-check at the
+Phase 2 checkpoint.
 
 ### Decisions that shape the code, and why
 
@@ -102,9 +104,8 @@ future session does not re-litigate:
 
 ### Next session starts here
 
-1. **Start Docker Desktop and run `docker compose up`.** This is the one Phase 1 gate that was never
-   exercised. Confirm Postgres comes up healthy and that `creatorhub_test` exists. Do it before T011,
-   not during — a compose bug discovered mid-Alembic reads like a migration bug.
+1. **Start Docker Desktop, then `docker compose up -d db`.** Postgres is verified working, but the
+   daemon does not survive a reboot. T011 and T017 both fail confusingly without it.
 2. **Implementation continues at T008** in `specs/001-content-calendar/tasks.md`. Phase 2 order:
    T008–T016 backend foundation, T017–T020 test harness, T021–T028 frontend foundation. Nothing in
    Phase 3–7 may start until Phase 2 is complete.

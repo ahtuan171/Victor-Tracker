@@ -71,7 +71,8 @@ There is **one content route**, `/calendar`. The backlog is a drawer on it, not 
 | `pnpm typecheck` | ✅ clean at the T005 strictness |
 | `pnpm lint` | ✅ clean; the `new Date` ban verified firing |
 | `pnpm exec playwright test` | ✅ 1 passed at 375×667 |
-| `docker compose up` | ⚠️ **not run** — Docker Desktop was not running. `docker compose config` validates, but no service has ever started, so the Postgres init script and the two dev-server commands are unproven. |
+| `docker compose up -d db` | ✅ Postgres 17.10 healthy; `scripts/init-test-db.sql` created `creatorhub_test`; both databases reachable from the host over `psycopg` on 5432 |
+| `docker compose up backend` / `frontend` | ⚠️ **not run, and not runnable yet.** The commands need `app.main:app` (T016) and a real `frontend/app/page.tsx` (T026). Re-check at the Phase 2 checkpoint. |
 
 "Both apps start" is only true in the sense that the toolchains work. `backend/app/` is
 empty — there is no `app.main:app` to serve until T016 — and `frontend/app/page.tsx` is
