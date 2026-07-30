@@ -77,3 +77,35 @@ specification is ready for `/speckit-plan`.
 The three rejected alternatives (multi-platform items, a fourth pipeline state, time-of-day
 scheduling) are recorded under Deferred in `.claude/memory.md` so they arrive as input to a later
 iteration rather than being rediscovered from scratch.
+
+### Validation iteration 3 — 2026-07-30, after `/speckit-clarify`
+
+Five further questions asked and answered. **16/16 → 16/16 items passing**; no item changed state and
+there were no regressions. The spec grew from 23 to 33 functional requirements and from 9 to 11
+success criteria.
+
+| Area | Answer | Encoded as |
+|------|--------|------------|
+| Session lifetime | ~30 days, silent renewal | FR-002a, SC-010 |
+| Interaction | Drag *and* tap, both paths required | FR-014a, FR-015a, FR-015b, SC-011 |
+| Backward transitions | Keep all data; refuse clearing platform past `idea` | FR-008a, FR-009a, FR-019a |
+| Bulk import | None — manual entry only | Out of Scope |
+| Concurrent edits | Last write wins, silently | FR-023a, Assumptions |
+
+**Re-checks worth naming**:
+
+- *No implementation details*: the new requirements describe session duration, input modality, and
+  write-conflict behaviour as observable outcomes. No token format, storage mechanism, or library
+  appears. Constitution principle IV still satisfied.
+- *Testable and unambiguous*: FR-009a states an invariant ("status past `idea` implies a platform is
+  set") that holds for every stored item, which is directly assertable rather than a description of
+  intent.
+- *No speculative multi-user*: FR-023a explicitly declines a version marker on the content item,
+  keeping the entity free of fields that exist only for a future concurrent-editing story —
+  constitution principle VII.
+- *Scope bounded*: bulk import was added to Out of Scope rather than left unstated, closing a gap
+  that would otherwise have been an easy mid-build addition.
+
+No taxonomy category remains Outstanding at a level that would block planning. Reliability targets,
+observability, and rate limiting are all Deferred by design: a single-user v0.1 under constitution
+principle V has no uptime commitment to specify, and inventing one would be spec fiction.

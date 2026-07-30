@@ -54,3 +54,18 @@ cannot tell which ideas are actually being filmed. Costs a fourth distinguishabl
 Deferred because it drags in timezone and DST handling, turns the week view into a time grid, and
 makes drag-to-schedule a two-part gesture. It is advisory-only until something auto-publishes, so it
 naturally belongs with the social platform APIs item above.
+
+**2026-07-30 — Bulk import of existing ideas.** No import of any kind in v0.1; the spec's Out of
+Scope section says so explicitly so it cannot creep back in mid-build. Migrating ideas out of a notes
+app is manual retyping, which the title-only capture flow makes a job of minutes. Trigger for
+revisiting: the creator abandons migration part-way. Cheapest future form is a paste-many box (one
+idea per line) reusing the existing create path — not file upload.
+
+**2026-07-30 — Concurrent-edit detection.** Last write wins, silently (spec FR-023a). No version
+marker on the content item and no conflict branch in any update path. Chosen because the only person
+who can be overwritten is the creator themselves, from their own second window. This becomes real at
+the same moment multi-user does — the two are the same migration.
+
+**2026-07-30 — Live-updating views.** Nothing pushes changes to an open view; a second device's edit
+appears on next load or refresh. Deferred with concurrent-edit detection above, since polling or push
+plus reconciliation is a larger build than v0.1's one capability justifies.

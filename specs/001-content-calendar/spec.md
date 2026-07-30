@@ -20,9 +20,21 @@ A single creator managing their own content. Not a team and not an agency. There
 
 ### Session 2026-07-30
 
+Entity and pipeline shape, resolved during `/speckit-specify` because each one determines the form of
+the content item or the number of pipeline states — the decisions most expensive to reverse once
+implementation starts.
+
 - **Q: Can one item target several platforms at once?** → **A: No — at most one platform per item.** Content going to two destinations becomes two items, so each can carry its own scheduled date and its own published link; those rarely coincide in practice. Encoded as FR-010a. Widening this later is an additive change; narrowing it would have required a data migration.
 - **Q: Does `draft` mean "made and awaiting publication" or "actively being worked on"?** → **A: Made and awaiting publication.** Work in progress stays an `idea`. The pipeline keeps exactly three states, which is the number that stays legible in a phone-width calendar cell given FR-017's non-colour-alone requirement. Encoded as FR-007.
 - **Q: Does a scheduled date need a time of day?** → **A: No — calendar day only.** No timezone or DST handling enters this iteration, the week view stays a list rather than a time grid, and drag-to-schedule stays a single gesture. Since publication is manual in v0.1, a stored time would have been advisory only. Encoded as FR-012a.
+Security posture, interaction mechanics, and state-transition rules, resolved during
+`/speckit-clarify`. Five questions asked, five answered.
+
+- **Q: How long should a signed-in session last before the creator must log in again?** → **A: About 30 days, renewed silently while in use.** The tool is used in short bursts on a personal phone, and there is no password reset flow in scope, so a daily login would be worse friction than the privacy gain justifies. Encoded as FR-002a and SC-010.
+- **Q: Must a tap-based path exist for changing date and status, or is dragging enough?** → **A: Both must exist.** Drag is the fast path where a pointer is comfortable; a tap-driven control is the one-handed path, the keyboard-reachable path, and the one automated tests can drive deterministically. Both trigger the same update, so this is one operation with two entry points. Encoded as FR-014a, FR-015a, FR-015b, and SC-011.
+- **Q: What happens on backward transitions and when clearing a platform?** → **A: Data is kept and the invariant is enforced.** Backward moves preserve the published link and the platform. Clearing the platform is refused while the item is past `idea`. This keeps "past `idea` implies a platform is set" true at all times — one check instead of scattered repair logic — and never discards something the creator typed, which matters most for a published link that cannot be reconstructed. Encoded as FR-008a, FR-009a, and FR-019a.
+- **Q: Does v0.1 include a bulk way to bring in existing ideas?** → **A: No — manual entry only.** Capture is already a title-only action of a few seconds, so migrating stranded ideas is a one-time cost of minutes, while an import path means a format, a parser, and a screen for something run exactly once. Constitution principle III has already spent this module's one capability on the pipeline view. Added to Out of Scope and to Deferred in `.claude/memory.md`.
+- **Q: How should simultaneous edits from two devices be resolved?** → **A: Last write wins, silently.** With one creator, a conflict is one person's two windows and the later action is the intended one. Detection would put a version marker on the entity and a rejection branch at every update path, to guard the creator against themselves. Views reflect stored data when loaded or refreshed; there is no live sync. Encoded as FR-023a and an assumption.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -76,6 +88,7 @@ The creator plans their week by moving ideas from the backlog onto empty days, a
 4. **Given** an item in `posted`, **When** the creator moves it back to `draft`, **Then** the change is accepted — the pipeline is reversible.
 5. **Given** an item in `idea` with no platform, **When** the creator tries to advance it past `idea`, **Then** the change is refused and they are told a platform is required first.
 6. **Given** any item, **When** the creator deletes it, **Then** an explicit confirmation is required and deletion is not reachable by a single tap or by a common navigation gesture.
+7. **Given** a creator using taps only and never dragging, **When** they set an item's date and then advance its status, **Then** both changes succeed and land in the same state a drag would have produced.
 
 ---
 
@@ -116,12 +129,16 @@ After publishing, the creator marks the item `posted` and pastes the link to the
 
 - **Empty title on save** — rejected with a message; nothing is created (US1 scenario 2).
 - **Advancing past `idea` with no platform** — refused, with the missing requirement named (US3 scenario 5).
+- **Clearing the platform of a `draft` or `posted` item** — refused, with the creator told to move it back to `idea` first (FR-009a).
+- **Reversing an item out of `posted`** — the published link survives; the creator has to delete it deliberately if they want it gone (FR-019a).
 - **Scheduled date in the past while status is still `idea` or `draft`** — the item is surfaced as overdue rather than left silent, since an uneven cadence is the problem the product exists to solve.
 - **Many items on one calendar day at phone width** — the day cell shows a bounded number of items plus a count of the remainder, and the remainder is reachable; the page body still does not scroll horizontally.
 - **Malformed published link** — the creator is told the link does not look valid; the item's status change is not lost as a result.
-- **Session expires mid-edit** — the creator is returned to sign-in and no content data remains visible.
+- **Session expires mid-edit** — after the ~30-day validity window ends, the creator is returned to sign-in and no content data remains visible. Reaching this state in a test means forcing expiry, not waiting for it.
 - **Deleting the item currently being dragged or edited** — confirmation is still required, and the view recovers without leaving a phantom item on the grid.
 - **All items filtered out** — the view shows an explicit empty state naming the active filter, not a blank screen.
+- **First run with no items at all** — the calendar and backlog show an empty state that points at the capture action, rather than an empty grid with no explanation.
+- **Acting on an item already changed or deleted on another device** — the later action wins per FR-023a; if the item no longer exists the view recovers on refresh without presenting a phantom item as editable.
 
 ## Requirements *(mandatory)*
 
@@ -131,6 +148,7 @@ These gate every user story above; no story is complete without them.
 
 - **FR-001**: The system MUST require authentication before any content data is returned or displayed.
 - **FR-002**: An unauthenticated visitor navigating directly to any calendar, backlog, or item address MUST see no content data.
+- **FR-002a**: A signed-in session MUST remain valid for approximately 30 days of intermittent use, renewing silently while the creator is active, and MUST end only on expiry or an explicit sign-out.
 - **FR-003**: The system MUST serve exactly one creator account in this iteration, with no roles, sharing, invitations, or ownership concepts.
 
 ### Functional Requirements
@@ -140,7 +158,9 @@ These gate every user story above; no story is complete without them.
 - **FR-006**: A content item MUST be able to carry a hook or short description, a target platform, a scheduled date, a status, and a link to the published post; all of these except status MUST be optional at creation.
 - **FR-007**: An item's status MUST be one of `idea`, `draft`, or `posted`, and MUST default to `idea` on creation. `draft` means the content has been made and is awaiting publication; work still in progress is represented by the item remaining an `idea`. The pipeline has exactly three states in this iteration.
 - **FR-008**: Status MUST be able to move both forward and backward through the pipeline.
+- **FR-008a**: A backward status change MUST preserve every field the item already carries, including its target platform and its published link. No field is cleared as a side effect of moving backward.
 - **FR-009**: The system MUST refuse to move an item past `idea` unless a target platform is set.
+- **FR-009a**: The system MUST refuse to clear an item's target platform while its status is past `idea`, and MUST tell the creator to move the item back to `idea` first. The rule "status past `idea` implies a platform is set" therefore holds for every stored item at all times.
 - **FR-010**: A target platform MUST be one of TikTok, Instagram, or YouTube — a fixed set that the creator cannot edit in this iteration.
 - **FR-010a**: An item MUST target at most one platform. Content intended for more than one destination is represented as one item per destination, each carrying its own scheduled date and its own published link.
 - **FR-011**: Items without a scheduled date MUST appear in a backlog list and MUST NOT occupy a cell in the calendar grid.
@@ -148,15 +168,20 @@ These gate every user story above; no story is complete without them.
 - **FR-012a**: A scheduled date MUST be a calendar day with no time of day. The system MUST NOT ask for, store, or display a posting time in this iteration.
 - **FR-013**: The calendar MUST be viewable by month and by week, and the creator MUST be able to navigate to adjacent periods in both.
 - **FR-014**: The creator MUST be able to change an item's scheduled date from the calendar and backlog views without opening a separate detail page.
+- **FR-014a**: Changing a scheduled date MUST be possible both by dragging the item and by a tap-driven control, and both MUST produce an identical result.
 - **FR-015**: The creator MUST be able to change an item's status from the calendar and backlog views without opening a separate detail page.
+- **FR-015a**: Changing a status MUST be possible both by dragging the item and by a tap-driven control, and both MUST produce an identical result.
+- **FR-015b**: Every date and status change MUST be reachable without a pointer-drag gesture, so that the core journey remains completable by keyboard alone.
 - **FR-016**: The calendar and backlog MUST be filterable to a single platform, or show all platforms.
 - **FR-017**: Every item's status MUST be distinguishable at a glance in both calendar and backlog views, without opening the item and without relying on colour as the only cue.
 - **FR-018**: Every item's target platform MUST be identifiable in calendar and backlog views without opening the item.
 - **FR-019**: An item in `posted` MUST be able to carry a link to the published post, entered by hand.
+- **FR-019a**: A published link MUST be retained when the item leaves `posted`, and MUST be removable only by the creator editing it directly.
 - **FR-020**: Deleting an item MUST require an explicit confirmation and MUST NOT be reachable by a single tap or by a gesture used for common navigation.
 - **FR-021**: Every screen MUST be fully usable at 375px width, and the page body MUST NOT scroll horizontally at that width; wide content MUST scroll inside its own container.
 - **FR-022**: Actions the creator performs frequently — capture, status change, date change — MUST be reachable within thumb reach on a phone rather than only from a top corner.
 - **FR-023**: Changes made to an item MUST persist across sessions and reloads.
+- **FR-023a**: When the same item is changed from two places, the later change MUST win and MUST NOT be refused. The system does not detect, report, or merge concurrent edits, and views are not required to update themselves without a load or refresh.
 
 ### Key Entities
 
@@ -177,6 +202,8 @@ These gate every user story above; no story is complete without them.
 - **SC-007**: No item can be deleted without an explicit confirmation step; a single accidental tap deletes nothing.
 - **SC-008**: A week's worth of planning — placing 5 undated ideas onto days — takes under 60 seconds on a phone.
 - **SC-009**: After a reload, every date, status, platform, and link change made in the previous session is still present.
+- **SC-010**: A creator who signs in once and then uses the app intermittently is not asked to sign in again within 30 days.
+- **SC-011**: The full journey from `idea` to `posted` can be completed without a single drag gesture, and independently can be completed using drags, with the same end state either way.
 
 ## Assumptions
 
@@ -188,6 +215,8 @@ Reasonable defaults chosen where the feature description was silent. Each is a d
 - **Published link handling** — the link is a plain address the creator pastes. The system does not fetch, validate against the platform, unfurl, or scrape it.
 - **Platform is optional until it matters** — an item can sit in `idea` indefinitely with no platform, since forcing the choice at capture time is exactly the friction FR-005 exists to remove.
 - **Connectivity** — the creator is online when using the app. Offline capture and later synchronisation are not in scope.
+- **Concurrent edits** — the creator may have the app open on more than one device. Whichever change arrives last is kept, with no detection, warning, or merge. Accepted because the only party who can be overwritten is the creator themselves.
+- **Staleness** — a view shows what was stored when it loaded. Nothing pushes updates to an open view, so a second device's change appears on the next load or refresh.
 - **Volume** — a single creator's planning horizon, on the order of hundreds of items rather than tens of thousands. Behaviour at large scale is not a design driver for this iteration.
 - **Timekeeping** — dates are interpreted in the creator's own local context; there is a single creator and no cross-timezone coordination to reconcile.
 
@@ -198,6 +227,7 @@ Named explicitly because each is an attractive thing to add mid-build.
 - Any integration with TikTok, Instagram, or YouTube — follower counts, real post metrics, scheduled auto-publishing. The published link in FR-019 is pasted by hand.
 - Media file upload or storage. Items reference content; they do not contain it.
 - Recurring or templated content series.
+- Bulk import or export of any kind — no file upload, no paste-many box, no migration from a notes app. Items are entered one at a time through the same capture flow described in FR-005.
 - Notifications, reminders, and any form of push or email.
 - Multiple users, sharing, collaboration, roles, or approval flows.
 - The other three CreatorHub modules — Growth Tracker, Media Kit Generator, Deal/Collab Tracker. No field, address, or screen in this iteration may exist to serve them.
