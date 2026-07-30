@@ -1,0 +1,82 @@
+# CreatorHub v0.1 — local development only.
+#
+# Production is Render (backend) + Vercel (frontend), both of which build from source; neither reads
+# this file. That is why there are no Dockerfiles here: the services run the official base images with
+# the source bind-mounted and the dev server as the command, which is all `docker compose up` needs to
+# mean "Postgres + FastAPI + Next.js dev servers" (tech-defaults.md).
+#
+# Copy .env.example to .env before the first run.
+
+name: creatorhub
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-creatorhub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-creatorhub}
+      POSTGRES_DB: ${POSTGRES_DB:-creatorhub}
+    ports:
+      # Exposed so `uv run alembic upgrade head` and pytest can reach it from the host without compose.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      # Backend waits on this — an unready Postgres makes Alembic fail in a way that reads like a
+      # migration bug rather than a startup race.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-creatorhub} -d ${POSTGRES_DB:-creatorhub}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    working_dir: /app
+    command: >
+      sh -c "uv sync --frozen --no-install-project 2>/dev/null || uv sync;
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-creatorhub}:${POSTGRES_PASSWORD:-creatorhub}@db:5432/${POSTGRES_DB:-creatorhub}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      TOKEN_TTL_DAYS: ${TOKEN_TTL_DAYS:-30}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      SEED_CREATOR_EMAIL: ${SEED_CREATOR_EMAIL:-}
+      SEED_CREATOR_PASSWORD: ${SEED_CREATOR_PASSWORD:-}
+      UV_LINK_MODE: copy
+    volumes:
+      - ./backend:/app
+      # Anonymous volume: keeps the Linux-built virtualenv out of the Windows host bind mount.
+      - backend-venv:/app/.venv
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install && pnpm dev --port 3000 --hostname 0.0.0.0"
+    environment:
+      # Server-side only. The browser never sees this origin — research.md R-001 routes every API call
+      # through the Next.js proxy, so this variable is deliberately not NEXT_PUBLIC_.
+      API_BASE_URL: http://backend:8000
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-ch_session}
+      # Secure cookies cannot be set over plain http://localhost, so local dev turns this off.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:
+  backend-venv:
+  frontend-node-modules:
+  frontend-next:
