@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    // Modern mobile browsers are the baseline (plan.md Target Platform). ES2017 was the scaffold
+    // default and down-levels syntax that no supported browser needs.
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    // TypeScript only. A .js file in here would be an unchecked hole.
+    "allowJs": false,
     "skipLibCheck": true,
-    "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -13,14 +15,30 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+
+    // --- Strictness the CI review stage enforces ---------------------------------
+    // `strict` came with the scaffold. The flags below are the ones it does not include; each is
+    // cheap now and expensive to retrofit.
+    "strict": true,
+
+    // items[i] becomes `T | undefined`. The month grid indexes a six-week array by cell position
+    // and the backlog indexes by list position; both would otherwise be silently unchecked.
+    "noUncheckedIndexedAccess": true,
+
+    // FR-023 gives PATCH partial-update semantics: an omitted field means "leave it", an explicit
+    // null means "clear it". Without this flag `{ platform: undefined }` is assignable to an
+    // optional field and the two collapse at the type level — exactly the distinction T049 and
+    // T051 have to keep apart.
+    "exactOptionalPropertyTypes": true,
+
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
   },
   "include": [
     "next-env.d.ts",
