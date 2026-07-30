@@ -11,6 +11,10 @@ dependencies = [
     "alembic>=1.18",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.13",
+    # `pydantic[email]` for EmailStr: contracts/openapi.yaml declares the login email as
+    # `format: email`, and without email-validator installed that field can only be a bare string —
+    # the generated OpenAPI would then disagree with the contract the frontend client is built from.
+    "pydantic[email]>=2.12",
     "pyjwt>=2.12",
     # Password hashing. NOT passlib — see the comment under [tool.uv] below.
     "pwdlib[bcrypt]>=0.3",
