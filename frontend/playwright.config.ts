@@ -54,7 +54,10 @@ export default defineConfig({
   webServer: {
     // A non-default port so a dev server already running on 3000 is neither hijacked nor clashed
     // with. Locally an existing server on this port is reused; CI always starts its own.
-    command: `pnpm dev --port ${PORT} --hostname 127.0.0.1`,
+    //
+    // CI runs the production server, not the dev one: the merge gate should exercise the bundle
+    // that actually ships. The .gitlab-ci.yml e2e job runs `pnpm build` first.
+    command: `${process.env.CI ? "pnpm start" : "pnpm dev"} --port ${PORT} --hostname 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
