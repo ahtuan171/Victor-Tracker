@@ -52,6 +52,10 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers --strict-config"
+# `app` is not an installed distribution (see [tool.uv] package = false), and pytest's default
+# import mode only puts the test file's own directory on sys.path — so `from app.config import ...`
+# would not resolve.
+pythonpath = ["."]
 # Phase 1 has no real tests yet, and pytest exits 5 — not 0 — when it collects nothing, which CI
 # reads as a failure. tests/test_placeholder.py keeps the suite non-empty until T017 lands.
 
