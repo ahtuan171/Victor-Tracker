@@ -56,6 +56,30 @@ add` then succeeds and produces a component importing a nonexistent `cn` and ref
 variables, so the failure surfaces later as an unstyled component rather than as an init error. Both
 files are now checked in by hand. Check for them after any future `init`.
 
+**2026-07-30 — an index declared only in a migration is an index Alembic will delete.** Autogenerate
+compares indexes against model metadata, so the backlog partial index — written by hand into the T011
+migration and nowhere else — showed up as "removed index" on the very next `alembic check`, and the
+next generated revision would have dropped it. Declare constraints and indexes in
+`__table_args__` *and* the migration, and run `alembic check` after every revision. (CHECK
+constraints are never compared, so they cannot drift this way; indexes can.)
+
+**2026-07-30 — Alembic's generated `downgrade` does not drop enum types it implicitly created.**
+`sa.Enum(...)` inside `create_table` emits `CREATE TYPE` on upgrade, but the generated downgrade only
+drops the table. The type survives, and the *second* `upgrade` fails with "type platform already
+exists". Invisible unless you actually run `upgrade → downgrade base → upgrade`. Create and drop enum
+types explicitly with `postgresql.ENUM(..., create_type=False)`, and run that round trip on every
+migration that touches one.
+
+**2026-07-30 — a SQLAlchemy enum column stores the Python member *names* by default.** `Status.IDEA`
+persists as `IDEA` while the contract, the frontend, and every fixture use `idea`. Pass
+`values_callable=lambda e: [m.value for m in e]`. It only surfaces on a round trip against a real
+database, so an in-memory test suite would never catch it.
+
+**2026-07-30 — pydantic-settings matches constructor kwargs by field name, not by environment-variable
+name.** `Settings(JWT_SECRET="...")` populates nothing — the field is `jwt_secret` — so a test written
+that way passes for the wrong reason, and a "missing variable" assertion passes even when the variable
+is present. Test settings through the real environment with `monkeypatch.setenv` and `_env_file=None`.
+
 **2026-07-30 — `new Date("2026-08-04")` is parsed as UTC midnight.** Formatting that back in a
 timezone west of Greenwich gives the previous day. Never construct a `Date` from a bare `YYYY-MM-DD`
 string; `frontend/lib/dates.ts` exists to make that unnecessary. Spec FR-012a means dates are `DATE`

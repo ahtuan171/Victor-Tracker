@@ -91,11 +91,11 @@ wait for the story that needs it has been moved there.
 
 ### Backend foundation
 
-- [ ] T008 [P] Implement environment-backed settings in `backend/app/config.py`, including database URL, JWT secret, and token lifetime
-- [ ] T009 [P] Implement the engine and request-scoped session dependency in `backend/app/db.py`
-- [ ] T010 Define `Creator`, `ContentItem`, and the `Status` and `Platform` enums in `backend/app/models.py`, exactly matching the column table in [data-model.md](./data-model.md) — no owner column, no version column
-- [ ] T011 Initialise Alembic and generate the first migration under `backend/alembic/versions/`, adding the INV-1 and INV-2 `CHECK` constraints and the three indexes from data-model.md by hand, and writing the enum `CREATE TYPE`/`DROP TYPE` explicitly since autogenerate handles them asymmetrically on downgrade
-- [ ] T012 Implement password verification and token issue/decode in `backend/app/auth.py`, with a 30-day lifetime
+- [x] T008 [P] Implement environment-backed settings in `backend/app/config.py`, including database URL, JWT secret, and token lifetime
+- [x] T009 [P] Implement the engine and request-scoped session dependency in `backend/app/db.py`
+- [x] T010 Define `Creator`, `ContentItem`, and the `Status` and `Platform` enums in `backend/app/models.py`, exactly matching the column table in [data-model.md](./data-model.md) — no owner column, no version column
+- [x] T011 Initialise Alembic and generate the first migration under `backend/alembic/versions/`, adding the INV-1 and INV-2 `CHECK` constraints and the three indexes from data-model.md by hand, and writing the enum `CREATE TYPE`/`DROP TYPE` explicitly since autogenerate handles them asymmetrically on downgrade
+- [x] T012 Implement password verification and token issue/decode in `backend/app/auth.py`, with a 30-day lifetime
 - [ ] T013 Implement the `current_creator` dependency in `backend/app/auth.py`, attaching an `X-Access-Token` response header when the presented token is past half-life (research.md R-002 — without this header sliding reissue has no transport)
 - [ ] T014 Implement `POST /auth/login` and `POST /auth/logout` in `backend/app/api/auth.py`, with logout succeeding even when the presented token is already expired so sign-out cannot deadlock
 - [ ] T015 [P] Write the single-account seed script in `backend/app/scripts/seed_user.py`, reading credentials from the environment
