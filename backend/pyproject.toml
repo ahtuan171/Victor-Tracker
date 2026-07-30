@@ -21,6 +21,8 @@ dev = [
     "pytest>=9.0",
     # FastAPI's TestClient needs httpx at runtime; it is not pulled in by bare `fastapi`.
     "httpx>=0.28",
+    "ruff>=0.16",
+    "mypy>=2.3",
 ]
 
 # Application, not a library: nothing installs `app` as a distribution. `uv run` puts the project
@@ -52,3 +54,73 @@ testpaths = ["tests"]
 addopts = "-q --strict-markers --strict-config"
 # Phase 1 has no real tests yet, and pytest exits 5 — not 0 — when it collects nothing, which CI
 # reads as a failure. tests/test_placeholder.py keeps the suite non-empty until T017 lands.
+
+# ---------------------------------------------------------------------------
+# ruff — these are the settings the CI `review` stage runs. Failing them blocks
+# merge (constitution VI), so anything enabled here has to be worth a red build.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import sorting — settles a whole class of diff noise mechanically
+    "N",       # pep8-naming
+    "UP",      # pyupgrade — this is a 3.13-only codebase, so old idioms are just old
+    "B",       # bugbear
+    "C4",      # comprehensions
+    "SIM",     # simplify
+    "PTH",     # prefer pathlib
+    "ARG",     # unused arguments — catches a renamed FastAPI dependency parameter
+    "RUF",     # ruff's own rules
+    "S",       # bandit: the API holds a password hash and a signing secret
+]
+ignore = [
+    # Asserts are how pytest works. Excluded for tests only, below.
+    "S101",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic's generated scaffolding does not follow the project's naming or import conventions, and
+# rewriting each migration to satisfy the linter changes files that are supposed to be immutable
+# once applied.
+"alembic/env.py" = ["ARG", "N"]
+"tests/**" = [
+    "S101",  # assert is the point
+    "S105",  # hardcoded password strings are test fixtures here, not credentials
+    "S106",
+    "ARG",   # pytest fixtures are frequently requested for their side effect only
+]
+
+# ---------------------------------------------------------------------------
+# mypy — strict. Turning it on later, over a grown codebase, costs far more than
+# starting here with three files.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+files = ["app", "tests"]
+strict = true
+plugins = ["pydantic.mypy"]
+# Alembic revisions are generated, get partially hand-edited, and are never imported by application
+# code. Type-checking them buys nothing and blocks merges on scaffolding.
+exclude = "^alembic/versions/"
+# A `# type: ignore` that stops being needed is a comment that lies about the code.
+warn_unused_ignores = true
+warn_unreachable = true
+# Loud rather than silent: an untyped third-party import should be an explicit decision below, not a
+# hole that quietly turns a checked module into an unchecked one.
+disallow_any_unimported = true
+
+[[tool.mypy.overrides]]
+# SQLModel ships type information but its declarative metaclass defeats strict inference in places.
+# Scoped to the library rather than relaxed globally.
+module = ["sqlmodel.*"]
+follow_untyped_imports = true
+
+[tool.pydantic-mypy]
+init_typed = true
+warn_required_dynamic_aliases = true
