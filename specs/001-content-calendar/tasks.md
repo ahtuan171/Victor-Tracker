@@ -49,15 +49,33 @@ There is **one content route**, `/calendar`. The backlog is a drawer on it, not 
 
 **Purpose**: get both projects building, linting, testing, and running before any feature code exists.
 
-- [ ] T001 Create `docker-compose.yml` at repository root with Postgres, backend, and frontend services, plus `.env.example` listing every variable both apps read
-- [ ] T002 Initialise the backend project in `backend/pyproject.toml` with `uv`, declaring FastAPI, SQLModel, Alembic, `psycopg`, `pyjwt`, and a password-hashing library — verify `passlib` actually imports on Python 3.13 before committing to it, and fall back to `pwdlib` if it does not (research.md Open items)
-- [ ] T003 [P] Initialise the frontend project in `frontend/package.json` with `pnpm`, Next.js App Router, Tailwind, and shadcn/ui, then add `@dnd-kit/core`, `date-fns`, and `@playwright/test`
-- [ ] T004 [P] Configure `ruff` and `mypy` in `backend/pyproject.toml` with the strictness settings CI will enforce
-- [ ] T005 [P] Configure `eslint` and `tsc --noEmit` in `frontend/` including the `tsconfig.json` strict flags
-- [ ] T006 [P] Create `frontend/playwright.config.ts` with a 375px mobile viewport as the default project, plus a placeholder spec so the runner exits zero on an empty suite
-- [ ] T007 Create `.gitlab-ci.yml` with the four stages `build → test → review → deploy`, running `ruff`, `mypy`, `eslint`, `tsc`, `pytest`, and `playwright`, with `deploy` gated on manual approval
+- [x] T001 Create `docker-compose.yml` at repository root with Postgres, backend, and frontend services, plus `.env.example` listing every variable both apps read
+- [x] T002 Initialise the backend project in `backend/pyproject.toml` with `uv`, declaring FastAPI, SQLModel, Alembic, `psycopg`, `pyjwt`, and a password-hashing library — verify `passlib` actually imports on Python 3.13 before committing to it, and fall back to `pwdlib` if it does not (research.md Open items)
+- [x] T003 [P] Initialise the frontend project in `frontend/package.json` with `pnpm`, Next.js App Router, Tailwind, and shadcn/ui, then add `@dnd-kit/core`, `date-fns`, and `@playwright/test`
+- [x] T004 [P] Configure `ruff` and `mypy` in `backend/pyproject.toml` with the strictness settings CI will enforce
+- [x] T005 [P] Configure `eslint` and `tsc --noEmit` in `frontend/` including the `tsconfig.json` strict flags
+- [x] T006 [P] Create `frontend/playwright.config.ts` with a 375px mobile viewport as the default project, plus a placeholder spec so the runner exits zero on an empty suite
+- [x] T007 Create `.gitlab-ci.yml` with the four stages `build → test → review → deploy`, running `ruff`, `mypy`, `eslint`, `tsc`, `pytest`, and `playwright`, with `deploy` gated on manual approval
 
 **Checkpoint**: both apps start, both lint clean, both test runners exit zero on an empty suite.
+
+**Checkpoint result (2026-07-30)**: reached, with one part unverified.
+
+| Gate | Result |
+|---|---|
+| `uv sync` | ✅ resolves and imports on Python 3.13 |
+| `uv run pytest` | ✅ exit 0 (`tests/test_placeholder.py`) |
+| `uv run ruff check .` / `ruff format --check .` | ✅ clean |
+| `uv run mypy .` | ✅ clean, strict |
+| `pnpm build` | ✅ Next 16.2.12 production build |
+| `pnpm typecheck` | ✅ clean at the T005 strictness |
+| `pnpm lint` | ✅ clean; the `new Date` ban verified firing |
+| `pnpm exec playwright test` | ✅ 1 passed at 375×667 |
+| `docker compose up` | ⚠️ **not run** — Docker Desktop was not running. `docker compose config` validates, but no service has ever started, so the Postgres init script and the two dev-server commands are unproven. |
+
+"Both apps start" is only true in the sense that the toolchains work. `backend/app/` is
+empty — there is no `app.main:app` to serve until T016 — and `frontend/app/page.tsx` is
+still the create-next-app placeholder until T026.
 
 ---
 

@@ -27,11 +27,34 @@ creation. Reason: ideas arrive mid-task, and any required field is enough fricti
 creator back to a notes app. This drives nullable columns and a backlog view separate from the
 calendar grid.
 
+**2026-07-30 — the stage-1 specs reached `main` by a local fast-forward, not a merge request.**
+`workflow.md` says planning artifacts belong on `main` before implementation, and constitution VI says
+`main` is merge-request-only. With no remote there is no gate to satisfy, so a local merge is exactly
+the self-merge principle VI exists to prevent. Chosen deliberately over creating the GitLab project
+first, because that would have blocked all implementation on an account setup that blocks nothing
+else. **T076 must record this as a knowing exception**, not omit it — the point of the gate is that
+its absence gets written down. Implementation tasks still use one branch per task, merged `--no-ff`,
+so the history has the shape a real MR flow would produce once the remote exists.
+
 ## Traps
 
-**2026-07-30 — `passlib` is probably broken on Python 3.13.** `passlib` 1.7.4 is unmaintained and reads
-`bcrypt.__about__`, which `bcrypt` ≥ 4.1 removed — init fails with a confusing error about a missing
-attribute. Verify at first install; use `pwdlib` or `bcrypt` directly if it bites.
+**2026-07-30 — `passlib` is confirmed broken on Python 3.13; the project uses `pwdlib`.** Verified at
+T002, and the failure is *not* the `bcrypt.__about__` one this note originally predicted. With
+`bcrypt` 5.0.0, `CryptContext(schemes=["bcrypt"])` dies at first use inside passlib's own backend
+probe (`detect_wrap_bug`), which hashes an over-72-byte password expecting bcrypt to truncate:
+`ValueError: password cannot be longer than 72 bytes`. passlib 1.7.4 is unmaintained, so this will
+not be fixed. `pwdlib[bcrypt]` works on 3.13 with bcrypt 5.0.0.
+
+**2026-07-30 — bcrypt itself refuses passwords over 72 bytes; it no longer truncates.** Independent
+of the hashing library. Login (T012) and the seed script (T015) must bound password length at the
+boundary and say so, rather than wrapping it — silently truncating would make two different passwords
+open the same account.
+
+**2026-07-30 — `shadcn init` can half-succeed.** On this machine (shadcn 4.16.0, Next 16, Tailwind 4)
+it wrote `components.json` and stopped: no `lib/utils.ts`, no theme tokens in `globals.css`. `shadcn
+add` then succeeds and produces a component importing a nonexistent `cn` and referencing undefined CSS
+variables, so the failure surfaces later as an unstyled component rather than as an init error. Both
+files are now checked in by hand. Check for them after any future `init`.
 
 **2026-07-30 — `new Date("2026-08-04")` is parsed as UTC midnight.** Formatting that back in a
 timezone west of Greenwich gives the previous day. Never construct a `Date` from a bare `YYYY-MM-DD`

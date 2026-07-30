@@ -2,11 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-30: stage 1 complete, no application code yet
+## Status as of 2026-07-30: Phase 1 (Setup) complete — T001–T007 of 76
 
-Branch `001-content-calendar`, 5 commits, clean tree. Planning is done and reviewed; implementation
-has not started. `backend/` and `frontend/` do not exist yet — the first thing that creates them is
-task T001.
+On `main`, clean tree. Stage 1 planning is done and reviewed, the specs are on `main`, and both
+projects are scaffolded, linting, type-checking, and testing green. **No feature code exists yet** —
+`backend/app/` is empty and `frontend/app/page.tsx` is still the create-next-app placeholder.
+
+The next task is **T008**. Phase 2 (Foundational, 21 tasks) is the long pole and blocks every user
+story.
 
 Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The constitution lives at
 `.specify/memory/constitution.md` — there is no root `constitution.md`.
@@ -16,13 +19,17 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | Part | State |
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
-| `specs/001-content-calendar/` | **Complete**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases**), `checklists/requirements.md` (16/16). |
+| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T007 ticked**), `checklists/requirements.md` (16/16). |
+| `backend/` | Scaffolded. `pyproject.toml` + `uv.lock`, ruff and mypy at CI strictness, one placeholder test. `app/` is **empty** — T008 onward fill it. |
+| `frontend/` | Scaffolded. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's. |
+| `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. **Never executed** — Docker Desktop was not running this session. |
+| `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
-| `backend/`, `frontend/`, `design/`, `docs/` | Do not exist. Correct — T001 onward create them. |
-| GitLab / CI / `glab` | **None of it exists.** No remote, no protected `main`, no pipeline, `glab` not installed. |
-| Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5 all present. |
+| `design/`, `docs/` | Do not exist. Correct — stage 2 and T076 create them. |
+| GitLab / remote / `glab` | **Still none of it.** No remote, no protected `main`, no pipeline run, `glab` not installed. |
+| Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 (daemon stopped). |
 
-### What this session did
+### What the previous session did (stage 1)
 
 1. Ran the full stage-1 chain: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` →
    `/speckit-tasks` → `/speckit-analyze`, from the hand-written draft.
@@ -38,6 +45,25 @@ of `tasks.md` that still contained all six blockers, including one that left eve
 permanently stuck in `idea`. Coverage checks whether a requirement is *cited* by a task, not whether
 the tasks *compose into something that works*. Run both `/speckit-analyze` and the `reviewer` agent —
 they catch different classes of defect. This is recorded as a trap in `.claude/memory.md`.
+
+### What this session did (Phase 1)
+
+1. **Fast-forwarded `main` to `001-content-calendar`** so the specs are the source of truth
+   everything downstream can reference. See "Decisions this session" below — this was the open
+   question the last session deliberately left.
+2. Built T001–T007, one branch per task (`feature/001-<slug>`), each merged `--no-ff` into `main`.
+   Seven merge commits, so the history already has the shape a real MR flow will produce.
+3. Ticked T001–T007 in `tasks.md` and recorded the checkpoint result there, including the part that
+   could not be verified.
+
+**Verified green**: `uv sync`, `uv run pytest`, `ruff check`, `ruff format --check`, `mypy` (strict),
+`pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm exec playwright test` (1 passed at 375×667).
+
+**Not verified**: `docker compose up`. Docker Desktop was not running. `docker compose config`
+validates the file, but no container has started, so Postgres, the init script that creates
+`creatorhub_test`, and the two dev-server commands are all unproven. **Do this first next session** —
+T011 (Alembic) and T017 (pytest harness) both need a live database, and a compose bug found then will
+look like a migration bug.
 
 ### Decisions that shape the code, and why
 
@@ -58,24 +84,45 @@ future session does not re-litigate:
 | `DATE` end to end; `today` read client-side only | Makes the midnight-UTC off-by-one unrepresentable in data, and the hydration flip impossible in render. |
 | Last write wins, no version column | One creator; the only person who can be overwritten is themselves (constitution VII). |
 
+### Decisions this session, and why
+
+| Decision | Why |
+|---|---|
+| **Specs reached `main` by local fast-forward**, not an MR | The open question from last session, now closed. Creating the GitLab project first would have blocked all implementation on an account setup that blocks nothing else. With no remote there is no gate to satisfy, so this is a knowing exception to constitution VI — **`T076` must record it, not omit it.** Also in `.claude/memory.md`. |
+| One branch per task, merged `--no-ff` | Keeps the working agreement in `tasks.md` real while there is no remote. The history already looks like the MR flow it will become, so nothing has to be reconstructed later. |
+| **`pwdlib`, not `passlib`** | T002 required verifying passlib on 3.13. It fails — and not the way the trap note predicted. With `bcrypt` 5.0.0 the error comes from passlib's own backend probe hashing an over-72-byte password: `ValueError: password cannot be longer than 72 bytes`. passlib 1.7.4 is unmaintained. |
+| No Dockerfiles; compose runs base images with bind mounts | Render and Vercel build from source and never read `docker-compose.yml`. Its only job is "Postgres + FastAPI + Next.js dev servers", which needs no image of our own. |
+| `JWT_SECRET` has no default anywhere | An app that boots with a guessable secret is worse than one that refuses to boot. |
+| Test database created by `scripts/init-test-db.sql` at initdb time | The pytest harness (T017) then needs no `CREATE DATABASE` privilege and **cannot point at the dev database by accident**. |
+| `exactOptionalPropertyTypes` on | FR-023's partial-update semantics distinguish "field omitted → leave it" from "explicit null → clear it". Without this flag `{ platform: undefined }` is assignable to an optional field and the two collapse at the type level — the exact distinction T049 and T051 must keep apart. It caught a real bug within minutes (`workers: undefined` in the Playwright config). |
+| `new Date` and `Date.parse` banned by eslint outside `lib/dates.ts` | Turns the recorded UTC-midnight trap into a build failure instead of a comment nobody reads (research.md R-006). Verified firing before it was committed. |
+| Playwright's only project is 375×667, written out explicitly | 375px is a hard floor (constitution I), not one entry in a matrix. A named device preset could change the number under a Playwright upgrade; the number is the requirement. |
+| CI `deploy` jobs **fail** when their hook variable is missing | A green deploy job that deployed nothing is worse than a red one. T071 sets the variables. |
+| shadcn theme tokens hand-written into `globals.css` | `shadcn init` half-succeeded (see Traps). The block is explicitly provisional — stage 2 replaces it. Safe to replace wholesale: R-005 encodes status as shape and fill, so FR-017/SC-004 do not depend on any colour in that file. |
+
 ### Next session starts here
 
-1. **Decide how `main` gets the specs.** `workflow.md` says planning artifacts belong on `main` before
-   implementation. But constitution VI says `main` is MR-only, and with no remote a local merge is
-   exactly the self-merge that gate exists to prevent. Either create the GitLab project first and open
-   a real MR, or fast-forward locally and record it in the retro. **This is unresolved and blocks
-   nothing else — but decide it deliberately.**
-2. **Stage 3 (Load) prerequisites**, if going the GitLab route: create the private project, protect
+1. **Start Docker Desktop and run `docker compose up`.** This is the one Phase 1 gate that was never
+   exercised. Confirm Postgres comes up healthy and that `creatorhub_test` exists. Do it before T011,
+   not during — a compose bug discovered mid-Alembic reads like a migration bug.
+2. **Implementation continues at T008** in `specs/001-content-calendar/tasks.md`. Phase 2 order:
+   T008–T016 backend foundation, T017–T020 test harness, T021–T028 frontend foundation. Nothing in
+   Phase 3–7 may start until Phase 2 is complete.
+3. **Two constraints already discovered that Phase 2 must honour**:
+   - **bcrypt refuses passwords over 72 bytes** — it no longer truncates. T012 and T015 must bound
+     length at the boundary and say so; truncating silently would let two different passwords open
+     the same account.
+   - **`backend/pyproject.toml` carries the reasoning for `pwdlib`** in a comment. Do not "tidy" it
+     back to passlib.
+4. Read the **Post-review revisions** table at the bottom of `tasks.md` before touching Phase 3+:
+   three tasks exist for non-obvious reasons and look droppable if you have not read it.
+5. **Stage 3 (Load)** whenever the GitLab account is ready: create the private project, protect
    `main`, install `glab`, then import `tasks.md` as issues with `glab issue create`.
-   `/speckit-taskstoissues` is GitHub-only and will abort — do not try to make it work.
-3. **Stage 2 (Design)** or **straight to implementation**. `research.md` R-005 fixes the status-cue
-   *semantics* independently of colour, so the cue components can be built against placeholder tokens;
-   the stage-2 Claude Design export does not block Phase 4.
-4. **Implementation begins at T001** in `specs/001-content-calendar/tasks.md`. Phase 1 (7 tasks) then
-   Phase 2 (21 tasks) then US1 — US1 alone is a deployable MVP. Read the
-   **Post-review revisions** table at the bottom of `tasks.md` first: three tasks exist for
-   non-obvious reasons and look droppable if you have not read it.
-5. **Do not skip** `T075` at the end — amending the Auth row of `tech-defaults.md` to permit sliding
+   `/speckit-taskstoissues` is GitHub-only and will abort — do not try to make it work. Blocks
+   shipping, not implementation.
+6. **Stage 2 (Design)** is still open and still not blocking. R-005 fixes the status-cue *semantics*
+   independently of colour, and the placeholder tokens now in `globals.css` are built to be replaced.
+7. **Do not skip** `T075` at the end — amending the Auth row of `tech-defaults.md` to permit sliding
    reissue. `research.md` R-002 defers it to Reflect on purpose, so the rule is inherited by later
    modules rather than re-derived from an argument buried in a research file.
 
