@@ -1,0 +1,54 @@
+[project]
+name = "creatorhub-backend"
+version = "0.1.0"
+description = "CreatorHub Content Calendar API"
+requires-python = ">=3.13"
+
+dependencies = [
+    "fastapi>=0.121",
+    "uvicorn[standard]>=0.41",
+    "sqlmodel>=0.0.27",
+    "alembic>=1.18",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.13",
+    "pyjwt>=2.12",
+    # Password hashing. NOT passlib — see the comment under [tool.uv] below.
+    "pwdlib[bcrypt]>=0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    # FastAPI's TestClient needs httpx at runtime; it is not pulled in by bare `fastapi`.
+    "httpx>=0.28",
+]
+
+# Application, not a library: nothing installs `app` as a distribution. `uv run` puts the project
+# root on sys.path, which is what `uvicorn app.main:app` and `python -m app.scripts.seed_user` need.
+[tool.uv]
+package = false
+
+# ---------------------------------------------------------------------------
+# Why pwdlib and not passlib[bcrypt]
+# ---------------------------------------------------------------------------
+# T002 required verifying passlib on Python 3.13 before committing to it. It fails, and not in the
+# way .claude/memory.md predicted. The recorded trap was passlib reading `bcrypt.__about__`, removed
+# in bcrypt >= 4.1. The actual failure with bcrypt 5.0.0 is different and happens at first use:
+#
+#   ValueError: password cannot be longer than 72 bytes, truncate manually if necessary
+#
+# raised from passlib's own backend-capability probe (`detect_wrap_bug`), which hashes an
+# over-72-byte password expecting bcrypt to truncate it. bcrypt 5.0 raises instead. passlib 1.7.4 is
+# unmaintained and will not be fixed. Every CryptContext with bcrypt is dead on arrival.
+#
+# pwdlib is the maintained replacement, verified working on Python 3.13 with bcrypt 5.0.0.
+#
+# Inherited constraint: bcrypt still refuses passwords over 72 bytes rather than truncating them, so
+# the seed script (T015) and login (T012) must bound password length at the boundary. That is a real
+# behaviour of the algorithm, not a library quirk, so it belongs in validation rather than a wrapper.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+# Phase 1 has no real tests yet, and pytest exits 5 — not 0 — when it collects nothing, which CI
+# reads as a failure. tests/test_placeholder.py keeps the suite non-empty until T017 lands.
