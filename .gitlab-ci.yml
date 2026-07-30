@@ -1,0 +1,220 @@
+# CreatorHub CI — the merge gate constitution principle VI requires.
+#
+# Four stages, in the order .claude/rules/workflow.md fixes them:
+#
+#   build   both projects install and compile
+#   test    pytest (models and endpoints) + the one Playwright E2E flow
+#   review  ruff + mypy + eslint + tsc — the automated review layer
+#   deploy  Render and Vercel, manual approval at v0.1
+#
+# Lint runs after tests rather than before because workflow.md orders the stages that way, and the
+# stage names are referenced from the retro and the constitution. It is not an accident.
+#
+# NOTE: no GitLab project exists yet. This file is written against the layout it will have; nothing
+# has executed it. tasks.md records that stage 3 (Load) is a prerequisite for shipping, not for
+# implementation.
+
+stages:
+  - build
+  - test
+  - review
+  - deploy
+
+variables:
+  # Keep caches inside the build directory — GitLab only caches paths under CI_PROJECT_DIR.
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  PNPM_STORE_DIR: "$CI_PROJECT_DIR/.cache/pnpm"
+  # uv hardlinks into the venv by default, which warns across filesystems in a container.
+  UV_LINK_MODE: "copy"
+  NEXT_TELEMETRY_DISABLED: "1"
+  POSTGRES_DB: "creatorhub_test"
+  POSTGRES_USER: "creatorhub"
+  POSTGRES_PASSWORD: "creatorhub"
+
+# Run on merge requests and on the default branch. Without this a branch push and its MR both
+# produce a pipeline, and the duplicate is the one people learn to ignore.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# ---------------------------------------------------------------------------
+# Shared job shapes
+# ---------------------------------------------------------------------------
+
+.backend:
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+  before_script:
+    - cd backend
+    # --frozen: CI resolves exactly what uv.lock records, or fails. A lockfile CI is allowed to
+    # update is a lockfile that does not pin anything.
+    - uv sync --frozen
+  cache:
+    key:
+      files:
+        - backend/uv.lock
+    paths:
+      - .cache/uv
+
+.frontend:
+  image: node:24-bookworm-slim
+  before_script:
+    - corepack enable
+    - cd frontend
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - .cache/pnpm
+
+# ---------------------------------------------------------------------------
+# build
+# ---------------------------------------------------------------------------
+
+build:backend:
+  extends: .backend
+  stage: build
+  script:
+    # There is nothing to compile; the check is that the locked dependency set actually resolves and
+    # imports on Python 3.13. That is not hypothetical here — passlib does not (see T002).
+    - uv run python -c "import fastapi, sqlmodel, alembic, psycopg, jwt, pwdlib; print('backend imports OK')"
+
+build:frontend:
+  extends: .frontend
+  stage: build
+  script:
+    - pnpm build
+  artifacts:
+    # Handed to the e2e job so the merge gate exercises the bundle that ships rather than a rebuild.
+    paths:
+      - frontend/.next/
+    exclude:
+      # Build cache, not build output. Uploading it doubles the artifact for nothing.
+      - frontend/.next/cache/**
+    expire_in: 1 day
+
+# ---------------------------------------------------------------------------
+# test
+# ---------------------------------------------------------------------------
+
+test:backend:
+  extends: .backend
+  stage: test
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+  variables:
+    # A dedicated test database, per workflow.md stage 5. The service container is disposable, so
+    # this is the whole database rather than a schema inside a shared one.
+    TEST_DATABASE_URL: "postgresql+psycopg://creatorhub:creatorhub@postgres:5432/creatorhub_test"
+    DATABASE_URL: "postgresql+psycopg://creatorhub:creatorhub@postgres:5432/creatorhub_test"
+    JWT_SECRET: "ci-only-not-a-real-secret"
+    TOKEN_TTL_DAYS: "30"
+    FRONTEND_ORIGIN: "http://localhost:3000"
+  script:
+    - uv run pytest
+
+test:e2e:
+  stage: test
+  # The Playwright image ships the browsers already; installing them per pipeline is a ~150MB
+  # download on every run. The tag must track @playwright/test in frontend/package.json — a mismatch
+  # produces a confusing "executable doesn't exist" failure rather than a version warning.
+  image: mcr.microsoft.com/playwright:v1.62.0-noble
+  needs:
+    - build:frontend
+  before_script:
+    - corepack enable
+    - cd frontend
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  script:
+    # CI=1 makes playwright.config.ts serve the production build via `pnpm start` instead of `next dev`.
+    - CI=1 pnpm exec playwright test
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - .cache/pnpm
+  artifacts:
+    when: on_failure
+    paths:
+      - frontend/playwright-report/
+      - frontend/test-results/
+    expire_in: 1 week
+
+# ---------------------------------------------------------------------------
+# review — the automated review layer (workflow.md stage 6)
+# ---------------------------------------------------------------------------
+
+review:ruff:
+  extends: .backend
+  stage: review
+  script:
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+review:mypy:
+  extends: .backend
+  stage: review
+  script:
+    - uv run mypy .
+
+review:eslint:
+  extends: .frontend
+  stage: review
+  script:
+    - pnpm lint
+
+review:tsc:
+  extends: .frontend
+  stage: review
+  script:
+    - pnpm typecheck
+
+# ---------------------------------------------------------------------------
+# deploy — manual approval at v0.1 (tech-defaults.md)
+# ---------------------------------------------------------------------------
+#
+# Both jobs are placeholders until T071 configures Render and Vercel and sets the corresponding CI
+# variables. They fail loudly rather than echoing success, because a green deploy job that deployed
+# nothing is worse than a red one.
+
+.deploy:
+  stage: deploy
+  image: curlimages/curl:latest
+  # A refused deploy must not leave the pipeline green.
+  allow_failure: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - if: $CI_COMMIT_TAG
+      when: manual
+
+deploy:backend:
+  extends: .deploy
+  environment:
+    name: production/backend
+  script:
+    - |
+      if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+        echo "RENDER_DEPLOY_HOOK_URL is not set — deployment is not wired up yet (T071)."
+        exit 1
+      fi
+    - curl --fail --show-error --silent -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+deploy:frontend:
+  extends: .deploy
+  environment:
+    name: production/frontend
+  script:
+    - |
+      if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+        echo "VERCEL_DEPLOY_HOOK_URL is not set — deployment is not wired up yet (T071)."
+        exit 1
+      fi
+    - curl --fail --show-error --silent -X POST "$VERCEL_DEPLOY_HOOK_URL"
