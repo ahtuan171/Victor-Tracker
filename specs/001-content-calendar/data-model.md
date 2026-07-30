@@ -118,11 +118,20 @@ stateDiagram-v2
 
 - Every forward edge out of `idea` is gated on INV-1. The other forward edge is unconditional.
 - Backward edges are unconditional and lossless (INV-3).
-- `idea → posted` directly is permitted — the spec orders the states but never requires passing
-  through each one, and forbidding it would break the drag path onto a `posted` lane.
+- `idea → posted` directly is permitted, subject to INV-1. The spec orders the states but never
+  requires passing through each one, and a creator who films and publishes in one sitting should not
+  have to tap through `draft` to record it. (An earlier draft justified this by a drag onto a `posted`
+  lane; that surface no longer exists after the FR-015a amendment, but the reason above stands on its
+  own.)
 - Overdue is **not** a state. It is a derived property: `scheduled_date < today AND status != 'posted'`.
   Computed at render time, never stored, so it cannot go stale — and so FR-007's three states stay
   three.
+
+  `today` comes from the **browser's clock, in a client component only**. It is never evaluated during
+  server rendering: Vercel's clock is UTC, so a creator in UTC+7 at 06:00 would see an item flip from
+  not-overdue to overdue between server HTML and hydration. `DATE` storage makes the off-by-one
+  unrepresentable in the data; this comparison is the one place it could still appear. See research.md
+  R-006's addendum and R-007.
 
 ---
 
@@ -155,6 +164,7 @@ nothing is drift, and `/speckit-analyze` should catch it.
 | FR-004 | `POST`, `GET`, `PATCH`, `DELETE /content-items` |
 | FR-005 | `title NOT NULL`; every other column nullable or defaulted; INV-2 |
 | FR-006 | `hook`, `platform`, `scheduled_date`, `published_url`, all nullable |
+| FR-006a | `PATCH` accepts every one of them; the item sheet is the single surface that sets them. **This is the requirement the first draft had no design for** — nothing assigned a platform, so INV-1 made every item permanently unreachable past `idea`. |
 | FR-007 | `status` enum, default `'idea'` |
 | FR-008 | Bidirectional edges in the transition diagram |
 | FR-008a | INV-3 |
@@ -163,8 +173,9 @@ nothing is drift, and `/speckit-analyze` should catch it.
 | FR-011 | Backlog query — `scheduled_date IS NULL`; partial index |
 | FR-012, FR-012a | `scheduled_date DATE`; research.md R-006 |
 | FR-013 | Date-range query on `scheduled_date`; `ix_content_item_scheduled_date` |
-| FR-014, FR-014a, FR-015, FR-015a, FR-015b | Partial `PATCH` — one endpoint, two triggers (research.md R-003) |
-| FR-016 | Optional `platform` query parameter on list |
+| FR-014, FR-014a | Partial `PATCH` on `scheduled_date` — one endpoint, reached by drag or by tap (research.md R-003) |
+| FR-015, FR-015a, FR-015b | Partial `PATCH` on `status`, reached by tap only. Status is not draggable — see the FR-015a amendment in spec.md's post-review clarification |
+| FR-016 | Optional `platform` query parameter on list, plus client-side narrowing of the loaded period (research.md R-007) |
 | FR-017, FR-018 | `status` and `platform` returned on every list row so no follow-up read is needed to render a cue |
 | FR-019, FR-019a | `published_url` nullable and never auto-cleared; INV-3 |
 | FR-020 | Frontend confirmation before `DELETE`; no schema involvement |

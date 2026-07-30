@@ -51,8 +51,16 @@ container (FR-021). The full `idea → posted` journey is completable without a 
 (FR-015b, SC-011). No `user_id` or ownership column on the content item (FR-003, constitution VII).
 No version marker for concurrent-edit detection (FR-023a).
 
-**Scale/Scope**: one creator, hundreds of content items, roughly six screens — login, month, week,
-backlog, item detail, and the capture sheet. This is not a scale problem; it is a friction problem.
+**Rendering and data flow**: server components for the root redirect and the session guard only;
+the calendar surface and backlog drawer are client components holding the visible period's items in
+local state, with optimistic `PATCH` updates and client-side platform filtering. See
+[research.md](./research.md) R-007 — this is the decision an earlier draft of this plan omitted
+entirely.
+
+**Scale/Scope**: one creator, hundreds of content items. **Three routes** — `/` (redirect),
+`/login`, and `/calendar` — plus three overlay surfaces on the calendar route: the capture sheet, the
+item sheet, and the backlog drawer. Month and week are two states of the same route, not separate
+pages. This is not a scale problem; it is a friction problem.
 
 ## Constitution Check
 
@@ -78,13 +86,24 @@ Re-evaluated after [data-model.md](./data-model.md) and [contracts/openapi.yaml]
 
 | Principle | Finding |
 |---|---|
-| II | The proxy decision (research.md R-001) means the browser never holds a bearer token in JavaScript-readable storage. This is *stronger* than the gate requires: an XSS bug cannot exfiltrate a 30-day credential. |
+| II | The proxy decision (research.md R-001) means the browser never holds a bearer token in JavaScript-readable storage: an XSS bug cannot exfiltrate a 30-day credential. R-008 adds a path allowlist so the proxy cannot become a general credential-attaching relay for future endpoints. |
 | III | Operation count held at eight across five paths — health, login, logout, list, create, fetch-one, update, delete. Design added nothing beyond CRUD and auth. Verified against the contract. |
 | VII | `content_item` confirmed free of `user_id`, `owner_id`, `tenant_id`, and any version or `etag` column. |
 | I | `PATCH /content-items/{id}` accepts partial updates, so the tap path and the drag path issue the same request with one field changed. There is no mobile-only or desktop-only endpoint. |
 | IV | Every field in data-model.md traces to a numbered requirement; the traceability table in that file is the check. |
 
-**Result**: still no violations. Design introduced no complexity requiring justification.
+### Post-review re-check (after the `reviewer` pass)
+
+A review of these artifacts found three requirements with no buildable design behind them. Two gates
+needed re-examining as a result.
+
+| Principle | Finding |
+|---|---|
+| III | **Re-affirmed under pressure.** The missing drop target for a status drag had an obvious fix — status lanes, i.e. a kanban board. That is a second core capability and principle III forbids it here. The spec was narrowed instead (FR-015a now requires tap only), which is the resolution principle IV mandates: fix the artifact, do not invent surface. |
+| IV | **One violation found and corrected.** R-002 originally asserted that no amendment to `tech-defaults.md` was needed, which was the plan grading its own reinterpretation of a locked row. The mechanism survives; the self-clearance did not. A tech-defaults amendment is now queued for the Reflect stage, where that file may legitimately change. |
+| I | The backlog moving from a separate route to a drawer on the calendar surface (R-003a) is what makes drag-to-schedule possible at all, and SC-008 reachable. Two routes could not have satisfied US3 scenario 1. |
+
+**Result**: no violations remain. One was found, named, and corrected rather than absorbed.
 
 ## Project Structure
 
@@ -133,19 +152,22 @@ backend/
 frontend/
 ├── app/
 │   ├── layout.tsx
+│   ├── page.tsx                # root — server-side redirect to /calendar or /login
 │   ├── login/page.tsx
 │   ├── (app)/
-│   │   ├── layout.tsx          # authenticated shell, bottom action bar
-│   │   ├── calendar/page.tsx   # month and week, period navigation
-│   │   └── backlog/page.tsx
-│   └── api/[...path]/route.ts   # proxy to FastAPI — see research.md R-001
+│   │   ├── layout.tsx          # server component: session guard + shell + bottom action bar
+│   │   └── calendar/page.tsx   # the single content route — grid, backlog drawer, capture
+│   └── api/[...path]/route.ts   # allowlisted proxy to FastAPI — research.md R-001, R-008
 ├── components/
 │   ├── ui/                     # shadcn primitives
-│   ├── calendar/               # MonthGrid, WeekList, DayCell, PeriodNav
-│   ├── item/                   # ItemChip, StatusCue, PlatformCue, ItemSheet, DeleteConfirm
+│   ├── calendar/               # CalendarSurface (client), MonthGrid, WeekList, DayCell, PeriodNav
+│   ├── backlog/                # BacklogDrawer — peek and expanded states (research.md R-003a)
+│   ├── item/                   # ItemChip, StatusCue, PlatformCue, ItemSheet, DeleteConfirm, PlatformFilter
 │   └── capture/                # CaptureSheet — the bottom-anchored, title-only form
 ├── lib/
 │   ├── api.ts                  # typed client over the proxied routes
+│   ├── proxy-allowlist.ts      # path and method allowlist, asserted against the contract (R-008)
+│   ├── items.ts                # client-side item state and optimistic updates (research.md R-007)
 │   ├── dates.ts                # date-fns wrappers, date-only handling
 │   └── status.ts               # status and platform → visual cue mapping (FR-017, FR-018)
 ├── tests/

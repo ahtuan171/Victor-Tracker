@@ -60,19 +60,52 @@ is active". The obvious mechanism is a refresh token — but `tech-defaults.md` 
 access token only. No register, refresh, reset, or multi-tenant columns."* Taken naively, the spec and
 the tech defaults disagree.
 
-**Decision**: a single access token with a 30-day expiry and **sliding reissue**. When a request
-arrives carrying a valid token that is more than halfway to expiry, the response sets a freshly issued
-cookie with a new 30-day window. There is no second token type and no refresh endpoint.
+**Decision**: a single access token with a 30-day expiry and **sliding reissue**. There is no second
+token type and no refresh endpoint.
+
+**Transport** — this is the part a first draft of this document left unspecified, which made the whole
+mechanism unimplementable. R-001 puts cookie handling entirely in the Next.js proxy and none in
+FastAPI, so FastAPI cannot "set a cookie". The mechanism is therefore:
+
+1. FastAPI's auth dependency decodes the token. If it is valid and past half-life, it issues a fresh
+   one and attaches it to the response as an **`X-Access-Token` header**.
+2. The proxy checks every response for that header. When present, it rewrites the session cookie with
+   a new `Max-Age` and strips the header before the response reaches the browser.
+
+Without step 1 there is no reissued credential in existence; without step 2 nothing writes it back.
+Both are required, and both are now tasks.
+
+**`Max-Age` is mandatory, not incidental.** A cookie with no `Max-Age` is a session cookie, which
+mobile Safari discards when it evicts the tab. That alone would have produced a weekly login prompt
+regardless of the token's 30-day validity, and it would have looked like a token bug.
 
 **Rationale**: this is not a refresh token — it is the same access token, reissued. It satisfies
 "renewing silently while the creator is active" literally, keeps the token count at one, and adds
-about ten lines to a middleware. A creator who uses the app at least once a month never sees the login
-screen again; one who abandons it for 30 days is asked to sign in, which is the intended behaviour.
+roughly fifteen lines across a dependency and the proxy. A creator who opens the app at least monthly
+never sees the login screen again.
+
+**Accepted weakness, stated rather than hidden**: reissue-on-use means a token that leaks — through a
+proxy log or a leaked deployment secret, not only through the XSS that R-001 defends against — grants
+indefinite access rather than at most 30 days. v0.1 has no denylist, so there is no revocation. R-001's
+security argument covers exfiltration *from the browser*; it does not cover exfiltration from the
+server side, and nothing in v0.1 does. Accepted for a single-user tool; it is the first thing to
+revisit if this ever serves a second person, and it is recorded under Deferred in `.claude/memory.md`.
+
+Related and equally worth stating: FR-002a says a session "MUST end only on expiry or an explicit
+sign-out". Sign-out clears the cookie, which ends the session from the browser's point of view but
+leaves the token itself valid until expiry. That is the honest reading of a stateless token without a
+denylist, and it is what `POST /auth/logout` does.
 
 **Why this is recorded rather than silently resolved**: constitution principle IV requires that when
 spec and implementation constraints disagree, the resolution is stated explicitly rather than coded
-around. The apparent conflict was real; this paragraph is the resolution. No amendment to `spec.md` or
-`tech-defaults.md` is needed, because sliding reissue satisfies both as written.
+around. The apparent conflict was real; this section is the resolution.
+
+**Process correction**: an earlier draft asserted that no amendment to `tech-defaults.md` was needed.
+That was the plan grading its own reinterpretation of a locked row — and `tech-defaults.md` says
+changing a row is a Reflect-stage decision. The mechanism stands, but the *rule* should be inherited
+by later modules rather than re-derived from this argument. Amending the Auth row to read "login +
+access token only; sliding reissue permitted, no refresh token" is queued for the Reflect stage, where
+`tech-defaults.md` may legitimately change.
 
 **Alternatives considered**: a genuine access/refresh pair (rejected — directly contradicts
 `tech-defaults.md`, and rotation logic is meaningful only when access tokens are short-lived, which
@@ -85,28 +118,45 @@ would still be logged out on day 30 with no warning, which fails the spirit of F
 
 **Serves**: FR-014, FR-014a, FR-015, FR-015a, FR-015b, SC-011, constitution principles I and V
 
-**Problem**: FR-015b requires the whole `idea → posted` journey to be completable with no drag
-gesture, while FR-014a and FR-015a require the drag path to exist too and produce an identical result.
-Naively that is two implementations of every mutation.
+**Problem**: FR-015b requires the whole `idea → posted` journey to be completable with no drag gesture,
+while FR-014a requires a drag path as well. Naively that is two implementations of every mutation.
 
-**Decision**: one mutation function per field change, with two triggers.
+**Decision**: one mutation function per field change, with two triggers — and **drag applies to
+scheduling only**.
 
-- **Drag**: `@dnd-kit/core`, with both `PointerSensor` and `KeyboardSensor` registered. Draggables are
-  item chips; droppables are day cells and the status lanes.
-- **Tap**: tapping a chip opens a shadcn `Sheet` anchored to the bottom of the viewport containing a
-  date picker and a status control. This is the same sheet used for editing, so it is not extra
-  surface.
+- **Drag — dates only**: `@dnd-kit/core`, with both `PointerSensor` and `KeyboardSensor` registered.
+  Draggables are item chips; the only droppables are day cells and the backlog drawer.
+- **Tap — everything**: tapping a chip opens a shadcn `Sheet` anchored to the bottom of the viewport,
+  carrying controls for title, hook, **platform**, date, status, and published link. This is the single
+  editing surface, so it satisfies FR-006a as well as the tap half of FR-014a.
 - Both paths call the same `updateItem(id, patch)` in `lib/api.ts`, which issues one `PATCH`. The drag
-  handler's only job is translating a drop target into `{ scheduled_date }` or `{ status }`.
+  handler's only job is translating a drop target into `{ scheduled_date }`.
 
-**Rationale**: `@dnd-kit` was chosen over the alternatives because it is pointer-event based (so touch
-works without a separate touch backend), it ships a `KeyboardSensor` that makes FR-015b achievable on
-the drag path *as well*, and it does not require dragging a DOM node out of its container — which
-matters when the container is a 375px grid that scrolls inside itself per FR-021.
+**Why status is not draggable** (spec amendment, recorded in spec.md's post-review clarification): a
+status drag needs somewhere to drop. Status lanes cannot coexist with a seven-column month grid at
+375px without the horizontal body scroll FR-021 forbids, and a lane-based board is a *second* core
+capability, which constitution principle III does not permit this module. Status has three values, so
+a tap control resolves it in one interaction where a drag takes several. FR-015a was narrowed to tap
+only rather than inventing a surface for a gesture nobody needs.
 
-Making the tap path the *primary* one, with drag layered on, also means the Playwright E2E flow drives
-taps. Drag automation is the flakiest thing in a browser test suite, and `workflow.md` requires the E2E
-flow to gate merges — a flaky gate gets disabled, and a disabled gate violates principle VI.
+**Touch activation constraint** — the detail that makes or breaks the drag path on a phone. A
+`PointerSensor` with no activation constraint captures a drag the instant a finger moves on a chip, so
+a creator swiping up to scroll the month grid would instead lift the chip and drop it on whatever cell
+their finger released over, silently rescheduling it. The sensor is therefore configured with a small
+distance-and-delay activation constraint, and chips carry `touch-action: manipulation` so vertical
+scrolling wins the gesture until the constraint is met. A long-press activation was considered and
+rejected: it collides with FR-020's requirement that destructive actions not sit next to a common
+gesture, and with the browser's own long-press context menu.
+
+**Rationale for `@dnd-kit`**: pointer-event based, so touch works without a separate backend; ships a
+`KeyboardSensor`, so even the drag path is keyboard-reachable; and it does not require pulling a DOM
+node out of its container — which matters when the container is a 375px grid that scrolls inside itself
+per FR-021.
+
+Making the tap path the *primary* one also means the Playwright E2E flow drives taps. Drag automation
+is the flakiest thing in a browser suite, and `workflow.md` requires the E2E flow to gate merges — a
+flaky gate gets disabled, and a disabled gate violates principle VI. SC-011's drag half is validated
+manually via quickstart V4 rather than automated, and that is stated rather than left looking covered.
 
 **Alternatives considered**:
 
@@ -114,7 +164,41 @@ flow to gate merges — a flaky gate gets disabled, and a disabled gate violates
 |---|---|
 | HTML5 native drag-and-drop | Does not fire on touch devices. Non-starter for a phone-first product. |
 | `react-beautiful-dnd` / `@hello-pangea/dnd` | Optimised for lists rather than a two-dimensional grid, and it wants to control the scroll container that FR-021 requires us to control. |
-| Drag only, per the literal wording of `workflow.md`'s build order | Contradicts FR-015b. `workflow.md` says "drag-and-drop status"; it does not say drag *only*. The spec is the source of truth (principle IV), so the spec's requirement wins and the build order is read as compatible. |
+| Status lanes as drop targets | No 375px layout holds them beside a month grid without violating FR-021, and they constitute a second core capability under principle III. This is what drove the FR-015a amendment. |
+| Swipe a chip to advance status | Undiscoverable, fights grid scrolling, and still needs a separate tap path for keyboard — three paths instead of two. |
+
+---
+
+## R-003a: Where the backlog lives
+
+**Serves**: FR-011, FR-014a, US3 acceptance scenario 1, SC-008, constitution principle I
+
+**Problem**: as originally planned, `/calendar` and `/backlog` were separate routes. A DOM node cannot
+be dragged from one route to another, so US3 scenario 1 — "given an undated item in the backlog, when
+the creator places it on a calendar day" — had no surface on which to occur. FR-014a's drag half was
+unsatisfiable for exactly the items that most need scheduling, and SC-008 (five undated ideas onto days
+in under 60 seconds) was unreachable rather than merely untested, since every placement cost a route
+change, a sheet open, a date pick, and a route change back.
+
+**Decision**: the backlog is a **bottom drawer on the calendar surface**, not a destination. There is
+one content route. The drawer has two states: a collapsed peek strip showing a count and the most
+recent chips, and an expanded state covering most of the viewport for browsing many ideas. The
+`/backlog` route is deleted.
+
+**Rationale**: one DOM tree makes drag-from-backlog-to-day a native `@dnd-kit` interaction with no
+cross-route machinery. The peek strip sits directly above the bottom action bar, which is where
+FR-022 wants frequent actions. Weekly planning becomes drawer-open, then five short upward drags —
+which is what makes SC-008 achievable. FR-011 is unaffected: the backlog remains a list distinct from
+the grid, which is all the requirement asks.
+
+**Cost accepted**: the peek strip costs roughly 64px of vertical space that the month grid would
+otherwise use, and the expanded drawer covers the grid, so a drag out of the expanded state requires
+collapsing first. Both are ordinary mobile-drawer behaviour.
+
+**Alternatives considered**: a persistent horizontal chip strip with no expanded state (rejected —
+browsing dozens of accumulated ideas through a horizontally scrolling strip is exactly the experience
+the backlog exists to replace); keeping two routes and dropping drag-from-backlog (rejected — would
+require amending US3 scenario 1, and would leave SC-008 unreachable).
 
 ---
 
@@ -197,6 +281,94 @@ that FR-012a says does not exist, and every read has to remember to discard it);
 in a text column (rejected — gives up date comparison and range queries in SQL, which the month and
 week views both need).
 
+### Addendum: where `today` comes from
+
+Storing dates correctly is only half the problem. "Overdue" is derived by comparing `scheduled_date`
+against `today` (data-model.md), and nothing originally said whose clock `today` is.
+
+**Decision**: `today` is read **only in a client component, from the browser's clock**. It is never
+computed during server rendering.
+
+**Why this matters**: on Vercel the server clock is UTC. A creator in UTC+7 opening the app at 06:00
+on 2026-08-05 is at 2026-08-04 23:00 UTC. An item dated 2026-08-04 would render *not overdue* in
+server HTML and *overdue* after hydration — a visible flip plus a React hydration mismatch warning.
+`DATE` storage makes the off-by-one unrepresentable *in the data*; this comparison is where it would
+have reappeared anyway.
+
+R-007's decision to make the calendar a client component removes the failure mode structurally rather
+than by remembering to be careful: there is no server-rendered content markup in which a wrong `today`
+could appear. The two decisions reinforce each other, which is worth noting because it means changing
+R-007 later reopens this.
+
+---
+
+## R-007: How the frontend fetches and invalidates data
+
+**Serves**: FR-023, FR-023a, SC-001, SC-005, US3 acceptance scenario 3
+
+**Problem**: this is the largest decision in a Next.js App Router application and the original plan
+made it nowhere — no artifact mentioned server versus client components, caching, or revalidation.
+Left open, T038 and T053 would each have invented an answer in separate merge requests.
+
+**Decision**: **client components holding item state locally, with optimistic updates.**
+
+- `app/page.tsx` and the authenticated layout are server components. They read the session cookie and
+  redirect before any content markup exists — that is what makes SC-006 hold for every address.
+- The calendar surface and the backlog drawer are client components. The item list for the visible
+  period is fetched once through the proxy and held in React state.
+- A `PATCH` applies optimistically to local state, then reconciles against the response. On failure the
+  optimistic change is rolled back and the error surfaced — which is the path a 409 `platform_required`
+  takes.
+- The platform filter is **local state**, not a server round trip. The visible period's items are
+  already in memory, so filtering is a client-side narrowing.
+
+**Rationale**: SC-005 gives filtering a one-second budget and US3 scenario 3 requires a status cue to
+update "immediately". Both are trivially satisfied by local state and both are at risk through a
+server round trip — the proxy hop to Render is one thing, but Render's free tier spins down, so the
+first interaction of the day can take tens of seconds. Putting that in the path of every filter toggle
+would fail SC-005 and SC-001 in production while passing on localhost, which is the worst kind of
+failure to discover at stage 7.
+
+FR-023a helps here: last-write-wins with no live sync means a view is explicitly permitted to show
+what it loaded. There is nothing to reconcile against a second device, so local state is not a
+correctness compromise.
+
+**No query library.** One resource, two surfaces, a few hundred items. `tech-defaults.md` does not list
+TanStack Query, and `workflow.md` forbids abstraction before a second caller. Plain `useState` plus a
+typed fetch wrapper is enough, and adding a cache layer would be speculative infrastructure.
+
+**Cost accepted**: the first paint of the calendar shows a skeleton rather than server-rendered
+content. Acceptable under constitution principle V, and it buys a second benefit — see R-006's
+addendum on `today`.
+
+**Alternatives considered**: server components with `searchParams` and `router.refresh()` (rejected —
+idiomatic, but puts a Render round trip behind every filter toggle and status change, endangering
+SC-005 and SC-001); a hybrid server-rendered first paint handing off to client components (rejected
+for v0.1 — best UX of the three, but it requires threading initial data through and is precisely where
+hydration mismatches breed, including the `today` problem below).
+
+---
+
+## R-008: The proxy is a credential-attaching relay and needs a boundary
+
+**Serves**: constitution principle II
+
+**Problem**: a catch-all proxy route that forwards anything to FastAPI with the creator's token
+attached makes every present *and future* backend route browser-reachable with full credentials, by
+construction. That is a standing invitation for a later module's endpoint to become publicly reachable
+as a side effect — the exact shape principle II warns about ("MUST NOT become reachable as a side
+effect of an existing endpoint").
+
+**Decision**: the proxy carries an explicit allowlist of path patterns and methods, derived from
+[contracts/openapi.yaml](./contracts/openapi.yaml). Anything not on the list returns 404 without a
+request leaving Vercel. The allowlist is asserted against the contract in a test, so adding an endpoint
+to the API does not silently expose it.
+
+**Corollary**: FastAPI's CORS configuration is not the security boundary and should not be treated as
+one — R-001 guarantees no browser ever contacts the Render origin directly. CORS stays restricted to
+the frontend origin as defence in depth for the case where someone later bypasses the proxy, but the
+allowlist is what actually gates access.
+
 ---
 
 ## Open items carried into later stages
@@ -207,4 +379,18 @@ week views both need).
 - **Design tokens are not yet chosen.** Stage 2 exports from Claude Design into
   `design/content-calendar/` establish colour, spacing, and type scale for all four modules. R-005
   fixes the *semantics* of the status cue (shape and fill progression); the palette that dresses it is
-  a stage-2 decision.
+  a stage-2 decision. Because R-005 fixes the shape-and-fill progression independently of colour, the
+  cue components can be built against placeholder tokens and re-skinned when the export lands — the
+  stage-2 gate does not block Phase 4.
+
+- **`passlib` is likely a trap on Python 3.13.** `passlib` 1.7.4 is unmaintained and reads
+  `bcrypt.__about__`, which `bcrypt` ≥ 4.1 removed — a well-known initialisation failure. Verify at
+  T002; if it bites, use `pwdlib` or the `bcrypt` package directly. Recorded under Traps in
+  `.claude/memory.md` so the next module does not rediscover it.
+
+- **Render free-tier spin-down is unmeasured.** R-001's "one extra hop between data centres" is true
+  but incomplete: a spun-down Render service can take tens of seconds to wake. R-007's client-side
+  filtering keeps this off the path of every interaction, but the *first* load of the day still pays
+  it, which is measured against SC-001. Only quickstart V-scenarios run against the deployed
+  environment would catch it, and those run late. If it proves real, the fix is a paid tier or a
+  keep-warm ping — a stage-7 decision, not a design change.

@@ -29,7 +29,38 @@ calendar grid.
 
 ## Traps
 
-_(none recorded yet)_
+**2026-07-30 — `passlib` is probably broken on Python 3.13.** `passlib` 1.7.4 is unmaintained and reads
+`bcrypt.__about__`, which `bcrypt` ≥ 4.1 removed — init fails with a confusing error about a missing
+attribute. Verify at first install; use `pwdlib` or `bcrypt` directly if it bites.
+
+**2026-07-30 — `new Date("2026-08-04")` is parsed as UTC midnight.** Formatting that back in a
+timezone west of Greenwich gives the previous day. Never construct a `Date` from a bare `YYYY-MM-DD`
+string; `frontend/lib/dates.ts` exists to make that unnecessary. Spec FR-012a means dates are `DATE`
+end to end, so this only bites at the display boundary.
+
+**2026-07-30 — `today` must never be read during server rendering.** Vercel's clock is UTC, so a
+creator in UTC+7 sees "overdue" flip between server HTML and hydration, plus a React mismatch warning.
+Client components only.
+
+**2026-07-30 — dnd-kit `PointerSensor` with no activation constraint eats scroll gestures.** On a
+vertically scrolling grid, a swipe starting on a draggable lifts it instead of scrolling, then drops it
+wherever the finger lands. Always set a distance or delay constraint on touch. Long-press is not the
+fix — it collides with the browser's context menu and with the constitution's rule about destructive
+actions near common gestures.
+
+**2026-07-30 — FastAPI's `RequestValidationError` returns `detail` as an array, not a string.** Any
+contract or generated client that types it as a string renders `[object Object]`. Install an exception
+handler that flattens it if the API promises a uniform `{"detail": "..."}` shape.
+
+**2026-07-30 — a cookie with no `Max-Age` is a session cookie.** Mobile Safari discards it on tab
+eviction, so a 30-day token still produces a weekly login prompt — and it looks like a token bug rather
+than a cookie bug.
+
+**2026-07-30 — a coverage-based spec check does not catch a design that does not close.**
+`/speckit-analyze` reported 95% requirement coverage on a `tasks.md` containing six blocking gaps,
+including one that left every content item permanently stuck in `idea`. It checks whether a requirement
+is *cited* by a task, not whether the tasks compose into something that works. Run the `reviewer` agent
+as well; the two find different classes of defect.
 
 ## Deferred
 

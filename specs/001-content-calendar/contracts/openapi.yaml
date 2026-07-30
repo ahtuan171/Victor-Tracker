@@ -16,6 +16,16 @@ info:
     from an httpOnly cookie (see research.md R-001), which is why this contract shows a plain
     bearer scheme with no cookie handling.
 
+    Session renewal (FR-002a, research.md R-002): any authenticated response MAY carry an
+    `X-Access-Token` header when the presented token is past half-life. The proxy rewrites its
+    cookie from that header and strips it before the response reaches the browser. Without this
+    header the sliding-reissue mechanism has no transport and a creator is logged out on day 30.
+
+    Error bodies are uniformly `{"detail": "<string>"}`. FastAPI's default
+    `RequestValidationError` returns `detail` as an array of objects, so the app installs an
+    exception handler that flattens it to a string. Without that handler this contract is a lie
+    and the generated client renders `[object Object]`.
+
 servers:
   - url: http://localhost:8000
     description: Local docker-compose
@@ -123,11 +133,11 @@ paths:
         - name: scheduled
           in: query
           description: |
-            `none` returns only undated items — the backlog (FR-011). `any` returns only dated
-            items. Omitted returns both.
+            `none` returns only undated items — the backlog drawer (FR-011). Omitted returns both
+            dated and undated, which is what the calendar surface loads.
           schema:
             type: string
-            enum: [none, any]
+            enum: [none]
         - name: date_from
           in: query
           description: Inclusive lower bound on scheduled_date (FR-013).
@@ -147,13 +157,12 @@ paths:
             set — matching the spec's US4 scenario 4.
           schema:
             $ref: "#/components/schemas/Platform"
-        - name: status
-          in: query
-          schema:
-            $ref: "#/components/schemas/Status"
       responses:
         "200":
           description: Matching items, newest-created first
+          headers:
+            X-Access-Token:
+              $ref: "#/components/headers/XAccessToken"
           content:
             application/json:
               schema:
@@ -166,7 +175,12 @@ paths:
     post:
       tags: [content-items]
       summary: Create a content item
-      description: Title is the only required field (FR-005).
+      description: |
+        Title is the only required field (FR-005).
+
+        `status` and `platform` are accepted here, so INV-1 is reachable on create as well as on
+        update: `{"title": "x", "status": "draft"}` with no platform must be refused with 409, not
+        allowed through to the database where the CHECK constraint would surface as a 500.
       requestBody:
         required: true
         content:
@@ -176,12 +190,22 @@ paths:
       responses:
         "201":
           description: Created
+          headers:
+            X-Access-Token:
+              $ref: "#/components/headers/XAccessToken"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContentItem"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "409":
+          description: |
+            The item as submitted would violate INV-1 — a status past `idea` with no platform set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvariantError"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -230,6 +254,9 @@ paths:
       responses:
         "200":
           description: Updated
+          headers:
+            X-Access-Token:
+              $ref: "#/components/headers/XAccessToken"
           content:
             application/json:
               schema:
@@ -271,6 +298,17 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  headers:
+    XAccessToken:
+      description: |
+        Present only when the presented token was past half-life and has been reissued with a fresh
+        30-day window (FR-002a, research.md R-002). The proxy rewrites its session cookie from this
+        value — including `Max-Age`, without which the cookie is a session cookie that mobile Safari
+        discards on tab eviction — and strips the header before the browser sees it.
+      required: false
+      schema:
+        type: string
+
   schemas:
     Status:
       type: string
@@ -311,6 +349,7 @@ components:
           type: [string, "null"]
           format: uri
           maxLength: 2048
+          pattern: "^https?://"
         created_at:
           type: string
           format: date-time
@@ -342,6 +381,8 @@ components:
         published_url:
           type: [string, "null"]
           format: uri
+          maxLength: 2048
+          pattern: "^https?://"
 
     ContentItemUpdate:
       type: object
@@ -367,6 +408,8 @@ components:
         published_url:
           type: [string, "null"]
           format: uri
+          maxLength: 2048
+          pattern: "^https?://"
 
     InvariantError:
       type: object

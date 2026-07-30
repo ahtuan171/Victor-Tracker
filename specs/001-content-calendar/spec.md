@@ -31,10 +31,22 @@ Security posture, interaction mechanics, and state-transition rules, resolved du
 `/speckit-clarify`. Five questions asked, five answered.
 
 - **Q: How long should a signed-in session last before the creator must log in again?** → **A: About 30 days, renewed silently while in use.** The tool is used in short bursts on a personal phone, and there is no password reset flow in scope, so a daily login would be worse friction than the privacy gain justifies. Encoded as FR-002a and SC-010.
-- **Q: Must a tap-based path exist for changing date and status, or is dragging enough?** → **A: Both must exist.** Drag is the fast path where a pointer is comfortable; a tap-driven control is the one-handed path, the keyboard-reachable path, and the one automated tests can drive deterministically. Both trigger the same update, so this is one operation with two entry points. Encoded as FR-014a, FR-015a, FR-015b, and SC-011.
+- **Q: Must a tap-based path exist for changing date and status, or is dragging enough?** → **A: Both must exist.** Drag is the fast path where a pointer is comfortable; a tap-driven control is the one-handed path, the keyboard-reachable path, and the one automated tests can drive deterministically. Both trigger the same update, so this is one operation with two entry points. Encoded as FR-014a, FR-015a, FR-015b, and SC-011. — **Partly superseded by the post-review session below**: the answer holds for scheduling, but status was narrowed to tap only once it became clear a status drag has nowhere to drop at 375px.
 - **Q: What happens on backward transitions and when clearing a platform?** → **A: Data is kept and the invariant is enforced.** Backward moves preserve the published link and the platform. Clearing the platform is refused while the item is past `idea`. This keeps "past `idea` implies a platform is set" true at all times — one check instead of scattered repair logic — and never discards something the creator typed, which matters most for a published link that cannot be reconstructed. Encoded as FR-008a, FR-009a, and FR-019a.
 - **Q: Does v0.1 include a bulk way to bring in existing ideas?** → **A: No — manual entry only.** Capture is already a title-only action of a few seconds, so migrating stranded ideas is a one-time cost of minutes, while an import path means a format, a parser, and a screen for something run exactly once. Constitution principle III has already spent this module's one capability on the pipeline view. Added to Out of Scope and to Deferred in `.claude/memory.md`.
 - **Q: How should simultaneous edits from two devices be resolved?** → **A: Last write wins, silently.** With one creator, a conflict is one person's two windows and the later action is the intended one. Detection would put a version marker on the entity and a rejection branch at every update path, to guard the creator against themselves. Views reflect stored data when loaded or refreshed; there is no live sync. Encoded as FR-023a and an assumption.
+
+### Session 2026-07-30 (post-review)
+
+A `reviewer` pass over the stage-1 artifacts found that three requirements had no buildable design
+behind them. Two were closed in `plan.md` and `tasks.md` without touching this file; the third
+required narrowing a requirement, which is recorded here rather than worked around.
+
+- **Q: Can a creator actually set a platform anywhere?** → **A: No design existed for it; now required explicitly.** FR-009 makes a platform a precondition for leaving `idea`, but no planned surface assigned one, so every item would have been permanently stuck. The spec already implied this in US1 scenario 4; it is now stated as **FR-006a** so it is citable and testable. This was a gap in the plan, not a change of intent.
+- **Q: Should status be changeable by dragging?** → **A: No — narrowed to tap only.** FR-015a previously required both. There is no layout at 375px holding a seven-column month grid alongside three status lanes without the horizontal scroll FR-021 forbids, and a lane-based board is a second core capability, which constitution principle III does not permit this module. Status has three values, so a tap control is one interaction against a drag's several. **FR-015a** and **SC-011** are amended; FR-014a keeps drag for scheduling, where dragging genuinely beats tapping.
+- **Q: Where does the backlog live?** → **A: A drawer on the calendar surface, not a separate destination.** FR-011 continues to require a backlog list distinct from the grid, which is unchanged. The reason for recording it: as two separate destinations, US3 scenario 1 — dragging an undated item onto a calendar day — had no surface on which to occur, and SC-008 was unreachable rather than merely untested. This is a plan-level decision with no requirement change.
+
+Added by this session: **FR-006a**, **SC-012**. Amended: **FR-015a**, **SC-011**.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -156,6 +168,7 @@ These gate every user story above; no story is complete without them.
 - **FR-004**: The creator MUST be able to create, view, edit, and delete a content item.
 - **FR-005**: A content item MUST have a title, and the title MUST be the only field required to create it.
 - **FR-006**: A content item MUST be able to carry a hook or short description, a target platform, a scheduled date, a status, and a link to the published post; all of these except status MUST be optional at creation.
+- **FR-006a**: After creation, the creator MUST be able to set or change every one of an item's fields — title, hook, target platform, scheduled date, status, and published link. In particular a target platform MUST be assignable to an item that was captured without one, since FR-009 makes that assignment a precondition for the item ever leaving `idea`.
 - **FR-007**: An item's status MUST be one of `idea`, `draft`, or `posted`, and MUST default to `idea` on creation. `draft` means the content has been made and is awaiting publication; work still in progress is represented by the item remaining an `idea`. The pipeline has exactly three states in this iteration.
 - **FR-008**: Status MUST be able to move both forward and backward through the pipeline.
 - **FR-008a**: A backward status change MUST preserve every field the item already carries, including its target platform and its published link. No field is cleared as a side effect of moving backward.
@@ -170,7 +183,7 @@ These gate every user story above; no story is complete without them.
 - **FR-014**: The creator MUST be able to change an item's scheduled date from the calendar and backlog views without opening a separate detail page.
 - **FR-014a**: Changing a scheduled date MUST be possible both by dragging the item and by a tap-driven control, and both MUST produce an identical result.
 - **FR-015**: The creator MUST be able to change an item's status from the calendar and backlog views without opening a separate detail page.
-- **FR-015a**: Changing a status MUST be possible both by dragging the item and by a tap-driven control, and both MUST produce an identical result.
+- **FR-015a**: Changing a status MUST be possible through a tap-driven control. Status is not draggable — see the post-review clarification in the Clarifications section for why this was narrowed.
 - **FR-015b**: Every date and status change MUST be reachable without a pointer-drag gesture, so that the core journey remains completable by keyboard alone.
 - **FR-016**: The calendar and backlog MUST be filterable to a single platform, or show all platforms.
 - **FR-017**: Every item's status MUST be distinguishable at a glance in both calendar and backlog views, without opening the item and without relying on colour as the only cue.
@@ -203,7 +216,8 @@ These gate every user story above; no story is complete without them.
 - **SC-008**: A week's worth of planning — placing 5 undated ideas onto days — takes under 60 seconds on a phone.
 - **SC-009**: After a reload, every date, status, platform, and link change made in the previous session is still present.
 - **SC-010**: A creator who signs in once and then uses the app intermittently is not asked to sign in again within 30 days.
-- **SC-011**: The full journey from `idea` to `posted` can be completed without a single drag gesture, and independently can be completed using drags, with the same end state either way.
+- **SC-011**: The full journey from `idea` to `posted` can be completed without a single drag gesture. Scheduling can independently be completed by dragging, with the same end state either way.
+- **SC-012**: An item captured with only a title can be given a platform and reach `posted` without the creator encountering a refusal they cannot resolve from the surface they are already on.
 
 ## Assumptions
 

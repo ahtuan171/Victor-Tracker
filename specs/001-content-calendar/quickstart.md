@@ -17,6 +17,7 @@ This is a validation guide. Implementation belongs in `tasks.md`.
 | Python 3.13 | yes | ✅ 3.13.5 |
 | `uv` | yes — never pip or poetry | ✅ 0.11.32 |
 | `pnpm` | yes | ✅ 11.17.0 |
+| Playwright browsers | yes — `pnpm exec playwright install` | installed by T003 |
 | Docker + compose | yes, for PostgreSQL | check with `docker compose version` |
 | `glab` | stage 3 only | ❌ not installed |
 | Git remote | stage 3 and the merge gate | ❌ none configured |
@@ -62,12 +63,14 @@ viewport width** — that is the design baseline and a hard floor, not a stress 
 
 **Proves**: FR-001, FR-002, SC-006
 
-1. With no session, open `/calendar`, `/backlog`, and an item address directly.
+1. With no session, open `/`, `/calendar`, and an item address directly.
 2. Each redirects to `/login`. View source on each response.
+3. Sign in, then force the session to expire and navigate between month and week.
+4. Sign out while holding an already-expired token.
 
-**Expected**: no content data in any response body, including server-rendered markup. The redirect
-happens before markup is generated — that is the point of reading the cookie server-side
-(research.md R-001).
+**Expected**: no content data in any response body, including server-rendered markup — the redirect
+happens before markup is generated (research.md R-001). An expired session during navigation returns
+to sign-in rather than leaving stale content on screen. Sign-out succeeds rather than deadlocking.
 
 ### V2 — Capture an idea in under 15 seconds
 
@@ -93,15 +96,22 @@ the colour version looks.
 
 ### V4 — The whole journey, without a single drag
 
-**Proves**: FR-014a, FR-015a, FR-015b, SC-011, US3 scenario 7
+**Proves**: FR-006a, FR-014a, FR-015a, FR-015b, SC-002, SC-011, SC-012, US3 scenario 7
 
-1. Using taps only, take a backlog item to a calendar day, then to `draft`, then to `posted`, and
+1. Capture an idea with only a title.
+2. Using taps only, open it, **assign a platform**, set a date, advance to `draft`, then `posted`, and
    paste a published link.
-2. Repeat the same journey on a second item using drags only.
+3. Watch the address bar throughout.
+4. Repeat the scheduling step on a second item by dragging it from the backlog drawer onto a day.
 
-**Expected**: identical end state both ways. This is the flow the Playwright test automates — via the
-tap path, because drag automation is the flakiest thing in a browser suite and a flaky merge gate gets
-switched off (research.md R-003).
+**Expected**: the journey completes and the URL never changes (SC-002). Step 2 is the one the first
+draft of this plan made impossible — there was no platform control anywhere, so FR-009 would have
+refused the move to `draft` with no way to resolve it. Dragging and tapping produce the same scheduled
+date. Status has no drag path by design (FR-015a as amended).
+
+The tap path is what Playwright automates; the drag half of SC-011 is validated here by hand, because
+drag automation is the flakiest thing in a browser suite and a flaky merge gate gets switched off
+(research.md R-003).
 
 ### V5 — Invariants hold under abuse
 
@@ -120,11 +130,26 @@ platform and published link.
 
 **Proves**: FR-021, SC-003
 
-1. At 375px, open month view, week view, and backlog with a busy month loaded.
-2. Attempt to scroll the page body horizontally.
+1. At 375px, open month view and week view with a busy month loaded, then the backlog drawer in both
+   its peek and expanded states, then the capture sheet and the item sheet.
+2. Attempt to scroll the page body horizontally in each.
+3. Swipe vertically starting on an item chip in the month grid.
 
 **Expected**: the body does not move. The month grid scrolls inside its own container if it needs to.
-Week view is a vertical list of day sections, not seven columns — see research.md R-004.
+Week view is a vertical list of day sections, not seven columns (research.md R-004). Step 3 scrolls the
+grid — it does **not** pick up the chip and silently reschedule it, which is what an unconstrained
+`PointerSensor` would do (research.md R-003).
+
+### V9 — A week's planning in under a minute
+
+**Proves**: SC-008
+
+1. With five undated ideas in the backlog, open the drawer.
+2. Place all five onto days by dragging up onto the grid. Time it.
+
+**Expected**: under 60 seconds. This is only achievable because the drawer and the grid share one
+surface — as two separate routes it cost a route change, a sheet open, a date pick, and a route change
+back, five times over (research.md R-003a).
 
 ### V7 — Delete cannot happen by accident
 
