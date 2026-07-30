@@ -99,6 +99,23 @@ actions near common gestures.
 contract or generated client that types it as a string renders `[object Object]`. Install an exception
 handler that flattens it if the API promises a uniform `{"detail": "..."}` shape.
 
+**2026-07-30 — FastAPI's `TestClient` warns that `httpx` is deprecated in favour of `httpx2`.** Seen
+on every use: `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated;
+install httpx2 instead`. Harmless today, but `--strict-config` plus any future `filterwarnings = error`
+turns it into a failing suite, and the T017 harness is where that lands. Either add `httpx2` to the dev
+group or leave the warning unfiltered on purpose — do not silence it with a blanket ignore, which would
+also hide real deprecations from FastAPI.
+
+**2026-07-30 — a 401 from `HTTPBearer` is a 403 unless you turn `auto_error` off.** With the default
+`auto_error=True`, a request with no `Authorization` header gets Starlette's own
+`403 {"detail": "Not authenticated"}`, not the 401 the contract declares. `auto_error=False` plus an
+explicit `HTTPException` is what makes every unauthenticated case one 401 with one body.
+
+**2026-07-30 — the Windows console is cp1252, so an em dash in printed output renders as `?`.** Only
+bites strings that reach a terminal — `print` in `app/scripts/`, not docstrings or comments. A correct
+error message that renders as `bcrypt accepts at most 72 ? note that this counts bytes` reads as a
+broken tool. Keep script output ASCII.
+
 **2026-07-30 — a cookie with no `Max-Age` is a session cookie.** Mobile Safari discards it on tab
 eviction, so a 30-day token still produces a weekly login prompt — and it looks like a token bug rather
 than a cookie bug.

@@ -2,15 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-30: Phase 1 complete, Phase 2 in progress — T001–T012 of 76
+## Status as of 2026-07-30: Phase 1 complete, Phase 2 in progress — T001–T016 of 76
 
 On `main`, clean tree, 24 backend tests passing. Stage 1 planning is done and reviewed, the specs are
-on `main`, both projects are scaffolded and green, and the backend now has config, the DB session,
-the schema, a migration applied to a live Postgres, and the auth primitives.
+on `main`, both projects are scaffolded and green, and **the backend is now a running application**:
+config, DB session, schema, a migration applied to a live Postgres, the auth primitives, the auth
+boundary, both auth endpoints, the seed script, and `main.py`. `docker compose up backend` serves
+`GET /health`.
 
-The next task is **T013**. Phase 2 has **9 of 21 tasks left**: T013–T016 finish the backend
-foundation, T017–T020 the test harness, T021–T028 the frontend foundation. Nothing in Phase 3–7 may
-start until Phase 2 is complete.
+The next task is **T017**. Phase 2 has **5 of 21 tasks left**: T017–T020 the test harness and its
+first tests, T021–T028 the frontend foundation. Nothing in Phase 3–7 may start until Phase 2 is
+complete.
+
+**The backend has no automated coverage of T013–T016 yet.** It was verified by a throwaway script
+(32 checks, all passing) because the pytest harness does not exist until T017. Writing T018–T020 is
+what converts that into a suite — do not treat those tasks as re-testing something already tested.
 
 **No frontend feature code exists yet** — `frontend/app/page.tsx` is still the create-next-app
 placeholder.
@@ -23,12 +29,12 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | Part | State |
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
-| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T012 ticked**), `checklists/requirements.md` (16/16). |
-| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`. **No `main.py`, no `api/`, no `scripts/` yet** — T014–T016. |
-| `backend/alembic/` | One revision, `9483af05dd5b`, **applied to the live database**. `alembic check` clean. |
-| `backend/tests/` | `test_placeholder.py` (delete at T017), `test_config.py`, `test_auth_core.py`. 24 passing. No database fixture yet — T017. |
+| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T016 ticked**), `checklists/requirements.md` (16/16). |
+| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
+| `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
+| `backend/tests/` | `test_placeholder.py` (delete at T017), `test_config.py`, `test_auth_core.py`. 24 passing. No database fixture yet, and **no HTTP-level test at all** — T017 then T018–T020. |
 | `frontend/` | Scaffolded only. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's; `lib/` has only `utils.ts`. |
-| `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` service **verified**: Postgres 17.10 healthy, `creatorhub_test` created by the init script. `backend` and `frontend` services not yet runnable — they need T016 and T026. |
+| `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `frontend` still not runnable — it needs T026. |
 | `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/`, `docs/` | Do not exist. Correct — stage 2 and T076 create them. |
@@ -73,9 +79,9 @@ over `psycopg` on 5432.
 commands need `app.main:app` (T016) and a real `frontend/app/page.tsx` (T026). Re-check at the
 Phase 2 checkpoint.
 
-### What this session also did (Phase 2, T008–T012)
+### What this session also did (Phase 2, T008–T016)
 
-Backend foundation, one branch per task, same `--no-ff` flow.
+Backend foundation, one branch per task, same `--no-ff` flow. It is now complete.
 
 - **T008** `app/config.py` — pydantic-settings, `get_settings()` cached. Tests cover the refusals.
 - **T009** `app/db.py` — lazy engine, `SessionDep`, the single seam T017 overrides.
@@ -83,6 +89,28 @@ Backend foundation, one branch per task, same `--no-ff` flow.
 - **T011** `alembic/versions/20260730_9483af05dd5b_*.py` — applied, round-tripped, `alembic check`
   clean.
 - **T012** `app/auth.py` — hash/verify, issue/decode, `is_past_half_life`.
+- **T013** `app/auth.py` — `current_creator` + `CurrentCreator`, attaching `X-Access-Token` past
+  half-life. Also `presented_token`, the lenient dependency **only logout may use**.
+- **T014** `app/api/auth.py` — login and logout, `normalise_email`, a timing equaliser so an unknown
+  email costs the same as a wrong password.
+- **T015** `app/scripts/seed_user.py` — creates the one account, updates its password on re-run,
+  refuses a second address.
+- **T016** `app/main.py` — the `RequestValidationError` flattener, CORS, `GET /health`.
+
+**Verified against `creatorhub_test`** with a throwaway script: 32 checks, all passing — the flattened
+error shape (including through the real uvicorn server, not just `TestClient`), login and its 401
+paths, all five `current_creator` refusals, sliding reissue in both directions including that a
+reissued token works and does not immediately re-reissue, and logout from valid, expired, garbage,
+and absent credentials. The generated `openapi.json` was checked for 422 shape and `format: email`
+rather than assumed to match the contract.
+
+**Three things this batch learned**, all recorded as traps in `.claude/memory.md`:
+
+1. `HTTPBearer` with the default `auto_error=True` returns **403**, not the contract's 401.
+2. FastAPI's `TestClient` warns that `httpx` is deprecated in favour of `httpx2` — harmless now,
+   a failing suite the day T017 adds `filterwarnings = error`.
+3. The Windows console is cp1252, so an em dash in a script's printed output becomes `?`. Script
+   output stays ASCII.
 
 **Verified against the live database**: schema matches data-model.md column for column — named
 `platform` and `status` enum types, `TIMESTAMPTZ`, `DATE`, identity PKs, the three indexes. Both
@@ -143,31 +171,40 @@ future session does not re-litigate:
 | CHECKs and the partial index declared in **both** the model and the migration | Not duplication for its own sake. Alembic compares indexes: with the index only in the migration, `alembic check` reports drift and the next autogenerated revision drops it. |
 | bcrypt's 72-byte limit handled at the boundary, in bytes | `hash_password` raises; `verify_password` returns `False`, because at login an over-long password is just a wrong one and a distinct error leaks the credential's shape. Counted in UTF-8 bytes — a 24-character emoji password is 96 bytes. |
 | One `InvalidTokenError` for absent, malformed, expired, and wrong-key | The API says 401 and nothing more. Distinguishing them tells an attacker which half of the problem to work on. |
+| `presented_token` exists alongside `current_creator`, and **only logout uses it** | The contract declares 401 on `/auth/logout` while T014 requires sign-out to survive an expired token. Reconciled by requiring a credential to *exist* without requiring it to be *valid*: 401 for no credential, 204 for any credential. A second caller of this dependency would be a security bug, not reuse. |
+| Login verifies an unknown email against a throwaway hash before refusing | Otherwise an unknown email returns in microseconds and a known one costs a full bcrypt verification, and the timing answers exactly the question the shared 401 message refuses to. |
+| Seed credentials live in their own `BaseSettings`, not `app.config.Settings` | Required there, the API refuses to boot on every deployment after the first. Optional there, every API process holds the plaintext password in memory. Still a settings model rather than `os.environ`, because the credentials live in `.env` and a bare environ read would not see them unless exported. |
+| Re-running the seed script updates the password; a *different* email is refused | This is v0.1's only password recovery — the alternative is a reset endpoint the tech defaults forbid. A second account is refused because `content_item` has no owner column (INV-4), so two creators would silently share every item. |
+| The 422 response model is declared on the `FastAPI()` constructor, not just in the handler | The handler alone fixes the runtime body while the *generated* schema still advertises FastAPI's array-shaped `HTTPValidationError` — so a client generated from the generated document would still be wrong. Verified in `openapi.json`. |
+| `GET /health` does not touch the database | Render recycles an instance whose probe fails. A probe that queries Postgres turns a momentary database blip into an outage. |
 
 ### Next session starts here
 
 1. **Start Docker Desktop, then `docker compose up -d db`.** Postgres is verified working, but the
    daemon does not survive a reboot, and T017 fails confusingly without it. Then
-   `cd backend && uv run alembic upgrade head` if the volume was recreated.
-2. **Continue at T013** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
+   `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
+   been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
+2. **Continue at T017** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
 
    | Tasks | What |
    |---|---|
-   | T013–T016 | `current_creator` dependency, `/auth/login` + `/auth/logout`, seed script, `main.py` |
    | T017–T020 | pytest harness, then the auth / schema / error-shape tests |
    | T021–T028 | proxy allowlist, the proxy itself, API client, login page, root redirect, session guard, `lib/dates.ts` |
 
-3. **T013 is the one that is easy to under-build.** It must attach `X-Access-Token` when the
-   presented token is past half-life. `app.auth.is_past_half_life` already exists and is tested; the
-   dependency just has to use it and set the header. Without it, sliding reissue has no transport
-   and every session dies on day 30 — this was one of the six blockers the reviewer pass caught.
-4. **T016 needs the `RequestValidationError` handler** that flattens FastAPI's array-shaped `detail`
-   into the single string `contracts/openapi.yaml` declares. Without it the contract is a lie and
-   the generated client renders `[object Object]`.
-5. **T017 must point at `TEST_DATABASE_URL`, never `DATABASE_URL`.** `creatorhub_test` already
-   exists. The variable is in `.env.example` and in the local `.env`; `app/config.py` does *not*
-   read it yet, because nothing outside the harness should be able to reach the test database.
-6. **Do not "tidy" `backend/pyproject.toml` back to passlib.** The comment there records why.
+3. **T017 must point at `TEST_DATABASE_URL`, never `DATABASE_URL`.** `creatorhub_test` already
+   exists and already has the schema. The variable is in `.env.example` and in the local `.env`;
+   `app/config.py` does *not* read it, because nothing outside the harness should be able to reach
+   the test database. Override `app.db.get_session` — that is the one seam, and it is the reason
+   `db.py` looks the way it does.
+4. **T018 has a ready-made specification.** The throwaway verification script from T016 lists 32
+   assertions in the order they matter, including the four that are easy to forget: a fresh token
+   must get **no** `X-Access-Token`, a past-half-life token must get one, the reissued token must
+   itself work, and logout must return 204 for an expired token but 401 for no token at all.
+5. **`app.auth.presented_token` must stay logout-only.** It requires a credential to exist without
+   checking it. Any other endpoint depending on it is unauthenticated by accident.
+6. **Do not "tidy" `backend/pyproject.toml` back to passlib.** The comment there records why. The
+   `pydantic[email]` entry is also load-bearing: without email-validator the login field cannot
+   declare `format: email` and the generated schema stops matching the contract.
 7. Read the **Post-review revisions** table at the bottom of `tasks.md` before touching Phase 3+:
    three tasks exist for non-obvious reasons and look droppable if you have not read it.
 8. **Stage 3 (Load)** whenever the GitLab account is ready: create the private project, protect
@@ -184,6 +221,7 @@ future session does not re-litigate:
 
 ```bash
 docker compose up -d db                     # Postgres + creatorhub_test
+docker compose up -d backend                # serves /health; first start ~70s while uv sync runs
 
 cd backend
 uv sync
@@ -192,14 +230,16 @@ uv run alembic check                        # must say "No new upgrade operation
 uv run pytest                               # 24 passing
 uv run ruff check . && uv run ruff format --check . && uv run mypy .
 
+uv run uvicorn app.main:app --reload        # http://localhost:8000/docs
+uv run python -m app.scripts.seed_user      # needs SEED_CREATOR_EMAIL and SEED_CREATOR_PASSWORD
+
 cd frontend
 pnpm install
 pnpm build && pnpm typecheck && pnpm lint
 pnpm exec playwright test                   # 1 passing at 375x667
 ```
 
-Not real yet: `uv run uvicorn app.main:app` (T016), `uv run python -m app.scripts.seed_user` (T015),
-`pnpm dev` as anything but the scaffold (T026).
+Not real yet: `pnpm dev` as anything but the scaffold (T026), and `docker compose up frontend`.
 
 ## What this is
 

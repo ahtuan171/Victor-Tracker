@@ -72,11 +72,12 @@ There is **one content route**, `/calendar`. The backlog is a drawer on it, not 
 | `pnpm lint` | ✅ clean; the `new Date` ban verified firing |
 | `pnpm exec playwright test` | ✅ 1 passed at 375×667 |
 | `docker compose up -d db` | ✅ Postgres 17.10 healthy; `scripts/init-test-db.sql` created `creatorhub_test`; both databases reachable from the host over `psycopg` on 5432 |
-| `docker compose up backend` / `frontend` | ⚠️ **not run, and not runnable yet.** The commands need `app.main:app` (T016) and a real `frontend/app/page.tsx` (T026). Re-check at the Phase 2 checkpoint. |
+| `docker compose up backend` | ✅ **closed at T016.** Boots and serves `GET /health`; first start takes ~70s while `uv sync` runs inside the container. |
+| `docker compose up frontend` | ⚠️ **still not runnable.** Needs a real `frontend/app/page.tsx` (T026). Re-check at the Phase 2 checkpoint. |
 
-"Both apps start" is only true in the sense that the toolchains work. `backend/app/` is
-empty — there is no `app.main:app` to serve until T016 — and `frontend/app/page.tsx` is
-still the create-next-app placeholder until T026.
+At the time this checkpoint was reached, "both apps start" was only true in the sense that the
+toolchains worked: `backend/app/` had no `app.main:app` to serve, and `frontend/app/page.tsx` is
+still the create-next-app placeholder until T026. The backend half is now genuinely true.
 
 ---
 
@@ -96,10 +97,29 @@ wait for the story that needs it has been moved there.
 - [x] T010 Define `Creator`, `ContentItem`, and the `Status` and `Platform` enums in `backend/app/models.py`, exactly matching the column table in [data-model.md](./data-model.md) — no owner column, no version column
 - [x] T011 Initialise Alembic and generate the first migration under `backend/alembic/versions/`, adding the INV-1 and INV-2 `CHECK` constraints and the three indexes from data-model.md by hand, and writing the enum `CREATE TYPE`/`DROP TYPE` explicitly since autogenerate handles them asymmetrically on downgrade
 - [x] T012 Implement password verification and token issue/decode in `backend/app/auth.py`, with a 30-day lifetime
-- [ ] T013 Implement the `current_creator` dependency in `backend/app/auth.py`, attaching an `X-Access-Token` response header when the presented token is past half-life (research.md R-002 — without this header sliding reissue has no transport)
-- [ ] T014 Implement `POST /auth/login` and `POST /auth/logout` in `backend/app/api/auth.py`, with logout succeeding even when the presented token is already expired so sign-out cannot deadlock
-- [ ] T015 [P] Write the single-account seed script in `backend/app/scripts/seed_user.py`, reading credentials from the environment
-- [ ] T016 Install a `RequestValidationError` handler in `backend/app/main.py` that flattens FastAPI's array-shaped `detail` into the single string the contract declares, then assemble the app — router registration, CORS restricted to the frontend origin, and a public `GET /health`
+- [x] T013 Implement the `current_creator` dependency in `backend/app/auth.py`, attaching an `X-Access-Token` response header when the presented token is past half-life (research.md R-002 — without this header sliding reissue has no transport)
+- [x] T014 Implement `POST /auth/login` and `POST /auth/logout` in `backend/app/api/auth.py`, with logout succeeding even when the presented token is already expired so sign-out cannot deadlock
+- [x] T015 [P] Write the single-account seed script in `backend/app/scripts/seed_user.py`, reading credentials from the environment
+- [x] T016 Install a `RequestValidationError` handler in `backend/app/main.py` that flattens FastAPI's array-shaped `detail` into the single string the contract declares, then assemble the app — router registration, CORS restricted to the frontend origin, and a public `GET /health`
+
+**Backend foundation result (2026-07-30)**: complete. Verified against `creatorhub_test` with a
+throwaway script — 32 checks, all passing — covering the flattened error shape, login and its 401
+paths, all five `current_creator` refusals, sliding reissue in both directions, and logout from
+valid, expired, garbage, and absent credentials. `docker compose up backend` now boots and serves
+`/health`, which closes the one Phase 1 checkpoint gate that could not be checked.
+
+Two decisions taken here that the task text does not imply:
+
+- **`/auth/logout` returns 401 only when no credential is presented at all.** The contract lists 401
+  on that path while T014 requires logout to work from an expired session, so the two read as if they
+  disagree. They are reconciled by a second, deliberately lenient dependency — `presented_token` —
+  which requires a credential to *exist* without requiring it to still be *valid*. Logout is the only
+  caller and must stay the only caller.
+- **Seed credentials are read through their own `BaseSettings`, not `app.config.Settings`.** Required
+  there, the API would refuse to boot on every deployment after the first; optional there, every API
+  process would hold the account's plaintext password in memory. Re-running the script against the
+  seeded address updates the password, which is v0.1's only recovery path — there is no reset
+  endpoint and there will not be one.
 
 ### Backend test harness
 
