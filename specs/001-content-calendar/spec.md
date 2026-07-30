@@ -1,0 +1,203 @@
+# Feature Specification: Content Calendar
+
+**Feature Branch**: `001-content-calendar`
+
+**Created**: 2026-07-30
+
+**Status**: Draft
+
+**Input**: User description: "Build a content calendar for a single content creator who publishes to TikTok, Instagram, and YouTube. They need to capture content ideas instantly on their phone with just a title, then later assign each idea a platform and a scheduled date, and move it through a pipeline of idea → draft → posted. Ideas without a date sit in a backlog; dated items appear on a calendar they can view by month or by week and navigate between periods. They can change an item's date and status directly from the calendar without opening a form, filter the calendar to one platform before a filming batch, and record a link to the live post once something publishes. Everything is behind a login — content plans are private. No social platform integrations, no media uploads, no reminders, and no collaboration in this iteration; the published link is pasted by hand. Success means capturing an idea takes under 15 seconds on a phone, and an item can go from idea to posted without ever leaving the calendar and backlog views."
+
+## Problem
+
+A creator publishing to TikTok, Instagram, and YouTube tracks upcoming content across notes apps, messages to themselves, and memory. Ideas get lost, posting cadence is uneven, and there is no single place to see what is in flight versus what has shipped. The cost is not only disorganization: gaps in posting cadence reduce reach.
+
+## Who This Serves
+
+A single creator managing their own content. Not a team and not an agency. There is no reviewer, approver, or collaborator role in this iteration.
+
+## Clarifications
+
+### Session 2026-07-30
+
+- **Q: Can one item target several platforms at once?** → **A: No — at most one platform per item.** Content going to two destinations becomes two items, so each can carry its own scheduled date and its own published link; those rarely coincide in practice. Encoded as FR-010a. Widening this later is an additive change; narrowing it would have required a data migration.
+- **Q: Does `draft` mean "made and awaiting publication" or "actively being worked on"?** → **A: Made and awaiting publication.** Work in progress stays an `idea`. The pipeline keeps exactly three states, which is the number that stays legible in a phone-width calendar cell given FR-017's non-colour-alone requirement. Encoded as FR-007.
+- **Q: Does a scheduled date need a time of day?** → **A: No — calendar day only.** No timezone or DST handling enters this iteration, the week view stays a list rather than a time grid, and drag-to-schedule stays a single gesture. Since publication is manual in v0.1, a stored time would have been advisory only. Encoded as FR-012a.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Capture an idea before it evaporates (Priority: P1)
+
+Mid-conversation the creator thinks of a video concept. They open the app on their phone, type a title, and are done. No date, platform, or further detail is required. The idea lands in a backlog they can return to later.
+
+**Why this priority**: This is the moment the product either earns its place or loses to a notes app. Any required field beyond a title is enough friction to send the creator elsewhere. Shipped alone, this is already a usable capture inbox — a viable MVP slice.
+
+**Independent Test**: Sign in on a phone-width screen, capture three ideas with titles only, and confirm all three appear in the backlog after reload. Delivers value without any calendar view existing.
+
+**Acceptance Scenarios**:
+
+1. **Given** a signed-in creator on the app's landing screen, **When** they enter only a title and confirm, **Then** the item is saved with status `idea`, no platform, and no scheduled date, and appears in the backlog.
+2. **Given** a creator capturing an idea, **When** they leave the title empty and try to save, **Then** the item is not created and they are told a title is required.
+3. **Given** an item with no scheduled date, **When** the creator views the calendar grid, **Then** that item does not occupy any calendar cell and remains in the backlog.
+4. **Given** a captured idea, **When** the creator opens it later, **Then** they can add or change its hook, platform, scheduled date, and status.
+
+---
+
+### User Story 2 - See the plan at a glance (Priority: P2)
+
+The creator opens the app before filming and wants to know what is coming and what state each piece is in — without opening anything. They switch between a month overview and a week view and move to adjacent periods.
+
+**Why this priority**: The status pipeline view is this module's single core capability. Capture without visibility is just a list; visibility is what replaces the scattered notes.
+
+**Independent Test**: With a mix of items across statuses, platforms, and dates, open month and week views at phone width and confirm each item's status and platform are identifiable without opening it and without horizontal page scrolling.
+
+**Acceptance Scenarios**:
+
+1. **Given** items scheduled across two months, **When** the creator navigates to the next or previous period, **Then** the view shows that period's items and indicates which period is displayed.
+2. **Given** a calendar containing items in `idea`, `draft`, and `posted`, **When** the creator looks at the grid without opening any item, **Then** each item's status is distinguishable by a cue that is not colour alone.
+3. **Given** a phone-width screen of 375px, **When** the creator views the month view, **Then** the page body does not scroll horizontally; any wide grid scrolls within its own container.
+4. **Given** items both with and without scheduled dates, **When** the creator views the app, **Then** dated items appear on the calendar grid and undated items appear in a backlog list, and no item appears in both.
+
+---
+
+### User Story 3 - Advance an item without leaving the calendar (Priority: P3)
+
+The creator plans their week by moving ideas from the backlog onto empty days, and marks things as drafted or posted as work progresses — all from the calendar and backlog views, never through a separate page.
+
+**Why this priority**: Planning happens in bursts of a few seconds between other tasks. Opening a form per change makes weekly planning a chore that gets skipped, which is exactly how cadence decays.
+
+**Independent Test**: Take an undated `idea`, give it a date and a platform, advance it to `draft` and then `posted`, and reverse one step — counting zero navigations to a separate detail page.
+
+**Acceptance Scenarios**:
+
+1. **Given** an undated item in the backlog, **When** the creator places it on a calendar day, **Then** its scheduled date is set to that day and it leaves the backlog.
+2. **Given** a dated item, **When** the creator moves it to a different day, **Then** its scheduled date updates and the change survives a reload.
+3. **Given** an item in `idea` with a platform set, **When** the creator advances its status from the calendar, **Then** it becomes `draft` and its visual cue updates immediately.
+4. **Given** an item in `posted`, **When** the creator moves it back to `draft`, **Then** the change is accepted — the pipeline is reversible.
+5. **Given** an item in `idea` with no platform, **When** the creator tries to advance it past `idea`, **Then** the change is refused and they are told a platform is required first.
+6. **Given** any item, **When** the creator deletes it, **Then** an explicit confirmation is required and deletion is not reachable by a single tap or by a common navigation gesture.
+
+---
+
+### User Story 4 - Focus on one platform (Priority: P4)
+
+Before a batch of TikTok filming, the creator narrows the calendar to TikTok and sees only those items.
+
+**Why this priority**: Useful but not load-bearing — the creator can read platform cues from the unfiltered view. It becomes valuable as volume grows.
+
+**Independent Test**: With items across all three platforms, filter to each in turn and confirm only matching items are visible, then clear the filter and confirm all return.
+
+**Acceptance Scenarios**:
+
+1. **Given** items on all three platforms, **When** the creator filters to one platform, **Then** only items targeting that platform are visible in the calendar and backlog.
+2. **Given** an active platform filter, **When** the creator clears it, **Then** all items become visible again.
+3. **Given** an active filter, **When** it is applied or cleared, **Then** the visible items update without the page reloading from scratch.
+4. **Given** items with no platform assigned, **When** a platform filter is active, **Then** those items are hidden, and the creator can still reach them by clearing the filter.
+
+---
+
+### User Story 5 - Close the loop after posting (Priority: P5)
+
+After publishing, the creator marks the item `posted` and pastes the link to the live post, so the calendar reflects what actually happened rather than what was intended.
+
+**Why this priority**: This is what turns the calendar into a record instead of a wish list, but it delivers value only once items are regularly reaching `posted`.
+
+**Independent Test**: Move an item to `posted`, paste a link, reload, and confirm the link persists and is reachable from the calendar view.
+
+**Acceptance Scenarios**:
+
+1. **Given** an item being moved to `posted`, **When** the creator supplies a link to the published post, **Then** the link is stored with the item and visible from the calendar.
+2. **Given** an item in `posted` without a link, **When** the creator views it, **Then** the item is valid — the link is optional.
+3. **Given** a stored published link, **When** the creator opens it, **Then** it opens the live post outside the app.
+
+---
+
+### Edge Cases
+
+- **Empty title on save** — rejected with a message; nothing is created (US1 scenario 2).
+- **Advancing past `idea` with no platform** — refused, with the missing requirement named (US3 scenario 5).
+- **Scheduled date in the past while status is still `idea` or `draft`** — the item is surfaced as overdue rather than left silent, since an uneven cadence is the problem the product exists to solve.
+- **Many items on one calendar day at phone width** — the day cell shows a bounded number of items plus a count of the remainder, and the remainder is reachable; the page body still does not scroll horizontally.
+- **Malformed published link** — the creator is told the link does not look valid; the item's status change is not lost as a result.
+- **Session expires mid-edit** — the creator is returned to sign-in and no content data remains visible.
+- **Deleting the item currently being dragged or edited** — confirmation is still required, and the view recovers without leaving a phantom item on the grid.
+- **All items filtered out** — the view shows an explicit empty state naming the active filter, not a blank screen.
+
+## Requirements *(mandatory)*
+
+### Foundational Requirements
+
+These gate every user story above; no story is complete without them.
+
+- **FR-001**: The system MUST require authentication before any content data is returned or displayed.
+- **FR-002**: An unauthenticated visitor navigating directly to any calendar, backlog, or item address MUST see no content data.
+- **FR-003**: The system MUST serve exactly one creator account in this iteration, with no roles, sharing, invitations, or ownership concepts.
+
+### Functional Requirements
+
+- **FR-004**: The creator MUST be able to create, view, edit, and delete a content item.
+- **FR-005**: A content item MUST have a title, and the title MUST be the only field required to create it.
+- **FR-006**: A content item MUST be able to carry a hook or short description, a target platform, a scheduled date, a status, and a link to the published post; all of these except status MUST be optional at creation.
+- **FR-007**: An item's status MUST be one of `idea`, `draft`, or `posted`, and MUST default to `idea` on creation. `draft` means the content has been made and is awaiting publication; work still in progress is represented by the item remaining an `idea`. The pipeline has exactly three states in this iteration.
+- **FR-008**: Status MUST be able to move both forward and backward through the pipeline.
+- **FR-009**: The system MUST refuse to move an item past `idea` unless a target platform is set.
+- **FR-010**: A target platform MUST be one of TikTok, Instagram, or YouTube — a fixed set that the creator cannot edit in this iteration.
+- **FR-010a**: An item MUST target at most one platform. Content intended for more than one destination is represented as one item per destination, each carrying its own scheduled date and its own published link.
+- **FR-011**: Items without a scheduled date MUST appear in a backlog list and MUST NOT occupy a cell in the calendar grid.
+- **FR-012**: Items with a scheduled date MUST appear on the calendar grid on that date.
+- **FR-012a**: A scheduled date MUST be a calendar day with no time of day. The system MUST NOT ask for, store, or display a posting time in this iteration.
+- **FR-013**: The calendar MUST be viewable by month and by week, and the creator MUST be able to navigate to adjacent periods in both.
+- **FR-014**: The creator MUST be able to change an item's scheduled date from the calendar and backlog views without opening a separate detail page.
+- **FR-015**: The creator MUST be able to change an item's status from the calendar and backlog views without opening a separate detail page.
+- **FR-016**: The calendar and backlog MUST be filterable to a single platform, or show all platforms.
+- **FR-017**: Every item's status MUST be distinguishable at a glance in both calendar and backlog views, without opening the item and without relying on colour as the only cue.
+- **FR-018**: Every item's target platform MUST be identifiable in calendar and backlog views without opening the item.
+- **FR-019**: An item in `posted` MUST be able to carry a link to the published post, entered by hand.
+- **FR-020**: Deleting an item MUST require an explicit confirmation and MUST NOT be reachable by a single tap or by a gesture used for common navigation.
+- **FR-021**: Every screen MUST be fully usable at 375px width, and the page body MUST NOT scroll horizontally at that width; wide content MUST scroll inside its own container.
+- **FR-022**: Actions the creator performs frequently — capture, status change, date change — MUST be reachable within thumb reach on a phone rather than only from a top corner.
+- **FR-023**: Changes made to an item MUST persist across sessions and reloads.
+
+### Key Entities
+
+- **Content item** — a single planned or published piece of content aimed at one destination. Carries its title, hook, at most one target platform, a scheduled calendar day, a status, and a published link. Has no owner concept in this iteration.
+- **Platform** — one of TikTok, Instagram, or YouTube. A fixed, non-editable set; not a record the creator manages. An item holds at most one.
+- **Status** — one of `idea`, `draft`, `posted`. An ordered but reversible three-state pipeline; the ordering is what the calendar visualises.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: From the app's landing screen on a phone, a creator can capture a new idea with only a title in under 15 seconds and in no more than 3 interactions.
+- **SC-002**: A creator can take an item from `idea` to `posted` — including setting a date and a platform — with zero navigations to a separate detail page.
+- **SC-003**: At 375px width, month view, week view, and backlog are all fully usable and the page body never scrolls horizontally.
+- **SC-004**: A viewer who cannot distinguish red from green can still identify every item's status correctly from the calendar view alone.
+- **SC-005**: Applying or clearing a platform filter updates the visible items in under 1 second without a full page reload.
+- **SC-006**: A signed-out visitor requesting any calendar, backlog, or item address directly receives no content data — verified for every such address.
+- **SC-007**: No item can be deleted without an explicit confirmation step; a single accidental tap deletes nothing.
+- **SC-008**: A week's worth of planning — placing 5 undated ideas onto days — takes under 60 seconds on a phone.
+- **SC-009**: After a reload, every date, status, platform, and link change made in the previous session is still present.
+
+## Assumptions
+
+Reasonable defaults chosen where the feature description was silent. Each is a decision that can be revisited in a later iteration.
+
+- **Backlog ordering** — the backlog is ordered by creation time, newest first. Manual drag-to-reorder by priority is not included; if the creator finds themselves wanting it, that is input for the next iteration.
+- **Overdue items** — a scheduled date that has passed while the item is still `idea` or `draft` is surfaced as overdue with its own visual treatment. Hiding it silently was rejected: the problem statement names cadence gaps as the cost being addressed.
+- **Single account provisioning** — the one creator account is created out-of-band rather than through a sign-up flow in the app. No registration, password reset, or email verification is in scope.
+- **Published link handling** — the link is a plain address the creator pastes. The system does not fetch, validate against the platform, unfurl, or scrape it.
+- **Platform is optional until it matters** — an item can sit in `idea` indefinitely with no platform, since forcing the choice at capture time is exactly the friction FR-005 exists to remove.
+- **Connectivity** — the creator is online when using the app. Offline capture and later synchronisation are not in scope.
+- **Volume** — a single creator's planning horizon, on the order of hundreds of items rather than tens of thousands. Behaviour at large scale is not a design driver for this iteration.
+- **Timekeeping** — dates are interpreted in the creator's own local context; there is a single creator and no cross-timezone coordination to reconcile.
+
+## Out of Scope for This Iteration
+
+Named explicitly because each is an attractive thing to add mid-build.
+
+- Any integration with TikTok, Instagram, or YouTube — follower counts, real post metrics, scheduled auto-publishing. The published link in FR-019 is pasted by hand.
+- Media file upload or storage. Items reference content; they do not contain it.
+- Recurring or templated content series.
+- Notifications, reminders, and any form of push or email.
+- Multiple users, sharing, collaboration, roles, or approval flows.
+- The other three CreatorHub modules — Growth Tracker, Media Kit Generator, Deal/Collab Tracker. No field, address, or screen in this iteration may exist to serve them.

@@ -39,3 +39,18 @@ pasted by hand. Picking this up means OAuth flows and rate-limit handling, so it
 
 **Multi-user.** Constitution principle VII: no speculative `user_id` columns. This becomes a real
 migration when a real second user exists.
+
+**2026-07-30 — Multi-platform items.** One item targets at most one platform (spec FR-010a). A video
+cut for both TikTok and Reels is two items today. Pick this up if the creator reports duplicate-entry
+fatigue; widening one-to-at-most-one into a set is additive, which is why this direction was chosen.
+Doing so also splits the published link into one per platform.
+
+**2026-07-30 — A fourth pipeline state.** `draft` currently means "made, awaiting publication"; work
+in progress stays an `idea` (spec FR-007). Three states was chosen because that is how many stay
+legible in a 375px calendar cell with a non-colour cue each. Trigger for revisiting: the creator
+cannot tell which ideas are actually being filmed. Costs a fourth distinguishable visual cue.
+
+**2026-07-30 — Time-of-day scheduling.** Scheduled dates are calendar days only (spec FR-012a).
+Deferred because it drags in timezone and DST handling, turns the week view into a time grid, and
+makes drag-to-schedule a two-part gesture. It is advisory-only until something auto-publishes, so it
+naturally belongs with the social platform APIs item above.
