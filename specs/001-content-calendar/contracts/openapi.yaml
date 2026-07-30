@@ -1,0 +1,421 @@
+openapi: 3.1.0
+
+info:
+  title: CreatorHub — Content Calendar API
+  version: 0.1.0
+  description: |
+    Eight operations across five paths. Two are public — health and login — and the other six require
+    a token.
+
+    The count is a constitution principle III check, not a coincidence: this module ships CRUD plus
+    one capability (the status pipeline view), and the pipeline view needs no endpoint of its own
+    because it is a rendering of the list response. If an operation appears here that is not CRUD or
+    auth, that is scope drift.
+
+    Auth is a bearer token. The browser never holds it — the Next.js proxy attaches it server-side
+    from an httpOnly cookie (see research.md R-001), which is why this contract shows a plain
+    bearer scheme with no cookie handling.
+
+servers:
+  - url: http://localhost:8000
+    description: Local docker-compose
+  - url: https://creatorhub-api.onrender.com
+    description: Production
+
+tags:
+  - name: auth
+  - name: content-items
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [auth]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for an access token
+      description: |
+        The only public content-bearing endpoint. There is deliberately no register, refresh, or
+        password-reset counterpart — see .claude/rules/tech-defaults.md.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 1
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_at]
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                    const: bearer
+                  expires_at:
+                    type: string
+                    format: date-time
+                    description: |
+                      Roughly 30 days out (FR-002a). Reissued with a fresh window on any
+                      authenticated request made past the halfway point.
+        "401":
+          $ref: "#/components/responses/InvalidCredentials"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End the session
+      description: |
+        Stateless tokens cannot be revoked server-side without a denylist, which v0.1 does not have.
+        This endpoint exists so the proxy has something to call while it clears the cookie — the
+        meaningful effect is cookie removal on the Vercel origin.
+      responses:
+        "204":
+          description: Session ended
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  /content-items:
+    get:
+      tags: [content-items]
+      summary: List content items
+      description: |
+        Returns every field needed to render a status cue and a platform cue, so the calendar never
+        makes a follow-up request per item (FR-017, FR-018).
+
+        Calendar reads pass a date range; the backlog read passes scheduled=none.
+      parameters:
+        - name: scheduled
+          in: query
+          description: |
+            `none` returns only undated items — the backlog (FR-011). `any` returns only dated
+            items. Omitted returns both.
+          schema:
+            type: string
+            enum: [none, any]
+        - name: date_from
+          in: query
+          description: Inclusive lower bound on scheduled_date (FR-013).
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          description: Inclusive upper bound on scheduled_date (FR-013).
+          schema:
+            type: string
+            format: date
+        - name: platform
+          in: query
+          description: |
+            Restrict to one platform (FR-016). Items with no platform are excluded when this is
+            set — matching the spec's US4 scenario 4.
+          schema:
+            $ref: "#/components/schemas/Platform"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/Status"
+      responses:
+        "200":
+          description: Matching items, newest-created first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContentItem"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+    post:
+      tags: [content-items]
+      summary: Create a content item
+      description: Title is the only required field (FR-005).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentItemCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentItem"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /content-items/{item_id}:
+    parameters:
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    get:
+      tags: [content-items]
+      summary: Fetch one content item
+      responses:
+        "200":
+          description: The item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentItem"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [content-items]
+      summary: Partially update a content item
+      description: |
+        The single mutation endpoint behind every date and status change. A drag and a tap produce
+        the identical request with one field set (FR-014a, FR-015a) — which is what makes "both
+        paths produce an identical result" true by construction rather than by discipline.
+
+        Omitted fields are untouched. Explicit null clears a field, subject to the invariants:
+        clearing `platform` while status is past `idea` is refused (FR-009a), and `published_url`
+        is never cleared as a side effect of anything (FR-019a).
+
+        Concurrent writes resolve last-write-wins with no version check (FR-023a).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentItem"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            The change would violate an invariant. Two cases, distinguished by `code`:
+            advancing past `idea` with no platform set, or clearing the platform of an item that is
+            already past `idea`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvariantError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [content-items]
+      summary: Delete a content item
+      description: |
+        Hard delete. The confirmation required by FR-020 is a frontend concern — the API does not
+        second-guess a caller that has already confirmed.
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Status:
+      type: string
+      enum: [idea, draft, posted]
+      description: FR-007. Exactly three states; `overdue` is derived at render time, never stored.
+
+    Platform:
+      type: string
+      enum: [tiktok, instagram, youtube]
+      description: FR-010. Closed set, not creator-editable.
+
+    ContentItem:
+      type: object
+      required: [id, title, status, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        hook:
+          type: [string, "null"]
+          maxLength: 500
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/Platform"
+            - type: "null"
+        scheduled_date:
+          type: [string, "null"]
+          format: date
+          description: |
+            Date only, no time and no timezone (FR-012a). Serialised YYYY-MM-DD. Null means the
+            item lives in the backlog (FR-011).
+        status:
+          $ref: "#/components/schemas/Status"
+        published_url:
+          type: [string, "null"]
+          format: uri
+          maxLength: 2048
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ContentItemCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        hook:
+          type: [string, "null"]
+          maxLength: 500
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/Platform"
+            - type: "null"
+        scheduled_date:
+          type: [string, "null"]
+          format: date
+        status:
+          $ref: "#/components/schemas/Status"
+          default: idea
+        published_url:
+          type: [string, "null"]
+          format: uri
+
+    ContentItemUpdate:
+      type: object
+      minProperties: 1
+      description: Every field optional; omitted means untouched, explicit null means clear.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        hook:
+          type: [string, "null"]
+          maxLength: 500
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/Platform"
+            - type: "null"
+        scheduled_date:
+          type: [string, "null"]
+          format: date
+        status:
+          $ref: "#/components/schemas/Status"
+        published_url:
+          type: [string, "null"]
+          format: uri
+
+    InvariantError:
+      type: object
+      required: [code, detail]
+      properties:
+        code:
+          type: string
+          enum: [platform_required, platform_locked]
+          description: |
+            `platform_required` — cannot advance past `idea` without a platform (FR-009).
+            `platform_locked` — cannot clear the platform while past `idea`; move the item back to
+            `idea` first (FR-009a).
+        detail:
+          type: string
+          description: Human-readable message the frontend can surface verbatim.
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+  responses:
+    Unauthenticated:
+      description: |
+        No valid token. Carries no content data of any kind (FR-002, SC-006).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InvalidCredentials:
+      description: Email or password incorrect. The message does not reveal which.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: No such item.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    ValidationError:
+      description: Request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
