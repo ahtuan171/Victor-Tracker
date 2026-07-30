@@ -123,10 +123,34 @@ Two decisions taken here that the task text does not imply:
 
 ### Backend test harness
 
-- [ ] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client
+- [x] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client — the harness creates the schema itself by running `alembic upgrade head`, not `metadata.create_all`, because the CI `test:backend` service container starts empty and no other pipeline step migrates it, and because `create_all` would build the enum types and CHECK constraints from model metadata instead of from the migration that actually runs in production
 - [ ] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
 - [ ] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
 - [ ] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
+
+**T017 result (2026-07-30)**: done. 33 passing; `ruff`, `ruff format`, `mypy --strict`, and
+`alembic check` clean. `tests/test_placeholder.py` deleted as the task requires.
+
+Three things the task text does not imply, each measured rather than assumed:
+
+- **Verified against an empty database, not just a working one.** `drop schema public cascade` on
+  `creatorhub_test`, then `uv run pytest` — green. That is the CI condition the task text now
+  describes, and it is the only way to know the migration step is really wired in.
+- **`join_transaction_mode="create_savepoint"` is load-bearing for a different reason than it looks.**
+  All three modes are safe for the outer rollback. They differ on an *inner* rollback: when an
+  endpoint catches an `IntegrityError` and calls `session.rollback()`, only `create_savepoint` unwinds
+  to the savepoint and leaves the test's own fixture rows intact. Under SQLAlchemy's default and under
+  `rollback_only` the `creator` fixture disappears mid-test. That is exactly the T030 and T046 409
+  path, so the mode had to be right before those tests exist rather than after they fail for a reason
+  that looks like application logic.
+- **The test database is long-lived, so it had leftovers.** `creatorhub_test` still held a `creator`
+  row committed by T016's throwaway verification script, and the symptom was an isolation test failing
+  as though the rollback were broken. The harness now empties both tables once per session, behind a
+  guard that refuses any `TEST_DATABASE_URL` not named `*_test`.
+
+Also settled here: the recorded `starlette.testclient` deprecation is resolved by installing
+**`httpx2`** rather than filtering the warning, which is what made `filterwarnings = ["error"]`
+possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI deprecations too.
 
 ### Frontend foundation
 
@@ -283,7 +307,7 @@ opens the live post.
 - [ ] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md
 - [ ] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then tag v0.1 and write `CHANGELOG.md` (workflow.md stages 6 and 7)
 - [ ] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV)
-- [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording that a reviewer pass caught six blocking design gaps that a coverage-based `/speckit-analyze` did not (workflow.md stage 8)
+- [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
 
 ---
 
