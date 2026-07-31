@@ -103,6 +103,20 @@ that refuses any `TEST_DATABASE_URL` whose name does not end in `_test`. Any har
 persistent database needs both halves — the clean-up *and* the guard, because the clean-up is what makes
 pointing at the wrong database catastrophic.
 
+**A test that asserts an absence passes trivially when it is broken.** `tests/test_schema.py` exists
+to prove `content_item` has no owner column, no foreign key, and no third table beside it — and every
+one of those assertions is green against a schema, against an empty database, and against a typo in
+the table name. Green is not evidence. Before trusting one, make it fail: `ALTER TABLE ... ADD COLUMN
+creator_id` inside a transaction you roll back. That is how T019 was verified, and it is the only
+reason its results mean anything. The same applies to any future `assert not ...` about the schema.
+
+**A forbidden-name pattern list does not know this project's nouns.** T019 was specified as
+`%user%`, `%owner%`, `%tenant%`, `%version%` — generic multi-tenancy vocabulary, none of which
+matches `creator_id`. The owner entity here is `creator`, so the single column this codebase would
+plausibly grow was the one the guard could not see. `data-model.md` INV-4 was amended, and the
+exact-column allowlist alongside it is what makes the guard exhaustive rather than merely plausible.
+Note also that the matches are substrings with no word boundary: `updated_at` contains `date`.
+
 **The Windows console is cp1252, so an em dash in printed output renders as `?`.** Only bites strings
 that reach a terminal — `print` in `app/scripts/`, not docstrings or comments. A correct error message
 that renders as `bcrypt accepts at most 72 ? note that this counts bytes` reads as a broken tool. Keep

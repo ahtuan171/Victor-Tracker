@@ -125,8 +125,31 @@ Two decisions taken here that the task text does not imply:
 
 - [x] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client — the harness creates the schema itself by running `alembic upgrade head`, not `metadata.create_all`, because the CI `test:backend` service container starts empty and no other pipeline step migrates it, and because `create_all` would build the enum types and CHECK constraints from model metadata instead of from the migration that actually runs in production
 - [x] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
-- [ ] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
+- [x] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
 - [ ] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
+
+**T019 result (2026-07-31)**: done. 15 new tests, suite at **75 passing**; `ruff`, `ruff format`,
+`mypy --strict`, and `alembic check` clean.
+
+**This task amended `data-model.md`.** The task text specifies four patterns — `%user%`, `%owner%`,
+`%tenant%`, `%version%` — and none of them match `creator_id`. The owner entity in this schema is
+called `creator`, so the single column this project would plausibly add was the one the guard could
+not see. INV-4 now lists `%creator%` and requires the no-foreign-key assertion it already described
+in prose. Recorded rather than silently widened, per the "when code and spec disagree" rule: the
+enumeration disagreed with its own heading, and the enumeration was wrong.
+
+Two layers, because neither alone is enough. The **pattern tests** (10, parametrized from the
+`Columns deliberately absent` table) name the broken rule and its requirement in the failure message
+but cannot be exhaustive. The **allowlist test** asserts the exact nine-column set and catches an
+owner column under any name at all, but can only say "this should not exist". There are also
+assertions that `content_item` has no foreign key, that the schema holds no third table
+(constitution VII's "organization entities" arrive as tables, not columns), and that `creator` has no
+`role`/`is_admin`/`organization_id`.
+
+**Verified by making it fail**, not by observing green: `ALTER TABLE content_item ADD COLUMN
+creator_id INTEGER REFERENCES creator(id)` plus `CREATE TABLE organization`, inside a transaction
+that was then rolled back. All four guards fired. A test that asserts an absence passes trivially
+when it is broken, so this check is the only evidence the suite means anything.
 
 **T018 result (2026-07-31)**: done. 27 new tests, suite at **60 passing**; `ruff`, `ruff format`,
 `mypy --strict`, and `alembic check` clean.

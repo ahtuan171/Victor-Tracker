@@ -158,6 +158,33 @@ had been verified once by hand and then had their verification script deleted.
 
 ---
 
+## T019 — the schema-absence tests — 2026-07-31
+
+`backend/tests/test_schema.py`, 15 tests, suite at **75 passing**; the whole gate clean.
+
+- **The task's own pattern list had a hole, and the spec was amended rather than the test quietly
+  widened.** T019 specifies `%user%`, `%owner%`, `%tenant%`, `%version%`. None match `creator_id` —
+  and `creator` is what the owner entity is called here, so the one column this project would
+  actually add was invisible to the guard meant to stop it. `data-model.md`'s INV-4 now lists
+  `%creator%` and states the no-foreign-key assertion it previously only implied in prose. The
+  general lesson: a pattern list copied from generic multi-tenancy vocabulary does not know your
+  domain's nouns.
+- **Absence tests pass trivially when broken**, which is the whole difficulty of this task. Green
+  means nothing until you have seen red. Verified by `ALTER TABLE content_item ADD COLUMN creator_id
+  INTEGER REFERENCES creator(id)` and `CREATE TABLE organization` inside a rolled-back transaction:
+  all four guards fired, and the schema was intact afterwards. Do this again for any future test
+  whose assertion is `not X`.
+- **Two layers, deliberately overlapping.** The parametrized pattern tests name the broken rule and
+  its requirement in the failure message; the allowlist test asserts the exact nine columns and
+  catches anything at all. Precise-but-partial plus exhaustive-but-mute. Dropping either leaves a
+  real gap, and they look redundant to anyone who has not read this.
+- **A meta-test guards the matching itself** — running the same filter with `"date"`, which must hit.
+  It also documents that these are substring matches with no word boundaries: `updated_at` contains
+  "date" inside "updated", which is why every one of the ten patterns was checked against the nine
+  real column names before being committed.
+
+---
+
 ## Stage 2 and stage 3 groundwork — 2026-07-30
 
 A check of the standing claim that *"stage 2 (Design) and stage 3 (Load) run in parallel with Phase 2"*.

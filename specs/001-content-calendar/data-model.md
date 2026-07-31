@@ -96,9 +96,15 @@ silently.
 
 **INV-4 — no owner** (FR-003, constitution VII)
 
-Enforced by a test asserting the `content_item` table has no column matching `%user%`, `%owner%`, or
-`%tenant%`. A test rather than a review note, because principle VII is listed in the constitution as a
-recurring offender.
+Enforced by a test asserting the `content_item` table has no column matching `%user%`, `%owner%`,
+`%tenant%`, or **`%creator%`**, and no foreign key at all. A test rather than a review note, because
+principle VII is listed in the constitution as a recurring offender.
+
+`%creator%` was added at T019, when writing the test made the omission obvious: the first three
+patterns are the generic vocabulary of multi-tenancy, but the owner entity in *this* schema is called
+`creator`, so a `creator_id` foreign key — the one column this project would actually add — matched
+none of them. The pattern list is a proxy for the rule; the rule is "no owner", and the accompanying
+allowlist test asserts the exact column set so that an owner column under any name at all fails.
 
 ---
 
