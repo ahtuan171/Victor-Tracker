@@ -29,6 +29,31 @@ interface Recorded {
 const recorded: Recorded[] = [];
 let originalFetch: typeof globalThis.fetch;
 
+/**
+ * A stand-in for `window`, because the runner has none.
+ *
+ * `lib/api.ts` guards on `typeof window === "undefined"` so it is inert on the server, which also
+ * makes the redirect invisible to a test that does nothing. Defining the two members the handler
+ * touches is enough, and far less machinery than a browser would be for asserting one call.
+ */
+interface FakeWindow {
+  readonly location: { pathname: string; replace: (url: string) => void };
+}
+
+const replaced: string[] = [];
+
+function fakeWindowAt(pathname: string): void {
+  const fake: FakeWindow = {
+    location: {
+      pathname,
+      replace: (url) => {
+        replaced.push(url);
+      },
+    },
+  };
+  (globalThis as { window?: unknown }).window = fake;
+}
+
 /** The one call the stub saw. Fails loudly rather than returning undefined into an assertion. */
 function onlyCall(): Recorded {
   expect(recorded).toHaveLength(1);
@@ -54,11 +79,15 @@ function stub(responder: () => Response | Promise<Response>): void {
 
 test.beforeEach(() => {
   recorded.length = 0;
+  replaced.length = 0;
   originalFetch = globalThis.fetch;
 });
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
+  // The runner has no `window` of its own; leaving one behind would make the *next* file's view of
+  // "am I in a browser" wrong.
+  delete (globalThis as { window?: unknown }).window;
 });
 
 test.describe("the transport", () => {
@@ -109,6 +138,74 @@ test.describe("the transport", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error.status).toBe(502);
     expect(error.detail).toContain("502");
+  });
+});
+
+test.describe("the 401 handler (T024)", () => {
+  test("a 401 on a content read sends the browser to /login", async () => {
+    fakeWindowAt("/calendar");
+    stub(() => json({ detail: "Not authenticated" }, 401));
+
+    // The error still reaches the caller: navigation is not instantaneous, so a surface that
+    // ignored it would keep rendering for a beat.
+    await expect(listContentItems()).rejects.toThrow(ApiError);
+
+    // `replace`, not `assign` — the page that just 401'd must not sit in history, or going back
+    // would 401 again and bounce straight here.
+    expect(replaced).toEqual(["/login"]);
+  });
+
+  test("it fires on create too — one handler, not one per operation (FR-002)", async () => {
+    fakeWindowAt("/calendar");
+    stub(() => json({ detail: "Not authenticated" }, 401));
+
+    await expect(createContentItem({ title: "x" })).rejects.toThrow(ApiError);
+    expect(replaced).toEqual(["/login"]);
+  });
+
+  test("a failed sign-in does not redirect — that 401 is a wrong password, not a dead session", async () => {
+    fakeWindowAt("/login");
+    stub(() => json({ detail: "Email or password is incorrect." }, 401));
+
+    await expect(login({ email: "a@b.com", password: "no" })).rejects.toThrow(ApiError);
+
+    // Redirecting would reload /login and discard the message the form has to show.
+    expect(replaced).toEqual([]);
+  });
+
+  test("logout does not redirect — its caller owns where to go next", async () => {
+    fakeWindowAt("/calendar");
+    stub(() => json({ detail: "Not authenticated" }, 401));
+
+    await expect(logout()).resolves.toBeUndefined();
+    expect(replaced).toEqual([]);
+  });
+
+  test("a page already on /login does not reload itself", async () => {
+    fakeWindowAt("/login");
+    stub(() => json({ detail: "Not authenticated" }, 401));
+
+    await expect(listContentItems()).rejects.toThrow(ApiError);
+    expect(replaced).toEqual([]);
+  });
+
+  test("no other status redirects", async () => {
+    fakeWindowAt("/calendar");
+
+    for (const status of [403, 404, 409, 422, 500, 502]) {
+      stub(() => json({ detail: "nope" }, status));
+      await expect(listContentItems()).rejects.toThrow(ApiError);
+    }
+
+    expect(replaced).toEqual([]);
+  });
+
+  test("it is inert with no window, so a server-side import cannot throw a ReferenceError", async () => {
+    // No fakeWindowAt() — this is the runner's natural state, and the server's.
+    stub(() => json({ detail: "Not authenticated" }, 401));
+
+    await expect(listContentItems()).rejects.toThrow(ApiError);
+    expect(replaced).toEqual([]);
   });
 });
 

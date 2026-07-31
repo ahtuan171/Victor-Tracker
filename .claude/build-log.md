@@ -398,3 +398,50 @@ Two smaller things found while building:
   `/api/content-items` without an origin. That is the right shape (R-007 puts content reads in client
   components) but it is why `tests/client/` stubs `globalThis.fetch` rather than letting a real one
   run. The stub replaces a worker global, so the project is pinned to `workers: 1` like `proxy`.
+
+---
+
+## T024 — the single 401 handler (2026-07-31)
+
+One branch inside `request()` in `frontend/lib/api.ts`. Green: `pnpm typecheck`, `pnpm lint`,
+**65 tests across four projects**.
+
+**The T022 amendment held.** T024's original wording had it clearing the session cookie; an
+`httpOnly` cookie is unreachable from browser JavaScript by design, so the proxy does that on every
+401 and this task kept only the redirect. No cookie write was added here — one would have been a
+no-op that reads like a safeguard.
+
+**Two exemptions the task line does not mention, and the handler is wrong without them.**
+
+- `POST /auth/login` — a 401 is a wrong password, not a dead session. Redirecting would reload
+  `/login` and throw away the message the form exists to render. Found by asking what T025's error
+  state would actually do, not by a test failing.
+- `POST /auth/logout` — a 401 means the session was already over, which is where logout was going.
+  `logout()` already swallows it and resolves; letting the redirect fire too would preempt the
+  caller's own navigation with a second one to the same place.
+
+A third guard skips the redirect when `location.pathname` is already `/login`.
+
+**Full navigation, not a router push.** `window.location.replace(LOGIN_PATH)`. The T027 guard is a
+server component and App Router layouts are not re-executed on soft navigations, so a client-side
+push could reach `/login` without the server ever re-reading the cookie — the guard would be
+bypassed by the very thing meant to trigger it. `lib/api.ts` is not a React module, so there is no
+router available anyway. `replace` over `assign` so the page that just 401'd is not in history,
+where going back would 401 and bounce straight back.
+
+**The error is still thrown after the redirect is queued.** Navigation is not instantaneous, so a
+caller that swallowed the error would keep rendering content for a beat — which is the FR-002
+violation this exists to prevent, just briefer.
+
+**Testing it needed a fake `window`.** The handler guards on `typeof window === "undefined"` so it
+is inert on the server and in the Playwright runner, which also makes it invisible to a test that
+does nothing. `tests/client/` defines the two members it touches — `location.pathname` and
+`location.replace` — and deletes the global in `afterEach`, since a leftover `window` would give the
+next file a wrong answer to "am I in a browser".
+
+**Considered and not built: preserving the intended destination as `?next=`.** Better UX, and
+nothing in `spec.md` asks for it — non-negotiable 3. Cheap to add later at the same one call site.
+
+One test was written and then deleted rather than committed: an assertion that the client never
+touches `document.cookie`, which as written only proved `document` is undefined in the runner. A
+vacuous test is worse than none; the rule lives in the code comment and `frontend/AGENTS.md`.

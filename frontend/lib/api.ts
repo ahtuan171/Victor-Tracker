@@ -31,6 +31,19 @@
 /** Everything this client talks to. Same-origin by construction — see note 1 above. */
 const API_PREFIX = "/api";
 
+/** Where an expired session lands. Also the one route that must never redirect to itself. */
+const LOGIN_PATH = "/login";
+
+/**
+ * The two operations whose 401 is **not** an expired session, so neither triggers the redirect.
+ *
+ * `/auth/login` — a 401 here is a wrong password. Redirecting to `/login` from `/login` would
+ * discard the very message the form has to show, and look like the page silently reloading.
+ * `/auth/logout` — a 401 here means the session was already over, which is where logout was going
+ * anyway. Its caller owns the navigation; see `logout()`.
+ */
+const SESSION_LIFECYCLE_PATHS = ["/auth/login", "/auth/logout"] as const;
+
 // --- Contract schemas -----------------------------------------------------------------------
 // Written as `as const` arrays rather than TypeScript enums so the runtime values exist for the
 // contract test to compare against openapi.yaml, and so `Status[]` is iterable for the UI.
@@ -200,8 +213,8 @@ interface RequestOptions {
 /**
  * The one place a request is made and the one place a failure becomes an `ApiError`.
  *
- * Single by design: T024 adds the 401 redirect and needs exactly one place to add it. Do not grow
- * a second fetch path — a surface that bypasses this one also bypasses the session handling.
+ * Single by design: the 401 redirect below (T024) is the reason. Do not grow a second fetch path —
+ * a surface that bypasses this one also bypasses the session handling, and nothing will say so.
  */
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
@@ -226,13 +239,54 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     throw new ApiError(0, "Could not reach the server. Check your connection and try again.");
   }
 
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) {
+    if (response.status === 401) redirectToLogin(path);
+    throw await toApiError(response);
+  }
 
   // 204 is the contract's answer for logout and delete. `.json()` on an empty body throws, and
   // the caller's `Promise<void>` has nothing to receive anyway.
   if (response.status === 204) return undefined as T;
 
   return (await response.json()) as T;
+}
+
+/**
+ * The single 401 handler (T024, spec Edge Cases, FR-002, SC-006).
+ *
+ * A 401 on any content operation means the session ended underneath an open page — the token
+ * expired, or it was signed out from another device. FR-002 says an unauthenticated visitor sees no
+ * content at any address, and a page that stays put showing yesterday's calendar while its requests
+ * quietly fail is exactly that violation, just slower.
+ *
+ * **Clearing the cookie is not part of this.** T024 originally owned that too; T022 moved it,
+ * because an `httpOnly` cookie is by design unreachable from browser JavaScript (research.md R-001).
+ * The proxy clears it on *every* 401, which is the only place that can. Do not add a cookie write
+ * here — it would be a no-op that reads like a safeguard.
+ *
+ * Four conditions, each of which has a way of biting if dropped:
+ *
+ *   1. **Browser only.** `window` is absent in the Playwright runner and in any server context. A
+ *      bare `window.location` would turn an expected 401 into a `ReferenceError`.
+ *   2. **Not the session-lifecycle endpoints.** See `SESSION_LIFECYCLE_PATHS`.
+ *   3. **Not when already on `/login`.** The login page's own failed request must not reload it.
+ *   4. **A full navigation, not a router push.** The session guard at T027 is a server component,
+ *      and App Router layouts are not re-executed on soft navigations — a client-side push could
+ *      land on `/login` without the server ever re-reading the cookie. `lib/api.ts` is also not a
+ *      React module, so there is no router to reach for.
+ *
+ * `replace` rather than `assign`: the page that just 401'd must not sit in history, because going
+ * back to it would 401 again and bounce the creator straight back here.
+ *
+ * The caller still receives the thrown `ApiError`. Navigation is not instantaneous, so a surface
+ * that swallowed the error would keep rendering for a beat — every caller should still handle it.
+ */
+function redirectToLogin(path: string): void {
+  if (typeof window === "undefined") return;
+  if (SESSION_LIFECYCLE_PATHS.some((exempt) => path.startsWith(exempt))) return;
+  if (window.location.pathname === LOGIN_PATH) return;
+
+  window.location.replace(LOGIN_PATH);
 }
 
 /**
