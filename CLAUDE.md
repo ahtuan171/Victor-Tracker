@@ -23,18 +23,22 @@ redirects to `/login` while exempting the two `/auth/*` endpoints.
 The next task is **T025**. Phase 2 has **4 of 21 tasks left**, all frontend: T025–T028. Nothing in
 Phase 3–7 may start until Phase 2 is complete.
 
-**A remote exists, `main` is protected, and CI now genuinely runs.** `origin` is
-`gitlab.com/ahtuan1701/creator-hub`, `glab` is authenticated. Pipeline **#1 failed with zero jobs and
-`yaml_errors: null`** — a one-off at project creation, not a broken runner or a bad config. Pipeline
-**#2, on the T023–T024 push, created all 10 jobs and executed them**, so `.gitlab-ci.yml` resolves
-against a real runner for the first time.
+**CI is real and fully green.** `origin` is `gitlab.com/ahtuan1701/creator-hub`, `glab` is
+authenticated, and **pipeline #5 passed all 8 non-manual jobs** — both builds, `test:backend` (96),
+`test:e2e` (65 Playwright tests against the production bundle), and all four `review` jobs; both
+deploys are `manual` as designed. That is the first time any test in this project gated anything
+rather than being a local claim.
 
-**T023 and T024 were merged locally with `--no-ff`** — decided when the only evidence available was
-pipeline #1's failure, i.e. no gate to satisfy. That reasoning expired the moment #2 ran. Two settings
-still make the gate optional and **should be closed before T025**:
+Getting there took three red pipelines and **none of the failures was in application code** — a pnpm
+approval placeholder, that fix applied to the file pnpm 11 ignores, and a `JWT_SECRET` below the
+minimum `Settings` enforces. All three had passed a YAML-parse check and never executed. See
+`.claude/build-log.md`.
+
+**T023 and T024 were merged locally with `--no-ff`**, decided when pipeline #1's zero-job failure was
+the only evidence and there was no gate to satisfy. That is no longer true. Two settings are all that
+still make the gate optional, and **both should be closed before T025**:
 `only_allow_merge_if_pipeline_succeeds` is `false`, and `main`'s push access is **Maintainers** rather
-than "no one", so direct push still works. Once both are set, **the local merge flow ends** and
-T025–T028 go through MRs. See `.claude/memory.md`.
+than "no one". Once set, **the local merge flow ends** and T025–T028 go through MRs.
 
 **There is still no frontend *screen*** — `frontend/app/page.tsx` is the create-next-app placeholder
 until T026, and there is no `/calendar` route until **T033**, so between T026 and T033 a signed-in
@@ -55,7 +59,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020). **96 passing.** Backend coverage for Phase 2 is complete. |
 | `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022), `api.ts` (T023–T024), `utils.ts`. `app/api/[...path]/route.ts` is the proxy. **65 Playwright tests across four projects** — `contract` (allowlist and the client's enums vs the contract), `proxy` (the route driven with a stubbed upstream), `client` (`lib/api.ts` against a stubbed `fetch`), `mobile-375` (the E2E project, one test so far). No page routes yet: `app/page.tsx` is still the scaffold's. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service still has no page to serve — it needs T026. |
-| `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. YAML syntax verified parseable, all 10 jobs resolve; that is not the same as verified working. One known gap: `test:backend` runs `uv run pytest` with no `alembic upgrade head` — the T017 harness compensates by migrating the schema itself, so **do not add a migration step to CI without checking the harness first**; two of them racing is worse than neither. |
+| `.gitlab-ci.yml` | **Green end to end** on pipeline #5: `build → test → review` all pass, both `deploy` jobs `manual` as designed. Three earlier pipelines were red on config that had only ever been syntax-checked. The `test:backend` gap is now **closed by evidence**: the job still runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | `content-calendar/BRIEF.md` only — the stage-2 brief and the data-shape audit checklist the export must pass. No export yet: the claude.ai design-system project exists but is empty. |
 | Claude Design | Project **`CreatorHub Design System`** created 2026-07-30, id `756a66ad-4f2e-42ff-9513-48b969855d40`. Created through `DesignSync create_project` specifically so the project type is right — see Decisions. **Empty**: the design work itself has not been done. |
@@ -163,21 +167,16 @@ and neither is duplicated here.
 **Three things are waiting on the human, not on code.** None blocks T023, and the two stages were
 checked and confirmed safe to run in parallel with Phase 2:
 
-7. **Stage 3 (Load) is nearly done — finish it before T025.** Account, project, remote, protection,
-   `glab auth`, and a **pipeline that actually runs all 10 jobs** all exist. Two settings still make
-   the gate optional, and both are one click: set `only_allow_merge_if_pipeline_succeeds = true`, and
-   drop `main`'s allowed-to-push from **Maintainers** to **no one**. Until then the owner can push
-   straight to `main`, which is precisely what constitution VI forbids. **Do that first, then run
-   T025–T028 as real MRs** — and update `.claude/memory.md`, `tasks.md`'s closing note, and
+7. **Stage 3 (Load): two clicks left, and they are the whole point of the stage.** Account, project,
+   remote, protection, `glab auth`, and a **fully green pipeline** all exist. What remains is making
+   the gate mandatory: set `only_allow_merge_if_pipeline_succeeds = true`, and drop `main`'s
+   allowed-to-push from **Maintainers** to **no one**. Until both are set the owner can push straight
+   to `main`, which is exactly what constitution VI forbids. **Do this before T025**, then run
+   T025–T028 as real MRs and update `.claude/memory.md`, `tasks.md`'s closing note, and
    `quickstart.md`'s Outstanding setup with the task number where the gate became real. Also still
    open: import `tasks.md` as issues, creating T001–T024 and closing them immediately so `closes #N`
    references do not skew. `/speckit-taskstoissues` is GitHub-only and will abort — do not try to
    make it work.
-
-   **Watch the first real `test:backend` run.** `.gitlab-ci.yml` runs `uv run pytest` with no
-   `alembic upgrade head`; the T017 harness migrates the schema itself to compensate. That has never
-   been exercised against an empty service container until now — see the trap in `.claude/memory.md`,
-   and do **not** add a migration step to CI without reading it first.
 8. **Stage 2 (Design)** needs the **design work itself** in the `CreatorHub Design System` project
    (already created, id in the table above, currently empty). Read
    `design/content-calendar/BRIEF.md` first — it carries the surface list, the locked status-cue

@@ -57,11 +57,17 @@ created and ran all 10 jobs**. **Lesson worth keeping: one failed pipeline is no
 does not work — a zero-job pipeline at project creation is a one-off, so push again before concluding
 anything about a runner.**
 
-Two settings still leave the gate optional and are the real remaining work:
-`only_allow_merge_if_pipeline_succeeds` is `false`, and `main`'s allowed-to-push is **Maintainers**
-rather than "no one", so the owner can still push directly. **Close both, then stop merging locally**
-— the trigger for ending the constitution VI exception is not "a remote exists" but "a pipeline gates
-an MR", and it is now one settings change away. Record the task number where that happens, then
+**Pipeline #5 is fully green — all 8 non-manual jobs, both deploys manual as designed.** It took
+three red pipelines to get there and none of the three failures was in application code: a pnpm
+approval file pnpm itself wrote as a placeholder, the same fix applied to the wrong file
+(`package.json` is pnpm 10's location; pnpm 11 reads `pnpm-workspace.yaml`), and a `JWT_SECRET`
+shorter than the minimum `Settings` enforces. **A config file that was "verified" as parseable is not
+verified** — all three had passed a YAML syntax check and all three had never executed.
+
+**The constitution VI exception is now one settings change from over, and that is the next thing to
+do.** `only_allow_merge_if_pipeline_succeeds` is still `false` and `main`'s allowed-to-push is still
+**Maintainers** rather than "no one", so the owner can push directly. Flip both and **T025 onward go
+through MRs** — a real gate now exists to satisfy. Record the task number where that happens, then
 delete this entry and the two above it.
 
 ## Traps
@@ -76,6 +82,12 @@ belongs here only if it can bite while editing a root-level file.
 including one that left every content item permanently stuck in `idea`. It checks whether a requirement
 is *cited* by a task, not whether the tasks compose into something that works. Run the `reviewer` agent
 as well; the two find different classes of defect.
+
+**2026-07-31 — the entry below is now VERIFIED, not predicted.** `test:backend` ran green against an
+empty `postgres:17-alpine` service container on pipeline #5, so the T017 harness does migrate the
+schema itself with no `alembic upgrade head` in the job. The rule it protects is unchanged and still
+load-bearing: **do not add a migration step to `.gitlab-ci.yml`** — two of them racing is worse than
+neither, and the compensation is now proven rather than assumed.
 
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the

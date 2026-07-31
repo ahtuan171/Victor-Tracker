@@ -518,3 +518,21 @@ against a validator in application code. Padded to 41 characters.
 whether the T017 harness migrates an empty service container on its own remains unexercised. The
 standing warning against adding `alembic upgrade head` to CI without reading the harness first still
 applies.
+
+### Pipeline #5: green, and what the three red ones actually taught
+
+All 8 non-manual jobs pass — `build:backend`, `build:frontend`, `test:backend` (96), `test:e2e` (65),
+`review:ruff`, `review:mypy`, `review:eslint`, `review:tsc` — with both deploys sitting `manual` as
+designed. The merge gate exists for real now.
+
+**None of the three failures was in application code.** A pnpm approval file pnpm itself generated as
+a placeholder; the correct fix applied to the wrong file, because `package.json` is where pnpm 10
+reads that setting and pnpm 11 reads `pnpm-workspace.yaml`; and a `JWT_SECRET` seven characters short
+of the minimum `Settings` enforces. Every one had been "verified" as parseable YAML with all ten jobs
+resolving, and every one had never run. **Parseable is not verified** — the check that matters is
+execution, and Phase 1 could not have caught any of these.
+
+**The migration hazard is closed by evidence.** `test:backend` passed against an empty
+`postgres:17-alpine` service container with no `alembic upgrade head` anywhere in the job, so the
+T017 harness really does migrate the schema itself. It has moved from a prediction to a verified
+property — and the rule it protects is unchanged: do not add a migration step to CI.
