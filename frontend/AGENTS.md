@@ -30,6 +30,9 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | The proxy **captures the login token out of the response body** | `POST /auth/login` returns `access_token` in its body. Forwarding that to the browser would hand a 30-day credential to JavaScript and undo the whole of R-001, so the proxy moves it into the httpOnly cookie and returns `{expires_at}` alone. The contract still describes the FastAPI origin truthfully — this response comes from the Vercel origin, which is deliberately not transparent about credentials. |
 | The proxy **clears the cookie on any 401**, not just on logout | JavaScript cannot delete an httpOnly cookie, so this route is the only thing that can. Without it T024's "clear the session cookie and redirect" would need a second endpoint invented to do it. |
 | Cookie `Max-Age` is derived from the token's own `exp`, not from a constant | The alternative is a frontend copy of the backend's `TOKEN_TTL_DAYS` kept equal across two separate deployments with nothing to notice drift. The signature is **not** verified and does not need to be: the value times a cookie, and the backend stays the only authority on validity. |
+| `lib/api.ts` types are **hand-written from the contract**, with a test guarding the enums | No OpenAPI codegen is installed and none should be: eight operations and four schemas is smaller than the toolchain that would generate them, and R-007 asks for "a typed fetch wrapper". The cost is drift, so `tests/contract/api-types.spec.ts` compares `STATUSES`, `PLATFORMS`, and `INVARIANT_CODES` against `openapi.yaml` on disk. Object shapes are left to `tsc --noEmit` — a TypeScript interface has no runtime form to compare against. |
+| The client **normalises** the contract's optional-but-nullable fields to `null` | `ContentItem`'s `required` list is `[id, title, status, created_at, updated_at]`, so a response may omit `hook`, `platform`, `scheduled_date`, and `published_url` rather than send null. Typing them `hook?: string | null` would be faithful and would put a `?? null` on every read site in the calendar and the drawer. `toContentItem` makes the declared type true instead. It is **not** a validator — the backend is trusted; it only stops `undefined` reaching a component typed for `null`. |
+| `logout()` swallows a 401, and it is the only swallowed error in the client | The proxy clears the cookie on any 401, so by the time the client sees one the session is genuinely over — which is the state logout was trying to reach. Throwing would leave the UI believing it is signed in while the credential is gone. Every other status still throws. |
 | Contract tests run as a **second Playwright project**, not a second test runner | `tech-defaults.md` names Playwright as the frontend test tool, and `.gitlab-ci.yml`'s `test:e2e` job runs `playwright test` with no `--project` filter — a separate config file would be a merge gate nobody invokes. The project touches no `page` fixture, so no browser starts. |
 
 ## Traps
@@ -78,6 +81,23 @@ until someone reorders two lines. Do not reintroduce a second `.json()` on the s
 not exist yet. Route handler context is written out longhand as
 `{ params: Promise<{ path?: string[] }> }`.
 
+**There must stay exactly one `fetch` in `lib/api.ts`.** Every operation goes through the private
+`request()` helper, and T024's 401 redirect lives in the single `if (!response.ok)` branch inside it.
+A surface that calls `fetch("/api/...")` directly gets no `ApiError`, no 401 handling, and no
+`credentials`/`cache` settings — and nothing will fail loudly to say so. Add an operation by adding an
+exported function next to `login`/`logout`/`listContentItems`/`createContentItem`, never by fetching
+somewhere else.
+
+**A relative URL is load-bearing in `lib/api.ts`, and it makes the client unrunnable outside a
+browser.** `fetch("/api/content-items")` has no origin to resolve against in Node, so importing this
+module from a server component and calling it would throw "Failed to parse URL". That is the correct
+shape — R-007 puts every content read in a client component — but it means the tests must stub
+`globalThis.fetch` rather than let a real one run, which is what `tests/client/` does.
+
+**`expect(...).toEqual<T>(...)` does not compile.** Playwright's `toEqual` takes no type argument
+(unlike Vitest's). To keep a type assertion in a test, annotate the expected value —
+`const expected: ContentItem = {...}` — which fails the build if the type stops requiring a field.
+
 **`lib/session.ts` is server-only by convention, not by guard.** It reads non-`NEXT_PUBLIC_` variables,
 so a client component importing it would silently get fallbacks. The `server-only` package would catch
 that at build time, but its default export throws the moment it is imported outside a React Server
@@ -100,6 +120,10 @@ checked in by hand — check for them after any future `init`.
 pnpm install
 pnpm dev
 pnpm build && pnpm typecheck && pnpm lint
-pnpm exec playwright test                   # 375x667 only
+pnpm exec playwright test                   # all four projects
+pnpm exec playwright test --project=client  # lib/api.ts against a stubbed fetch
+pnpm exec playwright test --project=contract  # lib/* vs specs/.../openapi.yaml
+pnpm exec playwright test --project=proxy   # the route handler, stubbed upstream
+pnpm exec playwright test --project=mobile-375  # the browser flow, 375x667
 pnpm exec playwright test -g "create content item"
 ```

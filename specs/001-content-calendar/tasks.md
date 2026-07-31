@@ -223,7 +223,7 @@ possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI de
 
 - [x] T021 Define the proxy path and method allowlist in `frontend/lib/proxy-allowlist.ts`, derived from the contract, with a test asserting the two stay in sync (research.md R-008)
 - [x] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
-- [ ] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
+- [x] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
 - [ ] T024 Add a single 401 handler to `frontend/lib/api.ts` that redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002). **Amended at T022** — see the note below; the cookie is cleared by the proxy, not here
 - [ ] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success
 - [ ] T026 Build the root route in `frontend/app/page.tsx` as a server-side redirect to `/calendar` when a session cookie is present and `/login` otherwise, so the bookmarked root does not 404 (SC-001, US1 scenario 1)
@@ -251,6 +251,24 @@ T022 also did two things its own line does not describe, both because no other c
 it captures `access_token` out of the login response body into the cookie (forwarding it would hand
 a 30-day credential to browser JavaScript, undoing R-001), and it derives the cookie's `Max-Age`
 from the token's own `exp` claim rather than from a frontend copy of `TOKEN_TTL_DAYS`.
+
+**T023 result (2026-07-31)**: done. 20 new tests, frontend suite at **58 passing**; `pnpm typecheck`
+and `pnpm lint` silent. Three notes worth carrying:
+
+- **"Generate" means "write by hand."** The project installs no OpenAPI codegen and should not: eight
+  operations and four schemas is smaller than the toolchain that would generate them, and R-007 asks
+  for "a typed fetch wrapper", not a generated SDK. The debt that buys is drift, so
+  `tests/contract/api-types.spec.ts` reads `openapi.yaml` and fails when a closed enum gains a value
+  the client lacks. Object shapes are left to `tsc` — an interface has no runtime form to compare.
+- **The contract does not require the four nullable fields on `ContentItem`**, so a response may omit
+  them rather than send null. The client normalises absent to `null` at the boundary instead of
+  typing them `hook?: string | null`, which would put a `?? null` on every read site in the calendar
+  and the drawer. The contract was left alone: "may be omitted" is a legitimate reading, and the
+  client making it untrue for its callers is cheaper than a spec amendment.
+- **`logout()` swallows a 401 and only a 401.** The proxy clears the cookie on any 401, so the
+  session really is over by the time the client sees it; throwing would strand the creator in a
+  signed-out state the UI still believes is signed in. This is what makes the checkpoint's "sign-out
+  works even from an expired session" true from the client side.
 
 **Checkpoint**: a creator can sign in, an unauthenticated visitor sees nothing at any address, sign-out
 works even from an expired session, and the schema exists. No content feature works yet.

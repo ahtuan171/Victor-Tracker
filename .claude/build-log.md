@@ -340,3 +340,61 @@ special-use reserved TLD, so the seed script has never succeeded. The smoke test
 corrected address will not hit the "a different email is refused" branch.
 
 Green: `pnpm typecheck`, `pnpm lint`, 38 Playwright tests across three projects.
+
+---
+
+## T023 — the typed API client (2026-07-31)
+
+`frontend/lib/api.ts`, plus a fourth Playwright project. Green: `pnpm typecheck`, `pnpm lint`,
+**58 tests across four projects** (was 38 across three).
+
+**"Generate the typed API client" was carried out by hand, deliberately.** No OpenAPI codegen is
+installed and the task line reads as if one were. Adding one would mean a generator, a config, a
+generated-file convention, and a CI step to prove the checked-in output is current — against a
+contract of eight operations and four schemas. R-007 asks for "plain `useState` plus a typed fetch
+wrapper", and a generated SDK is not that. The debt this takes on is drift between the contract and
+the client, so `tests/contract/api-types.spec.ts` reads `openapi.yaml` off disk and asserts the three
+closed enums still match. Object shapes are left to `tsc --noEmit` in the same CI stage — a
+TypeScript interface has no runtime representation to compare, and the enums are the part that would
+otherwise accept an unknown value silently at runtime.
+
+**Only four operations exist here.** GET-one, PATCH, and DELETE are absent, not forgotten: the task
+scopes the client to login, logout, list, and create, and `workflow.md` forbids abstraction before a
+second caller. They arrive with T033/T052/T056.
+
+**The contract does not require the four nullable fields on `ContentItem`.** Its `required` list is
+`[id, title, status, created_at, updated_at]`, so a conforming response may omit `hook`, `platform`,
+`scheduled_date`, and `published_url` rather than send null. Three options were on the table:
+
+1. Type them `hook?: string | null` — faithful, and puts a `?? null` on every read site in the
+   calendar grid, the day cell, the drawer, and the item sheet.
+2. Amend the contract to require them — a spec change to make the frontend's life easier, for a
+   reading of JSON Schema that is not actually wrong.
+3. Declare them present-and-nullable and make that true at the boundary.
+
+Took 3. `toContentItem` fills absent with `null` and is explicitly **not** a validator — the backend
+is the only writer of these rows and is tested against the same contract. Its whole job is stopping
+`undefined` reaching a component typed for `null`.
+
+**`logout()` swallows a 401, and nothing else does.** The proxy clears the cookie on any 401, so by
+the time the client sees one the credential is already gone — which is the state logout is trying to
+reach. Throwing would leave the UI believing it is signed in with no session behind it, and the Phase
+2 checkpoint specifically requires sign-out to work from an expired session. Every other status still
+throws.
+
+**One `fetch`, on purpose.** All four operations route through a private `request()`, so there is
+exactly one `if (!response.ok)` branch — which is the seam T024 needs. Two fetch paths would mean two
+places to add a 401 redirect and one of them getting missed.
+
+**A network failure becomes `ApiError(0, …)` rather than a raw `TypeError`.** Otherwise every surface
+writes two catch arms, one for HTTP failures and one for the offline case, and the second one gets
+forgotten. `status: 0` is the "no HTTP response happened" marker.
+
+Two smaller things found while building:
+
+- `expect(...).toEqual<ContentItem>({...})` does not compile — Playwright's `toEqual` takes no type
+  argument, unlike Vitest's. The type assertion was kept by annotating the expected value instead.
+- The relative URL in `request()` makes the module unrunnable outside a browser: Node cannot resolve
+  `/api/content-items` without an origin. That is the right shape (R-007 puts content reads in client
+  components) but it is why `tests/client/` stubs `globalThis.fetch` rather than letting a real one
+  run. The stub replaces a worker global, so the project is pinned to `workers: 1` like `proxy`.
