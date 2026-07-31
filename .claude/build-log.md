@@ -246,3 +246,42 @@ also in `.claude/memory.md`, which stays imported.
 
 So the rule going forward: **traps and decisions stay in context; chronology comes here.** When you
 finish a task, add its narrative to this file and put only the durable rule in `.claude/memory.md`.
+
+---
+
+## T021 — the proxy allowlist — 2026-07-31
+
+First frontend feature code in the project. `lib/proxy-allowlist.ts` plus
+`tests/contract/proxy-allowlist.spec.ts`.
+
+**The design decision that matters is `NOT_PROXIED`.** R-008 says the allowlist is "derived from the
+contract", and the obvious reading — enumerate every operation `openapi.yaml` declares — produces a
+list that gates nothing: it is the contract, restated. The moment a later module adds an endpoint to a
+contract, a mirror-shaped allowlist either drifts silently or gets regenerated and exposes it. So the
+sync test demands that every contract operation be **either** in `PROXY_ALLOWLIST` **or** in
+`NOT_PROXIED` with a written reason, with no third option. That turns adding an endpoint into a
+decision someone has to make, which is the whole of what principle II asks for here. `/health` is the
+only exclusion today.
+
+**Both directions of the sync are asserted, and both were mutation-checked** before the branch merged:
+adding `/growth-metrics` to the allowlist failed "invents nothing the contract does not declare", and
+dropping `GET /content-items` failed "either proxied or explicitly excluded". A sync test that only
+runs one direction passes happily while the allowlist grows past the contract.
+
+**Path parameters are matched against the contract's declared type, not against "any segment".**
+`item_id` is `type: integer`, so `PARAM_PATTERNS.item_id` is `/^[0-9]+$/`. That is faithful to the
+contract *and* it is what makes traversal structurally unreachable — every other segment is compared to
+a literal, so there is no string path to re-parse and no `..` that can match anything. `compile()`
+throws at import for a parameter with no pattern rather than defaulting to permissive.
+
+**Test placement.** `tech-defaults.md` allows Playwright and forbids Jest/RTL, and this is not a
+component test, so it runs under Playwright's runner as a second project (`contract`), with
+`testDir` moved per-project. The alternative — a separate config file — would not have run in CI,
+because `test:e2e` invokes `playwright test` with no `--project` filter. Accepted cost: the global
+`webServer` boots Next even for a contract-only run.
+
+**Added `yaml` 2.9.0 as a devDependency.** The test parses the contract properly rather than
+regex-scraping it; a fragile reader is the one thing that would make this test lie. `js-yaml` was
+present transitively only, which pnpm's strict layout correctly refuses to expose.
+
+Green: `pnpm typecheck`, `pnpm lint`, 13 Playwright tests (12 contract + the 375px viewport check).

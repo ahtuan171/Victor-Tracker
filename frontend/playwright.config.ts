@@ -17,7 +17,7 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: "./tests",
   fullyParallel: true,
 
   // A committed `test.only` silently shrinks the merge gate to one test.
@@ -38,7 +38,19 @@ export default defineConfig({
 
   projects: [
     {
+      // Contract assertions, not browser flows: tests/contract reads specs/ from disk and touches
+      // no page fixture, so no browser launches for it. It lives in this config rather than a
+      // second one because .gitlab-ci.yml's test:e2e job runs `playwright test` with no --project
+      // filter — a separate config would be a merge gate nobody invokes.
+      //
+      // Cost of that choice: `webServer` below is global, so even `--project=contract` alone boots
+      // a Next server it never calls. Cheap, and worth it for the gate.
+      name: "contract",
+      testDir: "./tests/contract",
+    },
+    {
       name: "mobile-375",
+      testDir: "./tests/e2e",
       use: {
         ...devices["Desktop Chrome"],
         // Explicit rather than a named device preset: the number is the requirement, and a preset
