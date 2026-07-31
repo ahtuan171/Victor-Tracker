@@ -36,95 +36,42 @@ else. **T076 must record this as a knowing exception**, not omit it — the poin
 its absence gets written down. Implementation tasks still use one branch per task, merged `--no-ff`,
 so the history has the shape a real MR flow would produce once the remote exists.
 
+**2026-07-30 — the constitution VI exception is no longer one fast-forward; it covers every merge to
+date.** The entry above was written about a single act — the specs reaching `main`. Every implementation task since
+has merged the same way, so the standing count is **one fast-forward plus one merge per completed
+task**, and it grows by one with every task until a remote exists. Do not write the running total here;
+it goes stale within a session. Count it at the time with `git log --oneline --merges | wc -l`.
+Recording this separately because an exception whose scope drifts without
+being restated is indistinguishable from an exception nobody is tracking, which is the exact failure
+principle VI exists to prevent. Two consequences: **T076 records the count and the range, not just the
+fast-forward**, and the cost of deferring stage 3 is not flat — each task added before the gate exists
+is one more change that never passed it. Delete this entry once `main` is protected and the first real
+MR has merged; replace it with the task number where the gate became real.
+
 ## Traps
 
-**2026-07-30 — `passlib` is confirmed broken on Python 3.13; the project uses `pwdlib`.** Verified at
-T002, and the failure is *not* the `bcrypt.__about__` one this note originally predicted. With
-`bcrypt` 5.0.0, `CryptContext(schemes=["bcrypt"])` dies at first use inside passlib's own backend
-probe (`detect_wrap_bug`), which hashes an over-72-byte password expecting bcrypt to truncate:
-`ValueError: password cannot be longer than 72 bytes`. passlib 1.7.4 is unmaintained, so this will
-not be fixed. `pwdlib[bcrypt]` works on 3.13 with bcrypt 5.0.0.
-
-**2026-07-30 — bcrypt itself refuses passwords over 72 bytes; it no longer truncates.** Independent
-of the hashing library. Login (T012) and the seed script (T015) must bound password length at the
-boundary and say so, rather than wrapping it — silently truncating would make two different passwords
-open the same account.
-
-**2026-07-30 — `shadcn init` can half-succeed.** On this machine (shadcn 4.16.0, Next 16, Tailwind 4)
-it wrote `components.json` and stopped: no `lib/utils.ts`, no theme tokens in `globals.css`. `shadcn
-add` then succeeds and produces a component importing a nonexistent `cn` and referencing undefined CSS
-variables, so the failure surfaces later as an unstyled component rather than as an init error. Both
-files are now checked in by hand. Check for them after any future `init`.
-
-**2026-07-30 — an index declared only in a migration is an index Alembic will delete.** Autogenerate
-compares indexes against model metadata, so the backlog partial index — written by hand into the T011
-migration and nowhere else — showed up as "removed index" on the very next `alembic check`, and the
-next generated revision would have dropped it. Declare constraints and indexes in
-`__table_args__` *and* the migration, and run `alembic check` after every revision. (CHECK
-constraints are never compared, so they cannot drift this way; indexes can.)
-
-**2026-07-30 — Alembic's generated `downgrade` does not drop enum types it implicitly created.**
-`sa.Enum(...)` inside `create_table` emits `CREATE TYPE` on upgrade, but the generated downgrade only
-drops the table. The type survives, and the *second* `upgrade` fails with "type platform already
-exists". Invisible unless you actually run `upgrade → downgrade base → upgrade`. Create and drop enum
-types explicitly with `postgresql.ENUM(..., create_type=False)`, and run that round trip on every
-migration that touches one.
-
-**2026-07-30 — a SQLAlchemy enum column stores the Python member *names* by default.** `Status.IDEA`
-persists as `IDEA` while the contract, the frontend, and every fixture use `idea`. Pass
-`values_callable=lambda e: [m.value for m in e]`. It only surfaces on a round trip against a real
-database, so an in-memory test suite would never catch it.
-
-**2026-07-30 — pydantic-settings matches constructor kwargs by field name, not by environment-variable
-name.** `Settings(JWT_SECRET="...")` populates nothing — the field is `jwt_secret` — so a test written
-that way passes for the wrong reason, and a "missing variable" assertion passes even when the variable
-is present. Test settings through the real environment with `monkeypatch.setenv` and `_env_file=None`.
-
-**2026-07-30 — `new Date("2026-08-04")` is parsed as UTC midnight.** Formatting that back in a
-timezone west of Greenwich gives the previous day. Never construct a `Date` from a bare `YYYY-MM-DD`
-string; `frontend/lib/dates.ts` exists to make that unnecessary. Spec FR-012a means dates are `DATE`
-end to end, so this only bites at the display boundary.
-
-**2026-07-30 — `today` must never be read during server rendering.** Vercel's clock is UTC, so a
-creator in UTC+7 sees "overdue" flip between server HTML and hydration, plus a React mismatch warning.
-Client components only.
-
-**2026-07-30 — dnd-kit `PointerSensor` with no activation constraint eats scroll gestures.** On a
-vertically scrolling grid, a swipe starting on a draggable lifts it instead of scrolling, then drops it
-wherever the finger lands. Always set a distance or delay constraint on touch. Long-press is not the
-fix — it collides with the browser's context menu and with the constitution's rule about destructive
-actions near common gestures.
-
-**2026-07-30 — FastAPI's `RequestValidationError` returns `detail` as an array, not a string.** Any
-contract or generated client that types it as a string renders `[object Object]`. Install an exception
-handler that flattens it if the API promises a uniform `{"detail": "..."}` shape.
-
-**2026-07-30 — FastAPI's `TestClient` warns that `httpx` is deprecated in favour of `httpx2`.** Seen
-on every use: `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated;
-install httpx2 instead`. Harmless today, but `--strict-config` plus any future `filterwarnings = error`
-turns it into a failing suite, and the T017 harness is where that lands. Either add `httpx2` to the dev
-group or leave the warning unfiltered on purpose — do not silence it with a blanket ignore, which would
-also hide real deprecations from FastAPI.
-
-**2026-07-30 — a 401 from `HTTPBearer` is a 403 unless you turn `auto_error` off.** With the default
-`auto_error=True`, a request with no `Authorization` header gets Starlette's own
-`403 {"detail": "Not authenticated"}`, not the 401 the contract declares. `auto_error=False` plus an
-explicit `HTTPException` is what makes every unauthenticated case one 401 with one body.
-
-**2026-07-30 — the Windows console is cp1252, so an em dash in printed output renders as `?`.** Only
-bites strings that reach a terminal — `print` in `app/scripts/`, not docstrings or comments. A correct
-error message that renders as `bcrypt accepts at most 72 ? note that this counts bytes` reads as a
-broken tool. Keep script output ASCII.
-
-**2026-07-30 — a cookie with no `Max-Age` is a session cookie.** Mobile Safari discards it on tab
-eviction, so a 30-day token still produces a weekly login prompt — and it looks like a token bug rather
-than a cookie bug.
+Only the ones that bite outside a single tree. **Backend traps live in
+[`backend/AGENTS.md`](../backend/AGENTS.md), frontend traps in
+[`frontend/AGENTS.md`](../frontend/AGENTS.md)** — they load automatically when working there. A trap
+belongs here only if it can bite while editing a root-level file.
 
 **2026-07-30 — a coverage-based spec check does not catch a design that does not close.**
 `/speckit-analyze` reported 95% requirement coverage on a `tasks.md` containing six blocking gaps,
 including one that left every content item permanently stuck in `idea`. It checks whether a requirement
 is *cited* by a task, not whether the tasks compose into something that works. Run the `reviewer` agent
 as well; the two find different classes of defect.
+
+**2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
+will pass here and fail in CI.** The local test database was migrated by hand at T011; the
+`postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the
+job runs `uv run pytest` with **no `alembic upgrade head` before it**. A `conftest.py` that connects
+and starts querying therefore works on this machine and fails on the first pipeline with a missing-table
+error that looks like a fixture bug. The harness must create the schema itself — and prefer
+`alembic upgrade head` over `SQLModel.metadata.create_all`, because `create_all` builds the enum types
+and constraints from model metadata rather than from the migration, so the artifact that actually runs
+in production goes untested and the `values_callable` trap (now in `backend/AGENTS.md`) loses the only
+place it could resurface. **This one stays at root** because it bites while editing `.gitlab-ci.yml`,
+where the backend file does not load.
 
 ## Deferred
 
