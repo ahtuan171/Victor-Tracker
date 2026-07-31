@@ -26,6 +26,8 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | shadcn theme tokens hand-written into `globals.css` | `shadcn init` half-succeeded (see traps). The block is explicitly **provisional** — the stage-2 design export replaces it wholesale. Safe to replace wholesale because R-005 encodes status as shape and fill, so FR-017/SC-004 do not depend on any colour in that file. |
 | Client components + local state + optimistic updates | SC-005 (<1s filter) and "cue updates immediately" both want local state, and a server round trip per toggle risks Render's free-tier spin-down blowing SC-001. `lib/items.ts` establishes this once (research.md R-007) — do not invent a second data-fetching strategy per surface. |
 | Hand-built calendar grid, no library | Every calendar library's value is time-of-day layout, which FR-012a removed. |
+| The proxy allowlist forces a **decision per contract operation**, not a copy of the contract | `NOT_PROXIED` exists so the sync test can require every operation to be *either* allowed *or* excluded-with-a-reason. An allowlist that simply mirrors `openapi.yaml` gates nothing the moment the contract grows. `/health` is the one exclusion today — Render's probe, no screen reads it. |
+| Contract tests run as a **second Playwright project**, not a second test runner | `tech-defaults.md` names Playwright as the frontend test tool, and `.gitlab-ci.yml`'s `test:e2e` job runs `playwright test` with no `--project` filter — a separate config file would be a merge gate nobody invokes. The project touches no `page` fixture, so no browser starts. |
 
 ## Traps
 
@@ -49,6 +51,17 @@ and with the constitution's rule about destructive actions near common gestures.
 bug. The proxy at `app/api/[...path]/route.ts` is what sets `Max-Age`, and it must also rewrite the
 cookie whenever the backend returns an `X-Access-Token` header. **Both halves are required**: without
 either one, sessions die on day 30.
+
+**Adding an endpoint means editing two files, and the second one is not obvious.** A new operation in
+`specs/001-content-calendar/contracts/openapi.yaml` turns `tests/contract/proxy-allowlist.spec.ts` red
+until it is added to `PROXY_ALLOWLIST` **or** to `NOT_PROXIED` in `lib/proxy-allowlist.ts`. That is the
+test working, not a broken test — do not "fix" it by loosening the assertion. A path parameter also
+needs an anchored entry in `PARAM_PATTERNS`; without one the module throws at import rather than
+matching anything, because an unconstrained parameter is an unconstrained proxy.
+
+**`playwright.config.ts` has a global `webServer`, so `--project=contract` still boots Next.** Costs a
+few seconds on a run that never issues a request. Known and accepted (see Decisions) — do not try to
+make it conditional.
 
 **`shadcn init` can half-succeed.** On this machine (shadcn 4.16.0, Next 16, Tailwind 4) it wrote
 `components.json` and stopped: no `lib/utils.ts`, no theme tokens in `globals.css`. `shadcn add` then
