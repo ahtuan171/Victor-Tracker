@@ -1,65 +1,47 @@
-import Image from "next/image";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+import { sessionCookieName } from "@/lib/session";
+
+/**
+ * The root route (T026, SC-001, US1 scenario 1).
+ *
+ * `/` is what gets bookmarked and what gets typed, and it has no content of its own — so it decides
+ * where the creator belongs and sends them there before any markup exists. Signed in goes to the
+ * calendar; everyone else goes to sign in. Without this the bookmarked root is a 404, which is how
+ * the post-review pass found it.
+ *
+ * **The cookie's presence is a routing hint, not an authorisation decision, and that distinction is
+ * the whole design.** Nothing here validates the token: the signing secret lives on Render and
+ * deliberately never reaches Vercel (research.md R-001), so this route could not verify one even if
+ * it wanted to. A present-but-expired cookie therefore routes to `/calendar`, whose data load takes
+ * a 401, whose handler in `lib/api.ts` returns the creator to `/login` — while the proxy clears the
+ * dead cookie on the way past. FR-002 is enforced by the backend rejecting the bearer, never by
+ * this line.
+ *
+ * Guessing wrong is cheap in exactly one direction, which is what makes it safe: a stale cookie
+ * costs one redirect, and no content is ever rendered on the strength of it.
+ *
+ * `lib/session.ts` is imported here rather than hard-coding `"ch_session"`, and this is a server
+ * component, so that import is correct — it is the same module the proxy names the cookie with, so
+ * the two cannot drift.
+ */
+
+/**
+ * Reading a cookie already opts this route out of static rendering, so this is belt-and-braces —
+ * but the failure it guards against is silent and total. A prerendered `/` would bake one answer
+ * into the bundle and send every visitor to the same place forever.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function RootPage(): Promise<never> {
+  const store = await cookies();
+
+  // The value, not merely the name: `has()` is true for an empty cookie, and an empty session
+  // cookie is not a session.
+  const session = store.get(sessionCookieName())?.value;
+  const signedIn = session !== undefined && session.length > 0;
+
+  // `redirect` throws, which is why this returns `never` and why nothing follows it.
+  redirect(signedIn ? "/calendar" : "/login");
 }
