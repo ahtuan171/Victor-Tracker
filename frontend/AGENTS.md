@@ -35,6 +35,10 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | `logout()` swallows a 401, and it is the only swallowed error in the client | The proxy clears the cookie on any 401, so by the time the client sees one the session is genuinely over — which is the state logout was trying to reach. Throwing would leave the UI believing it is signed in while the credential is gone. Every other status still throws. |
 | The 401 redirect **exempts `/auth/login` and `/auth/logout`** | A 401 from login is a wrong password, not an expired session — redirecting would reload `/login` and discard the message the form exists to show. A 401 from logout means the session was already over, and its caller owns where to go next. Every other operation redirects. A third guard skips it when already on `/login`. Drop any of the three and the login page either reloads itself on a bad password or loops. |
 | The redirect is `window.location.replace`, **not** a Next router push | The T027 session guard is a server component, and App Router layouts are not re-executed on soft navigations — a client-side push could land on `/login` with the server never re-reading the cookie. `lib/api.ts` is not a React module either, so there is no router to reach for. `replace` over `assign` keeps the page that just 401'd out of history, since going back would 401 again. |
+| Post-login navigation is `window.location.replace`, not `router.push` | Same reason as the 401 redirect, plus one of its own: Next's Router Cache can replay a previously fetched RSC payload for `/calendar`, and on the common "deep link → bounced to /login → sign in" path that payload **is** the redirect back to login. A soft navigation would bounce a correct sign-in straight back to the form with no error to show. `replace` keeps `/login` out of history. |
+| `hasSessionCookie` lives in `lib/session.ts`, and both server-side callers use it | The root route (T026) and the `(app)` guard (T027) ask the same question, and T033's re-assert is the third caller — so it is not abstraction ahead of one. It also gives the guard's *decision* continuous test coverage while the guard's *wiring* cannot be exercised (see below). It checks the **value**: `cookies().has()` is true for an empty cookie, and an empty session cookie is not a session. |
+| The cookie is a **routing hint**, never an authorisation decision | The signing secret lives on Render and deliberately never reaches Vercel (R-001), so nothing on this side can tell a live token from a dead one — and it does not need to. Unauthenticated is stopped before any markup exists (SC-006 is about the HTML, not the screen); expired is caught by the backend rejecting the bearer, surfacing as the 401 `lib/api.ts` handles. Guessing wrong costs one redirect and renders no content. Do not "harden" this by verifying a JWT here — that would mean shipping the signing secret to Vercel. |
+| The `(app)` guard's e2e tests are **written and skipped**, not deferred | A route group's layout does not execute with no page inside it, and nothing lives in `(app)` until T033. The tests exist in full in `tests/e2e/session-guard.spec.ts`; T033 switches them on by deleting `.skip`, and `GUARDED_PATH` is already `/calendar`. The wiring was proven once by hand with a throwaway route — see `.claude/build-log.md`. |
 | Contract tests run as a **second Playwright project**, not a second test runner | `tech-defaults.md` names Playwright as the frontend test tool, and `.gitlab-ci.yml`'s `test:e2e` job runs `playwright test` with no `--project` filter — a separate config file would be a merge gate nobody invokes. The project touches no `page` fixture, so no browser starts. |
 
 ## Traps
@@ -120,6 +124,30 @@ Left as generated, that is a red pipeline. Correct form is `sharp: true` with no
 `ignoredBuiltDependencies`. **A new dependency with a postinstall script needs adding, and the
 symptom is CI-only** — a local `pnpm install` passes on an interactive approval cached in pnpm's
 state outside the checkout, so never take a clean local install as proof.
+
+**Every shadcn size variant is desktop-scaled, so every tap target needs an explicit height.** The
+default `Input` is `h-8` (32px) and even `size="lg"` on `Button` is `h-9` (36px) — all below the 44px
+minimum a thumb needs, on a product whose design width is a hard 375px floor (constitution I). Login
+uses `h-11` on fields and `h-12` on the submit button, and `tests/e2e/login.spec.ts` asserts the 44px
+floor so a refactor cannot quietly drop it. Also keep the primitive's `text-base`: iOS zooms the page
+in when focusing any input under 16px.
+
+**A folder whose name starts with `_` is a *private folder* and is excluded from routing.** This cost
+real time at T027: a throwaway `app/(app)/__probe/page.tsx` simply 404'd, the layout under test never
+ran, and the failure looked like a broken guard. Worse, the "reaches the page" test **passed anyway**
+— a 404 leaves the browser at the address it asked for, so a path-only assertion cannot tell "rendered"
+from "not found". **Assert the response status too**, not just `page.url()`.
+
+**Next's dev server answers a redirect with an HTML body; `next start` answers with an empty one.**
+So `expect(body).not.toContain("<html")` on a 3xx is green in CI — which runs the production bundle —
+and red on every developer machine. That is this repo's usual trap running backwards, and it is why
+`tests/e2e/root-redirect.spec.ts` asserts status and `Location` instead. Anything about response
+*bodies* on redirects belongs in a manual quickstart step, not the suite.
+
+**`pnpm typecheck` reads generated route types out of `.next/`, so it fails after a branch switch.**
+`.next/types/validator.ts` still references pages the new branch does not have, and the error looks
+like a missing module in your own code. `rm -rf .next` and re-run. CI never sees this — it checks out
+clean — so a red typecheck straight after `git checkout` is almost always this.
 
 **`lib/session.ts` is server-only by convention, not by guard.** It reads non-`NEXT_PUBLIC_` variables,
 so a client component importing it would silently get fallbacks. The `server-only` package would catch

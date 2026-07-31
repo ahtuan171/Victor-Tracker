@@ -36,39 +36,32 @@ else. **T076 must record this as a knowing exception**, not omit it — the poin
 its absence gets written down. Implementation tasks still use one branch per task, merged `--no-ff`,
 so the history has the shape a real MR flow would produce once the remote exists.
 
-**2026-07-30 — the constitution VI exception is no longer one fast-forward; it covers every merge to
-date.** The entry above was written about a single act — the specs reaching `main`. Every implementation task since
-has merged the same way, so the standing count is **one fast-forward plus one merge per completed
-task**, and it grows by one with every task until a remote exists. Do not write the running total here;
-it goes stale within a session. Count it at the time with `git log --oneline --merges | wc -l`.
-Recording this separately because an exception whose scope drifts without
-being restated is indistinguishable from an exception nobody is tracking, which is the exact failure
-principle VI exists to prevent. Two consequences: **T076 records the count and the range, not just the
-fast-forward**, and the cost of deferring stage 3 is not flat — each task added before the gate exists
-is one more change that never passed it. Delete this entry once `main` is protected and the first real
-MR has merged; replace it with the task number where the gate became real.
+**2026-07-31 — the constitution VI exception ended at T025. This is the entry T076 needs.** Before
+T025 was started, `only_allow_merge_if_pipeline_succeeds` was set to `true` and `main`'s
+allowed-to-push dropped from Maintainers to **no one**, then both were read back from the GitLab API
+rather than taken on trust. **T025–T028 went through MRs !1–!4**, one per task, each merged only
+after a green pipeline.
 
-**2026-07-31 — T023 and T024 merged locally on evidence that went stale the same session.** A remote
-now exists (`gitlab.com/ahtuan1701/creator-hub`, private, `main` protected, `glab` authenticated).
-The local `--no-ff` flow was kept for these two because the only pipeline on record — **#1, zero jobs
-created, `yaml_errors: null`** — suggested no runner had ever accepted a job, making an MR a
-self-merge with extra clicks rather than a gate. Then the T023–T024 push fired **pipeline #2, which
-created and ran all 10 jobs**. **Lesson worth keeping: one failed pipeline is not evidence that CI
-does not work — a zero-job pipeline at project creation is a one-off, so push again before concluding
-anything about a runner.**
+**The exception's exact range, which is what T076 records:** one local fast-forward (the stage-1
+specs) plus every `--no-ff` merge from T008 through T024 — **25 merge commits on `main` before the
+gate existed**, none of which passed a check that could have stopped them. Not a count to
+recalculate later: `git log --oneline --merges` now includes the real MR merges too, so the number
+only means anything pinned to the commit where it was taken (`caca814~4`).
 
-**Pipeline #5 is fully green — all 8 non-manual jobs, both deploys manual as designed.** It took
-three red pipelines to get there and none of the three failures was in application code: a pnpm
-approval file pnpm itself wrote as a placeholder, the same fix applied to the wrong file
-(`package.json` is pnpm 10's location; pnpm 11 reads `pnpm-workspace.yaml`), and a `JWT_SECRET`
-shorter than the minimum `Settings` enforces. **A config file that was "verified" as parseable is not
-verified** — all three had passed a YAML syntax check and all three had never executed.
+The entry above stays because T076 still has to record the fast-forward *specifically* — it is the
+one merge that predates even the local branch-per-task convention.
 
-**The constitution VI exception is now one settings change from over, and that is the next thing to
-do.** `only_allow_merge_if_pipeline_succeeds` is still `false` and `main`'s allowed-to-push is still
-**Maintainers** rather than "no one", so the owner can push directly. Flip both and **T025 onward go
-through MRs** — a real gate now exists to satisfy. Record the task number where that happens, then
-delete this entry and the two above it.
+**Two lessons from getting here, both still live:**
+
+- **A config file that is "verified" as parseable is not verified.** Three red pipelines preceded the
+  first green one and none of the three failures was in application code: a pnpm approval file pnpm
+  itself wrote as a placeholder; the correct fix applied to the wrong file (`package.json` is pnpm
+  10's location, pnpm 11 reads `pnpm-workspace.yaml`); and a `JWT_SECRET` short of the minimum
+  `Settings` enforces. All three passed a YAML syntax check. All three had never executed.
+- **One failed pipeline is not evidence that CI does not work.** Pipeline #1 created zero jobs with
+  `yaml_errors: null` — a one-off at project creation — and that single data point was enough to
+  justify merging T023 and T024 locally. The very next push ran all 10 jobs. Push again before
+  concluding anything about a runner.
 
 ## Traps
 

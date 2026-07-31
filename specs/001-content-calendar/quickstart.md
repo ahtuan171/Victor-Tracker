@@ -19,11 +19,13 @@ This is a validation guide. Implementation belongs in `tasks.md`.
 | `pnpm` | yes | ✅ 11.17.0 |
 | Playwright browsers | yes — `pnpm exec playwright install` | installed by T003 |
 | Docker + compose | yes, for PostgreSQL | check with `docker compose version` |
-| `glab` | stage 3 only | ❌ not installed |
-| Git remote | stage 3 and the merge gate | ❌ none configured |
+| `glab` | stage 3 and every merge | ✅ 1.110.0, authenticated as `ahtuan1701` |
+| Git remote | stage 3 and the merge gate | ✅ `gitlab.com/ahtuan1701/creator-hub`, `main` protected |
+| A seeded creator account | V1, V2, V4, V8 — anything requiring a sign-in | ❌ **none exists** |
 
-The last two block **stage 3 (Load)** and the merge gate required by constitution principle VI. They
-do not block implementation. See [Outstanding setup](#outstanding-setup).
+The merge gate required by constitution principle VI is real as of T025. The missing piece is now the
+**creator account**: the seed script has never succeeded, so every scenario below that begins with a
+sign-in is currently unrunnable by hand. See [Outstanding setup](#outstanding-setup).
 
 ---
 
@@ -140,17 +142,6 @@ Week view is a vertical list of day sections, not seven columns (research.md R-0
 grid — it does **not** pick up the chip and silently reschedule it, which is what an unconstrained
 `PointerSensor` would do (research.md R-003).
 
-### V9 — A week's planning in under a minute
-
-**Proves**: SC-008
-
-1. With five undated ideas in the backlog, open the drawer.
-2. Place all five onto days by dragging up onto the grid. Time it.
-
-**Expected**: under 60 seconds. This is only achievable because the drawer and the grid share one
-surface — as two separate routes it cost a route change, a sheet open, a date pick, and a route change
-back, five times over (research.md R-003a).
-
 ### V7 — Delete cannot happen by accident
 
 **Proves**: FR-020, SC-007
@@ -168,7 +159,16 @@ that the confirm action is not adjacent to a common navigation gesture.
 
 **Expected**: everything persists.
 
----
+### V9 — A week's planning in under a minute
+
+**Proves**: SC-008
+
+1. With five undated ideas in the backlog, open the drawer.
+2. Place all five onto days by dragging up onto the grid. Time it.
+
+**Expected**: under 60 seconds. This is only achievable because the drawer and the grid share one
+surface — as two separate routes it cost a route change, a sheet open, a date pick, and a route change
+back, five times over (research.md R-003a).
 
 ## Test suites
 
@@ -191,13 +191,22 @@ Constitution principle VI applies to your own merge requests.
 
 ## Outstanding setup
 
-Two things must exist before stage 3 (Load) and before the merge gate is real:
+**The merge gate is real as of T025 (2026-07-31).** The project exists at
+`gitlab.com/ahtuan1701/creator-hub`, `main` is protected with allowed-to-push set to **no one**,
+`only_allow_merge_if_pipeline_succeeds` is `true`, and `glab` is installed and authenticated. Both
+settings were verified against the GitLab API, not assumed. T025–T028 merged as MRs !1–!4, each
+behind a green pipeline — the first changes in this project to pass a gate that could have stopped
+them. Everything before that is a knowing constitution VI exception; `T076` records its range.
 
-1. **A GitLab project and remote.** `main` protected, merge requests required, direct push refused.
-   Until then `git push` has nowhere to go and no gate exists to enforce.
-2. **`glab` installed.** Needed to create issues from `tasks.md`. Note that
-   `/speckit-taskstoissues` is GitHub-only and aborts on a GitLab remote — use `glab issue create`
-   or the web UI. Do not try to make that command work; `.claude/rules/workflow.md` says so
-   explicitly.
+Two things are still outstanding, and neither blocks implementation:
 
-Neither blocks implementation. Both block shipping.
+1. **The single creator account has never been seeded.** `SEED_CREATOR_EMAIL` in `.env` uses the
+   reserved `.local` TLD, `email-validator` rejects it, and the `creator` table is empty — so
+   `uv run python -m app.scripts.seed_user` has never once succeeded. **V1 below cannot be walked by
+   hand until this is fixed**, and T033 is the first task that builds a surface assuming a real
+   session. Seed once with the address you intend to keep: re-running updates the password, but a
+   *different* email is refused outright, and `content_item` has no owner column.
+2. **`tasks.md` has not been imported as GitLab issues.** T001–T028 should be created and closed
+   immediately so later `closes #N` references do not skew. `/speckit-taskstoissues` is GitHub-only
+   and aborts on a GitLab remote — use `glab issue create` or the web UI. Do not try to make that
+   command work; `.claude/rules/workflow.md` says so explicitly.
