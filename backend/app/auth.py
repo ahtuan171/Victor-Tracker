@@ -81,9 +81,15 @@ def create_access_token(creator_id: int) -> tuple[str, datetime]:
 
     The expiry is returned rather than recomputed by the caller so that the value in the login
     response body and the value inside the token cannot drift apart.
+
+    Truncated to whole seconds, because `exp` and `iat` are defined as integer seconds: without it
+    the returned datetime carries microseconds the claim cannot, and the body advertises an expiry a
+    fraction of a second later than the one the token actually enforces. Harmless in effect, but it
+    makes the sentence above false, and a paired value that is only nearly equal is the kind of
+    thing a later test tolerates instead of trusting.
     """
     settings = get_settings()
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(microsecond=0)
     expires_at = now + timedelta(days=settings.token_ttl_days)
     payload = {
         "sub": str(creator_id),

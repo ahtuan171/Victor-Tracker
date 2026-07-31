@@ -124,9 +124,25 @@ Two decisions taken here that the task text does not imply:
 ### Backend test harness
 
 - [x] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client — the harness creates the schema itself by running `alembic upgrade head`, not `metadata.create_all`, because the CI `test:backend` service container starts empty and no other pipeline step migrates it, and because `create_all` would build the enum types and CHECK constraints from model metadata instead of from the migration that actually runs in production
-- [ ] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
+- [x] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
 - [ ] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
 - [ ] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
+
+**T018 result (2026-07-31)**: done. 27 new tests, suite at **60 passing**; `ruff`, `ruff format`,
+`mypy --strict`, and `alembic check` clean.
+
+Two things the task text does not imply:
+
+- **No shipped endpoint depends on `CurrentCreator` yet**, so there was nothing to point the FR-002
+  refusals at. `/health` and `/auth/login` are public and `/auth/logout` deliberately uses
+  `presented_token`; the content-item routes arrive at T030. The file therefore mounts one throwaway
+  route on the **real** app — same handlers, same session override, same database — and removes it
+  afterwards. When T030 lands, do **not** move these assertions onto a content-item endpoint: a
+  failure there would not say whether authentication or the endpoint broke.
+- **It found one real defect.** `create_access_token` returned an `expires_at` carrying microseconds
+  while the paired `exp` claim is integer seconds, so the login body advertised an expiry a fraction
+  of a second later than the token enforced — contradicting that function's own docstring. Fixed by
+  truncating `now` to whole seconds, which is the only application change in this task.
 
 **T017 result (2026-07-30)**: done. 33 passing; `ruff`, `ruff format`, `mypy --strict`, and
 `alembic check` clean. `tests/test_placeholder.py` deleted as the task requires.

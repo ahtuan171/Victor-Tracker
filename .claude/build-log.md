@@ -126,6 +126,38 @@ filtering the warning — which is what made `filterwarnings = ["error"]` possib
 
 ---
 
+## T018 — the auth tests — 2026-07-31
+
+`backend/tests/test_auth.py`, 27 tests, suite at **60 passing**; `ruff`, `ruff format`,
+`mypy --strict`, `alembic check` clean. This is the first HTTP-level coverage the project has: T013–T016
+had been verified once by hand and then had their verification script deleted.
+
+- **A probe route was necessary, and it is not a shortcut.** Every FR-002 refusal lives in
+  `current_creator`, and no shipped endpoint depends on it at T018 — `/health` and `/auth/login` are
+  public, `/auth/logout` uses `presented_token` on purpose, content-items arrive at T030. The file
+  mounts one throwaway route on the *real* app (real handlers, real session override, real Postgres)
+  and strips it afterwards, invalidating the cached OpenAPI schema so it cannot leak into T020.
+  The temptation at T030 will be to retarget these assertions at a content-item endpoint; that trades
+  a precise failure signal for a vague one.
+- **One real defect, found by the test rather than by review.** `create_access_token` returned
+  `expires_at` with microseconds while `exp` is integer seconds, so the login body promised an expiry
+  ~0.2s later than the token enforced. Sub-second and harmless in effect — but the function's own
+  docstring claimed the two values *cannot* drift, and the alternative was writing a test that
+  tolerated the gap. Fixed at the source: `now` is truncated to whole seconds. Only application change
+  in the task.
+- **The refusal cases are parametrized into one test on purpose.** Malformed, empty, expired,
+  wrong-key, unknown-creator, and non-integer-`sub` assert an *identical* body, not merely six 401s.
+  FR-002 wants them indistinguishable, and six separately written string literals is exactly how that
+  property erodes without a test noticing. The same test asserts no `X-Access-Token` on any refusal —
+  a `current_creator` that minted the header before checking the creator existed would hand a fresh
+  thirty-day token to a request it then refused.
+- **Logout's asymmetry is covered from both sides**: 204 for expired, malformed, and wrong-key
+  credentials; 401 for no credential at all. That asymmetry is the entire reason `presented_token`
+  exists, and it is the part most likely to be "simplified" into `CurrentCreator` by someone who has
+  not read why.
+
+---
+
 ## Stage 2 and stage 3 groundwork — 2026-07-30
 
 A check of the standing claim that *"stage 2 (Design) and stage 3 (Load) run in parallel with Phase 2"*.
