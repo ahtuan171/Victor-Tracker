@@ -2,24 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-30: Phase 1 complete, Phase 2 in progress — T001–T016 of 76
+## Status as of 2026-07-30: Phase 1 complete, Phase 2 in progress — T001–T017 of 76
 
-On `main`, clean tree, 24 backend tests passing. Stage 1 planning is done and reviewed, the specs are
-on `main`, both projects are scaffolded and green, and **the backend is now a running application**:
-config, DB session, schema, a migration applied to a live Postgres, the auth primitives, the auth
-boundary, both auth endpoints, the seed script, and `main.py`. `docker compose up backend` serves
-`GET /health`.
+On `main`, 33 backend tests passing. Stage 1 planning is done and reviewed, the specs are on `main`,
+both projects are scaffolded and green, **the backend is a running application** — config, DB session,
+schema, a migration applied to a live Postgres, the auth primitives, the auth boundary, both auth
+endpoints, the seed script, `main.py` — and **the pytest harness exists**. `docker compose up backend`
+serves `GET /health`.
 
-The next task is **T017**. Phase 2 has **5 of 21 tasks left**: T017–T020 the test harness and its
-first tests, T021–T028 the frontend foundation. Nothing in Phase 3–7 may start until Phase 2 is
-complete.
+The next task is **T018**. Phase 2 has **11 of 21 tasks left**: T018–T020 the first real tests,
+T021–T028 the frontend foundation. Nothing in Phase 3–7 may start until Phase 2 is complete.
 
-**The backend has no automated coverage of T013–T016 yet.** It was verified by a throwaway script
-(32 checks, all passing) because the pytest harness does not exist until T017. Writing T018–T020 is
-what converts that into a suite — do not treat those tasks as re-testing something already tested.
+**T013–T016 still have no automated coverage.** T017 built the harness that makes coverage possible; it
+did not write the tests. The 32-check throwaway script from T016 is gone, so **T018–T020 are the only
+thing standing between "verified once by hand" and "verified by the suite"** — do not treat them as
+re-testing something already tested.
 
 **No frontend feature code exists yet** — `frontend/app/page.tsx` is still the create-next-app
-placeholder.
+placeholder, and `frontend/lib/` still has only `utils.ts`.
 
 Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The constitution lives at
 `.specify/memory/constitution.md` — there is no root `constitution.md`.
@@ -29,106 +29,34 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | Part | State |
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
-| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T016 ticked**), `checklists/requirements.md` (16/16). |
+| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T017 ticked**), `checklists/requirements.md` (16/16). |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
-| `backend/tests/` | `test_placeholder.py` (delete at T017), `test_config.py`, `test_auth_core.py`. 24 passing. No database fixture yet, and **no HTTP-level test at all** — T017 then T018–T020. |
+| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`. **33 passing.** `test_placeholder.py` deleted at T017. The harness exists but **no endpoint is covered yet** — T018–T020 are the tests themselves. |
 | `frontend/` | Scaffolded only. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's; `lib/` has only `utils.ts`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `frontend` still not runnable — it needs T026. |
-| `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. |
+| `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. YAML syntax verified parseable, all 10 jobs resolve; that is not the same as verified working. One known gap: `test:backend` runs `uv run pytest` with no `alembic upgrade head` — the T017 harness compensates by migrating the schema itself, so **do not add a migration step to CI without checking the harness first**; two of them racing is worse than neither. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
-| `design/`, `docs/` | Do not exist. Correct — stage 2 and T076 create them. |
-| GitLab / remote / `glab` | **Still none of it.** No remote, no protected `main`, no pipeline run, `glab` not installed. |
+| `design/` | `content-calendar/BRIEF.md` only — the stage-2 brief and the data-shape audit checklist the export must pass. No export yet: the claude.ai design-system project exists but is empty. |
+| Claude Design | Project **`CreatorHub Design System`** created 2026-07-30, id `756a66ad-4f2e-42ff-9513-48b969855d40`. Created through `DesignSync create_project` specifically so the project type is right — see Decisions. **Empty**: the design work itself has not been done. |
+| `docs/` | Does not exist. Correct — T076 creates it. |
+| GitLab / remote | **Still none of it.** No remote, no protected `main`, no pipeline run. Blocked on a GitLab account. |
+| `glab` | **Installed**, 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. Not yet authenticated. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 (daemon stopped). |
 
-### What the previous session did (stage 1)
+### History lives in `.claude/build-log.md`
 
-1. Ran the full stage-1 chain: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` →
-   `/speckit-tasks` → `/speckit-analyze`, from the hand-written draft.
-2. Answered 8 clarification questions across two rounds (3 on entity/pipeline shape during specify,
-   5 on security, interaction, and state transitions during clarify).
-3. Ran the **`reviewer` agent** on the finished artifacts. It found **six blocking design gaps**;
-   all six are now closed. Commit `62e67b8` has the full list.
-4. Answered 3 design questions the review exposed — backlog placement, status-drag, data fetching —
-   and applied the consequences across all seven artifacts.
+What happened at each stage and task — stage 1, Phase 1, the T008–T016 backend, T017, and the stage
+2/3 groundwork — is recorded in [`.claude/build-log.md`](.claude/build-log.md). It is **deliberately
+not imported**: it is a record, not a rule, and it was the bulk of this file's context cost.
 
-**The lesson worth keeping**: `/speckit-analyze` reported **95% requirement coverage** on the version
-of `tasks.md` that still contained all six blockers, including one that left every content item
-permanently stuck in `idea`. Coverage checks whether a requirement is *cited* by a task, not whether
-the tasks *compose into something that works*. Run both `/speckit-analyze` and the `reviewer` agent —
-they catch different classes of defect. This is recorded as a trap in `.claude/memory.md`.
+Read it when you need to know *why* something was done at a specific task, or whether a thing was
+verified rather than assumed. You do **not** need it to work on the next task — every trap it mentions
+is also recorded where that trap can bite (see [Where knowledge lives](#where-knowledge-lives)), and
+the decisions that still constrain new code are in the two tables below.
 
-### What this session did (Phase 1)
-
-1. **Fast-forwarded `main` to `001-content-calendar`** so the specs are the source of truth
-   everything downstream can reference. See "Decisions this session" below — this was the open
-   question the last session deliberately left.
-2. Built T001–T007, one branch per task (`feature/001-<slug>`), each merged `--no-ff` into `main`.
-   Seven merge commits, so the history already has the shape a real MR flow will produce.
-3. Ticked T001–T007 in `tasks.md` and recorded the checkpoint result there, including the part that
-   could not be verified.
-
-**Verified green**: `uv sync`, `uv run pytest`, `ruff check`, `ruff format --check`, `mypy` (strict),
-`pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm exec playwright test` (1 passed at 375×667).
-
-**Also verified**: `docker compose up -d db`. Postgres 17.10 comes up healthy,
-`scripts/init-test-db.sql` creates `creatorhub_test`, and both databases are reachable from the host
-over `psycopg` on 5432.
-
-**Not verified**: the `backend` and `frontend` compose services. Neither is runnable yet — their
-commands need `app.main:app` (T016) and a real `frontend/app/page.tsx` (T026). Re-check at the
-Phase 2 checkpoint.
-
-### What this session also did (Phase 2, T008–T016)
-
-Backend foundation, one branch per task, same `--no-ff` flow. It is now complete.
-
-- **T008** `app/config.py` — pydantic-settings, `get_settings()` cached. Tests cover the refusals.
-- **T009** `app/db.py` — lazy engine, `SessionDep`, the single seam T017 overrides.
-- **T010** `app/models.py` — `Creator`, `ContentItem`, `Status`, `Platform`, `STATUS_ORDER`.
-- **T011** `alembic/versions/20260730_9483af05dd5b_*.py` — applied, round-tripped, `alembic check`
-  clean.
-- **T012** `app/auth.py` — hash/verify, issue/decode, `is_past_half_life`.
-- **T013** `app/auth.py` — `current_creator` + `CurrentCreator`, attaching `X-Access-Token` past
-  half-life. Also `presented_token`, the lenient dependency **only logout may use**.
-- **T014** `app/api/auth.py` — login and logout, `normalise_email`, a timing equaliser so an unknown
-  email costs the same as a wrong password.
-- **T015** `app/scripts/seed_user.py` — creates the one account, updates its password on re-run,
-  refuses a second address.
-- **T016** `app/main.py` — the `RequestValidationError` flattener, CORS, `GET /health`.
-
-**Verified against `creatorhub_test`** with a throwaway script: 32 checks, all passing — the flattened
-error shape (including through the real uvicorn server, not just `TestClient`), login and its 401
-paths, all five `current_creator` refusals, sliding reissue in both directions including that a
-reissued token works and does not immediately re-reissue, and logout from valid, expired, garbage,
-and absent credentials. The generated `openapi.json` was checked for 422 shape and `format: email`
-rather than assumed to match the contract.
-
-**Three things this batch learned**, all recorded as traps in `.claude/memory.md`:
-
-1. `HTTPBearer` with the default `auto_error=True` returns **403**, not the contract's 401.
-2. FastAPI's `TestClient` warns that `httpx` is deprecated in favour of `httpx2` — harmless now,
-   a failing suite the day T017 adds `filterwarnings = error`.
-3. The Windows console is cp1252, so an em dash in a script's printed output becomes `?`. Script
-   output stays ASCII.
-
-**Verified against the live database**: schema matches data-model.md column for column — named
-`platform` and `status` enum types, `TIMESTAMPTZ`, `DATE`, identity PKs, the three indexes. Both
-CHECK constraints were exercised by hand and refuse what they should: advancing to `draft` with no
-platform (FR-009), clearing the platform of a `draft` (FR-009a), and a whitespace-only title
-(FR-005).
-
-**Three things this phase learned the hard way**, each already fixed but worth not rediscovering:
-
-1. **`alembic check` is a required step, not a nicety.** The backlog partial index lived only in the
-   migration, so metadata and database disagreed and the *next* autogenerated revision would have
-   dropped it silently. Constraints and indexes are now declared on `ContentItem.__table_args__`
-   too. Run `alembic check` after every revision.
-2. **The enum downgrade asymmetry is real and only shows up on the second upgrade.** Verified by
-   actually running `upgrade → downgrade base → upgrade`. Do that for every future migration.
-3. **pydantic-settings matches constructor kwargs by field name, not by env-var name.** A test
-   passing `Settings(JWT_SECRET=...)` populates nothing and passes for the wrong reason. Tests go
-   through the real environment with `_env_file=None`.
+When you finish a task: narrative goes to the build log, the durable rule goes to whichever file
+covers the tree it applies to.
 
 ### Decisions that shape the code, and why
 
@@ -149,97 +77,91 @@ future session does not re-litigate:
 | `DATE` end to end; `today` read client-side only | Makes the midnight-UTC off-by-one unrepresentable in data, and the hydration flip impossible in render. |
 | Last write wins, no version column | One creator; the only person who can be overwritten is themselves (constitution VII). |
 
-### Decisions this session, and why
+### Decisions taken during implementation, and why
+
+Only the cross-cutting ones. **Backend-specific decisions and traps live in
+[`backend/AGENTS.md`](backend/AGENTS.md); frontend-specific ones in
+[`frontend/AGENTS.md`](frontend/AGENTS.md)** — both load automatically when you work in those trees,
+and neither is duplicated here.
 
 | Decision | Why |
 |---|---|
 | **Specs reached `main` by local fast-forward**, not an MR | The open question from last session, now closed. Creating the GitLab project first would have blocked all implementation on an account setup that blocks nothing else. With no remote there is no gate to satisfy, so this is a knowing exception to constitution VI — **`T076` must record it, not omit it.** Also in `.claude/memory.md`. |
 | One branch per task, merged `--no-ff` | Keeps the working agreement in `tasks.md` real while there is no remote. The history already looks like the MR flow it will become, so nothing has to be reconstructed later. |
-| **`pwdlib`, not `passlib`** | T002 required verifying passlib on 3.13. It fails — and not the way the trap note predicted. With `bcrypt` 5.0.0 the error comes from passlib's own backend probe hashing an over-72-byte password: `ValueError: password cannot be longer than 72 bytes`. passlib 1.7.4 is unmaintained. |
 | No Dockerfiles; compose runs base images with bind mounts | Render and Vercel build from source and never read `docker-compose.yml`. Its only job is "Postgres + FastAPI + Next.js dev servers", which needs no image of our own. |
-| `JWT_SECRET` has no default anywhere | An app that boots with a guessable secret is worse than one that refuses to boot. |
-| Test database created by `scripts/init-test-db.sql` at initdb time | The pytest harness (T017) then needs no `CREATE DATABASE` privilege and **cannot point at the dev database by accident**. |
-| `exactOptionalPropertyTypes` on | FR-023's partial-update semantics distinguish "field omitted → leave it" from "explicit null → clear it". Without this flag `{ platform: undefined }` is assignable to an optional field and the two collapse at the type level — the exact distinction T049 and T051 must keep apart. It caught a real bug within minutes (`workers: undefined` in the Playwright config). |
-| `new Date` and `Date.parse` banned by eslint outside `lib/dates.ts` | Turns the recorded UTC-midnight trap into a build failure instead of a comment nobody reads (research.md R-006). Verified firing before it was committed. |
-| Playwright's only project is 375×667, written out explicitly | 375px is a hard floor (constitution I), not one entry in a matrix. A named device preset could change the number under a Playwright upgrade; the number is the requirement. |
 | CI `deploy` jobs **fail** when their hook variable is missing | A green deploy job that deployed nothing is worse than a red one. T071 sets the variables. |
-| shadcn theme tokens hand-written into `globals.css` | `shadcn init` half-succeeded (see Traps). The block is explicitly provisional — stage 2 replaces it. Safe to replace wholesale: R-005 encodes status as shape and fill, so FR-017/SC-004 do not depend on any colour in that file. |
-| `get_settings()` and `get_engine()` are cached functions, not module-level instances | Importing `app.config` must not be able to fail. A module-level `Settings()` turns a missing variable into an import error from whichever module happened to load first, instead of a startup error naming the variable. |
-| `StrEnum`, not data-model.md's literal `(str, Enum)` | Identical values, but `f"{Status.IDEA}"` renders `idea` rather than `Status.IDEA`. Same schema, more readable logs. |
-| `Identity()` PKs, not SQLAlchemy's default `SERIAL` | data-model.md says "identity", and identity columns avoid `SERIAL`'s separate sequence-ownership quirks. |
-| Enum columns pass `values_callable` | SQLAlchemy otherwise stores the Python member *names* (`IDEA`) while the contract, the frontend, and every fixture use `idea`. It only surfaces on a real round trip. |
-| CHECKs and the partial index declared in **both** the model and the migration | Not duplication for its own sake. Alembic compares indexes: with the index only in the migration, `alembic check` reports drift and the next autogenerated revision drops it. |
-| bcrypt's 72-byte limit handled at the boundary, in bytes | `hash_password` raises; `verify_password` returns `False`, because at login an over-long password is just a wrong one and a distinct error leaks the credential's shape. Counted in UTF-8 bytes — a 24-character emoji password is 96 bytes. |
-| One `InvalidTokenError` for absent, malformed, expired, and wrong-key | The API says 401 and nothing more. Distinguishing them tells an attacker which half of the problem to work on. |
-| `presented_token` exists alongside `current_creator`, and **only logout uses it** | The contract declares 401 on `/auth/logout` while T014 requires sign-out to survive an expired token. Reconciled by requiring a credential to *exist* without requiring it to be *valid*: 401 for no credential, 204 for any credential. A second caller of this dependency would be a security bug, not reuse. |
-| Login verifies an unknown email against a throwaway hash before refusing | Otherwise an unknown email returns in microseconds and a known one costs a full bcrypt verification, and the timing answers exactly the question the shared 401 message refuses to. |
-| Seed credentials live in their own `BaseSettings`, not `app.config.Settings` | Required there, the API refuses to boot on every deployment after the first. Optional there, every API process holds the plaintext password in memory. Still a settings model rather than `os.environ`, because the credentials live in `.env` and a bare environ read would not see them unless exported. |
-| Re-running the seed script updates the password; a *different* email is refused | This is v0.1's only password recovery — the alternative is a reset endpoint the tech defaults forbid. A second account is refused because `content_item` has no owner column (INV-4), so two creators would silently share every item. |
-| The 422 response model is declared on the `FastAPI()` constructor, not just in the handler | The handler alone fixes the runtime body while the *generated* schema still advertises FastAPI's array-shaped `HTTPValidationError` — so a client generated from the generated document would still be wrong. Verified in `openapi.json`. |
-| `GET /health` does not touch the database | Render recycles an instance whose probe fails. A probe that queries Postgres turns a momentary database blip into an outage. |
+| The Claude Design project was created **through `DesignSync create_project`**, not by hand in the browser | A project's type is **immutable at creation**, and a regular project can never become a design system — `DesignSync` cannot read it and there is no conversion. Creating it through the tool removes the one irreversible mistake available in stage 2. Id is recorded in the table above. |
+| `design/content-calendar/BRIEF.md` was written **before** the export exists | The data-shape audit is the whole point of the stage-2 gate, and criteria invented after seeing a design are not criteria. The checklist is derived mechanically from `data-model.md`'s "Not present" table, so the audit has a fixed answer key. It also carries the `DO NOT INVENT` list that goes into the Claude Design prompt, which is far cheaper than catching a stray field during the audit. |
+| The stage-2 deadline is **T034, not T038** | `research.md` says the stage-2 gate does not block Phase 4, and that is true — about *tokens*, which R-005 made non-load-bearing. It is not true about *fields*. Constitution IV requires a `spec.md` amendment before building a design-implied field, and the fields get their controls at T034 and T052. After that, a re-skin (cheap) becomes rework (not). |
+| `glab` installed before any remote exists | It is inert without an account, but installing it is the one part of stage 3 that needed no account, and discovering the non-standard install path cost a few minutes that would otherwise have been spent mid-setup. |
 
 ### Next session starts here
 
+0. **Read the AGENTS.md for the tree you are about to touch, before the first edit.**
+   `backend/AGENTS.md` or `frontend/AGENTS.md` — they hold that side's decisions, traps, and commands,
+   and none of it is repeated here. They load automatically once you read a file in that directory,
+   but "automatically" can mean *after* your first edit, which is too late for a trap. T018–T020 are
+   backend; T021–T028 are frontend.
 1. **Start Docker Desktop, then `docker compose up -d db`.** Postgres is verified working, but the
-   daemon does not survive a reboot, and T017 fails confusingly without it. Then
+   daemon does not survive a reboot, and the whole suite fails confusingly without it. Then
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
-2. **Continue at T017** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
+   The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
+2. **Continue at T018** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
 
    | Tasks | What |
    |---|---|
-   | T017–T020 | pytest harness, then the auth / schema / error-shape tests |
-   | T021–T028 | proxy allowlist, the proxy itself, API client, login page, root redirect, session guard, `lib/dates.ts` |
+   | T018–T020 | the auth / schema / error-shape tests, against the T017 harness |
+   | T021–T028 | proxy allowlist, the proxy itself, API client, 401 handler, login page, root redirect, session guard, `lib/dates.ts` |
 
-3. **T017 must point at `TEST_DATABASE_URL`, never `DATABASE_URL`.** `creatorhub_test` already
-   exists and already has the schema. The variable is in `.env.example` and in the local `.env`;
-   `app/config.py` does *not* read it, because nothing outside the harness should be able to reach
-   the test database. Override `app.db.get_session` — that is the one seam, and it is the reason
-   `db.py` looks the way it does.
-4. **T018 has a ready-made specification.** The throwaway verification script from T016 lists 32
-   assertions in the order they matter, including the four that are easy to forget: a fresh token
+3. **T018 has a specification, but it is no longer on disk.** The T016 throwaway script — 32
+   assertions — was deleted. The four easiest to forget are recorded here on purpose: a fresh token
    must get **no** `X-Access-Token`, a past-half-life token must get one, the reissued token must
-   itself work, and logout must return 204 for an expired token but 401 for no token at all.
-5. **`app.auth.presented_token` must stay logout-only.** It requires a credential to exist without
-   checking it. Any other endpoint depending on it is unauthenticated by accident.
-6. **Do not "tidy" `backend/pyproject.toml` back to passlib.** The comment there records why. The
-   `pydantic[email]` entry is also load-bearing: without email-validator the login field cannot
-   declare `format: email` and the generated schema stops matching the contract.
-7. Read the **Post-review revisions** table at the bottom of `tasks.md` before touching Phase 3+:
+   itself work and must not immediately re-reissue, and logout must return **204 for an expired
+   token but 401 for no token at all**. Reconstruct the rest from `tasks.md` T018 and the contract.
+4. **Two backend hazards to know before the first edit**, both explained in `backend/AGENTS.md` and
+   not restated here: `app.auth.presented_token` must stay **logout-only**, and three entries in
+   `backend/pyproject.toml` look removable but are load-bearing.
+5. Read the **Post-review revisions** table at the bottom of `tasks.md` before touching Phase 3+:
    three tasks exist for non-obvious reasons and look droppable if you have not read it.
-8. **Stage 3 (Load)** whenever the GitLab account is ready: create the private project, protect
-   `main`, install `glab`, then import `tasks.md` as issues with `glab issue create`.
-   `/speckit-taskstoissues` is GitHub-only and will abort — do not try to make it work. Blocks
-   shipping, not implementation.
-9. **Stage 2 (Design)** is still open and still not blocking. R-005 fixes the status-cue *semantics*
-   independently of colour, and the placeholder tokens now in `globals.css` are built to be replaced.
-10. **Do not skip** `T075` at the end — amending the Auth row of `tech-defaults.md` to permit sliding
-    reissue. `research.md` R-002 defers it to Reflect on purpose, so the rule is inherited by later
-    modules rather than re-derived from an argument buried in a research file.
+6. **Do not skip** `T075` at the end — amending the Auth row of `tech-defaults.md` to permit sliding
+   reissue. `research.md` R-002 defers it to Reflect on purpose, so the rule is inherited by later
+   modules rather than re-derived from an argument buried in a research file.
+
+**Two stages are waiting on the human, not on code.** Neither blocks T018, and both were checked and
+confirmed safe to run in parallel with Phase 2:
+
+7. **Stage 3 (Load)** needs a **GitLab account**. Then: create the private project `creator-hub`,
+   `git remote add origin`, `git push -u origin main` — that push fires the **first pipeline run ever**,
+   which is the point of doing it early rather than at Phase 8. Protect `main` (allowed-to-push = no
+   one) and require pipelines to succeed. Then `glab auth login` and import `tasks.md` as issues,
+   creating T001–T017 and closing them immediately so `closes #N` references do not skew.
+   `/speckit-taskstoissues` is GitHub-only and will abort — do not try to make it work.
+   **After `main` is protected the local `--no-ff` merge flow is no longer valid**: push the branch,
+   open an MR, let the pipeline gate it. Update `.claude/memory.md`, `tasks.md`'s closing note, and
+   `quickstart.md`'s Outstanding setup at that moment.
+8. **Stage 2 (Design)** needs the **design work itself** in the `CreatorHub Design System` project
+   (already created, id in the table above, currently empty). Read
+   `design/content-calendar/BRIEF.md` first — it carries the surface list, the locked status-cue
+   encoding, and the `DO NOT INVENT` list to paste into the Claude Design prompt. Pull the export with
+   `DesignSync list_files` / `get_file` into `design/content-calendar/`, then **run the data-shape
+   audit before adapting anything**, and write the result into BRIEF.md even if it is clean. The
+   deadline is **T034**, not T038 — see Decisions.
 
 ### Commands that are real now
 
 ```bash
 docker compose up -d db                     # Postgres + creatorhub_test
 docker compose up -d backend                # serves /health; first start ~70s while uv sync runs
-
-cd backend
-uv sync
-uv run alembic upgrade head                 # applies 9483af05dd5b
-uv run alembic check                        # must say "No new upgrade operations detected"
-uv run pytest                               # 24 passing
-uv run ruff check . && uv run ruff format --check . && uv run mypy .
-
-uv run uvicorn app.main:app --reload        # http://localhost:8000/docs
-uv run python -m app.scripts.seed_user      # needs SEED_CREATOR_EMAIL and SEED_CREATOR_PASSWORD
-
-cd frontend
-pnpm install
-pnpm build && pnpm typecheck && pnpm lint
-pnpm exec playwright test                   # 1 passing at 375x667
 ```
 
+Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
+**`frontend/AGENTS.md`**. Current green state is 33 backend tests and 1 Playwright test at 375×667.
+
 Not real yet: `pnpm dev` as anything but the scaffold (T026), and `docker compose up frontend`.
+
+`glab` is installed but not authenticated and there is no remote, so no `glab` or `git push` command
+works yet. The path is non-standard — see `CLAUDE.local.md`.
 
 ## What this is
 
@@ -251,6 +173,24 @@ Content Calendar, Growth Tracker, Media Kit Generator, Deal/Collab Tracker.
 screens for the other modules while working on v0.1 — that is the main failure mode this project is
 structured to avoid.
 
+## Where knowledge lives
+
+Four kinds of file, and the difference matters — one of them is not in your context right now.
+
+| File | Loaded | Holds |
+|---|---|---|
+| This file + the imports below | **Always** | Current state, next steps, cross-cutting decisions |
+| `backend/AGENTS.md` | When you touch `backend/` | Backend decisions, traps, commands |
+| `frontend/AGENTS.md` | When you touch `frontend/` | Frontend decisions, traps, commands |
+| `.claude/build-log.md` | **Never — read on demand** | What happened at each task, and why |
+
+Adding knowledge: a trap or decision that applies to one tree goes in that tree's `AGENTS.md`, not
+here. Only put it here if it can bite while editing a **root-level** file. Narrative goes to the build
+log. This is what stops this file growing by twenty lines a task.
+
+`frontend/AGENTS.md` opens with a block fenced by `BEGIN/END:nextjs-agent-rules` — that is generated
+by Next.js tooling and is rewritten on upgrade. Never edit inside those markers.
+
 ## Detailed rules
 
 @.claude/rules/workflow.md
@@ -260,6 +200,9 @@ structured to avoid.
 ## Working memory
 
 @.claude/memory.md
+
+`.claude/build-log.md` also exists and is **intentionally not imported** — read it on demand for the
+chronology. Anything in it that a future session must *act on* belongs in `memory.md` instead.
 
 ## Non-negotiables
 
