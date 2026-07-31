@@ -2,21 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-30: Phase 1 complete, Phase 2 in progress — T001–T017 of 76
+## Status as of 2026-07-31: Phase 1 complete, Phase 2 in progress — T001–T018 of 76
 
-On `main`, 33 backend tests passing. Stage 1 planning is done and reviewed, the specs are on `main`,
+On `main`, 60 backend tests passing. Stage 1 planning is done and reviewed, the specs are on `main`,
 both projects are scaffolded and green, **the backend is a running application** — config, DB session,
 schema, a migration applied to a live Postgres, the auth primitives, the auth boundary, both auth
-endpoints, the seed script, `main.py` — and **the pytest harness exists**. `docker compose up backend`
-serves `GET /health`.
+endpoints, the seed script, `main.py` — the **pytest harness exists**, and **auth is covered end to
+end over HTTP**. `docker compose up backend` serves `GET /health`.
 
-The next task is **T018**. Phase 2 has **11 of 21 tasks left**: T018–T020 the first real tests,
+The next task is **T019**. Phase 2 has **10 of 21 tasks left**: T019–T020 the remaining tests,
 T021–T028 the frontend foundation. Nothing in Phase 3–7 may start until Phase 2 is complete.
 
-**T013–T016 still have no automated coverage.** T017 built the harness that makes coverage possible; it
-did not write the tests. The 32-check throwaway script from T016 is gone, so **T018–T020 are the only
-thing standing between "verified once by hand" and "verified by the suite"** — do not treat them as
-re-testing something already tested.
+**T019 and T020 are still the gap.** T018 covered login, logout, and the authentication boundary; the
+schema-shape assertion (INV-4) and the uniform-error-body assertion are not written yet, and the
+32-check throwaway script that once covered the error shape by hand is gone.
 
 **No frontend feature code exists yet** — `frontend/app/page.tsx` is still the create-next-app
 placeholder, and `frontend/lib/` still has only `utils.ts`.
@@ -32,7 +31,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T017 ticked**), `checklists/requirements.md` (16/16). |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
-| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`. **33 passing.** `test_placeholder.py` deleted at T017. The harness exists but **no endpoint is covered yet** — T018–T020 are the tests themselves. |
+| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018). **60 passing.** Auth is covered over HTTP; `test_schema.py` (T019) and `test_errors.py` (T020) are still missing. |
 | `frontend/` | Scaffolded only. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's; `lib/` has only `utils.ts`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `frontend` still not runnable — it needs T026. |
 | `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. YAML syntax verified parseable, all 10 jobs resolve; that is not the same as verified working. One known gap: `test:backend` runs `uv run pytest` with no `alembic upgrade head` — the T017 harness compensates by migrating the schema itself, so **do not add a migration step to CI without checking the harness first**; two of them racing is worse than neither. |
@@ -107,18 +106,18 @@ and neither is duplicated here.
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
    The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Continue at T018** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
+2. **Continue at T019** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
 
    | Tasks | What |
    |---|---|
-   | T018–T020 | the auth / schema / error-shape tests, against the T017 harness |
+   | T019–T020 | the schema-shape and error-shape tests, against the T017 harness |
    | T021–T028 | proxy allowlist, the proxy itself, API client, 401 handler, login page, root redirect, session guard, `lib/dates.ts` |
 
-3. **T018 has a specification, but it is no longer on disk.** The T016 throwaway script — 32
-   assertions — was deleted. The four easiest to forget are recorded here on purpose: a fresh token
-   must get **no** `X-Access-Token`, a past-half-life token must get one, the reissued token must
-   itself work and must not immediately re-reissue, and logout must return **204 for an expired
-   token but 401 for no token at all**. Reconstruct the rest from `tasks.md` T018 and the contract.
+3. **T020 has a specification that is no longer on disk.** The T016 throwaway script — 32 assertions —
+   was deleted, and the error-shape half of it has not been rewritten. The trap it existed to catch is
+   in `backend/AGENTS.md`: FastAPI's `RequestValidationError` returns `detail` as an **array**, and the
+   flattener in `main.py` is what makes the contract true. Assert it against the **generated**
+   `openapi.json` as well as the runtime body — the handler alone fixes one and not the other.
 4. **Two backend hazards to know before the first edit**, both explained in `backend/AGENTS.md` and
    not restated here: `app.auth.presented_token` must stay **logout-only**, and three entries in
    `backend/pyproject.toml` look removable but are load-bearing.
@@ -156,7 +155,7 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is 33 backend tests and 1 Playwright test at 375×667.
+**`frontend/AGENTS.md`**. Current green state is 60 backend tests and 1 Playwright test at 375×667.
 
 Not real yet: `pnpm dev` as anything but the scaffold (T026), and `docker compose up frontend`.
 
