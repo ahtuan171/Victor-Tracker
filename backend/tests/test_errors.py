@@ -1,0 +1,295 @@
+"""One error shape, everywhere — the promise `contracts/openapi.yaml` makes in its own preamble.
+
+    Error bodies are uniformly `{"detail": "<string>"}`.
+
+That sentence is load-bearing rather than decorative: the typed client generated at T023 types
+`detail` as a string, so anything else renders `[object Object]` in front of the creator. Two
+separate mechanisms have to hold for it to be true, and they fail independently.
+
+* **The runtime body.** FastAPI's `RequestValidationError` returns `detail` as an *array of
+  objects*. `app/main.py` installs a handler that flattens it.
+* **The generated document.** A route that declares a 4xx with no model advertises no body at all,
+  and a client generated from that document is left guessing at the one response it most needs to
+  render. Declaring `ErrorResponse` on every 4xx is what closes this half.
+
+The handler fixes the first and does nothing for the second, which is why both are asserted here.
+Reading the code cannot tell you which one you have — the only reliable check is the generated
+`openapi.json` itself, and that is a thing this project has already got wrong once.
+
+The four Starlette-generated responses matter as much as our own. `404` and `405` never reach any
+handler in `app/`, so "uniformly" is a claim about a framework default as much as about our code.
+"""
+
+from typing import Any
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from app.models import Creator
+
+CONTRACTED_ERROR_KEYS = {"detail"}
+"""Exactly one key. Not "at least" — FR-002 and SC-006 say a 401 carries no content data of any
+kind, and an error body that grew a `code`, a `field`, or an `errors` array would break the
+generated client's type as surely as an array-shaped `detail` would."""
+
+
+def assert_matches_the_contracted_error_shape(response: Any) -> None:
+    """The whole of `components.schemas.Error`, asserted in one place.
+
+    Written as a helper rather than repeated so that the shape has exactly one definition in this
+    file. If the contract ever gains a field, this is the only line that changes — and every case
+    below starts asserting it at once, which is the point.
+    """
+    assert 400 <= response.status_code < 500, f"not a 4xx: {response.status_code}"
+    assert response.headers["content-type"].startswith("application/json"), (
+        "an error rendered as HTML is an error the generated client cannot read at all"
+    )
+
+    body = response.json()
+    assert isinstance(body, dict), f"error body is {type(body).__name__}, not an object"
+    assert set(body) == CONTRACTED_ERROR_KEYS, f"unexpected keys: {sorted(set(body))}"
+    assert isinstance(body["detail"], str), (
+        f"detail is {type(body['detail']).__name__}, not a string - this is the array-shaped "
+        "RequestValidationError leaking past the handler in app/main.py"
+    )
+    assert body["detail"].strip(), "detail is present but empty, which tells the creator nothing"
+
+
+# Every 4xx this API can currently produce. The content-item routes add 404 and 409 at T030; those
+# belong to the tasks that build them, and each must be added here as well as there.
+REACHABLE_4XX = [
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login", json={"email": creator.email, "password": "not the password"}
+        ),
+        401,
+        id="login-wrong-password",
+    ),
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login", json={"email": "nobody@example.com", "password": "irrelevant"}
+        ),
+        401,
+        id="login-unknown-email",
+    ),
+    pytest.param(
+        lambda client, creator: client.post("/auth/logout"),
+        401,
+        id="logout-no-credential",
+    ),
+    pytest.param(
+        lambda client, creator: client.post("/auth/login", json={"email": creator.email}),
+        422,
+        id="login-missing-password",
+    ),
+    pytest.param(
+        lambda client, creator: client.post("/auth/login", json={"password": "irrelevant"}),
+        422,
+        id="login-missing-email",
+    ),
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login", json={"email": creator.email, "password": ""}
+        ),
+        422,
+        id="login-empty-password",
+    ),
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login", json={"email": "not-an-email", "password": "irrelevant"}
+        ),
+        422,
+        id="login-malformed-email",
+    ),
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login", json={"email": 7, "password": ["a", "list"]}
+        ),
+        422,
+        id="login-wrong-types",
+    ),
+    pytest.param(
+        lambda client, creator: client.post("/auth/login", json=["not", "an", "object"]),
+        422,
+        id="login-body-is-an-array",
+    ),
+    pytest.param(
+        lambda client, creator: client.post(
+            "/auth/login",
+            content=b"{this is not json",
+            headers={"Content-Type": "application/json"},
+        ),
+        422,
+        id="login-unparseable-json",
+    ),
+    pytest.param(
+        lambda client, creator: client.get("/no/such/path"),
+        404,
+        id="starlette-not-found",
+    ),
+    pytest.param(
+        lambda client, creator: client.get("/auth/login"),
+        405,
+        id="starlette-method-not-allowed",
+    ),
+    pytest.param(
+        lambda client, creator: client.delete("/health"),
+        405,
+        id="starlette-method-not-allowed-on-health",
+    ),
+]
+
+
+@pytest.mark.parametrize(("send", "expected_status"), REACHABLE_4XX)
+def test_every_reachable_4xx_matches_the_contracted_shape(
+    client: TestClient, creator: Creator, send: Any, expected_status: int
+) -> None:
+    """The uniformity claim, case by case.
+
+    The status code is asserted alongside the shape because a case that silently stopped producing
+    the error it was written for would still pass the shape check — a 200 would not, but a 401 where
+    a 422 was intended would, and the two are not interchangeable to a client.
+    """
+    response = send(client, creator)
+
+    assert response.status_code == expected_status
+    assert_matches_the_contracted_error_shape(response)
+
+
+# ---------------------------------------------------------------------------
+# The array-shaped detail, specifically
+# ---------------------------------------------------------------------------
+
+
+def test_a_multi_field_validation_failure_is_one_string_not_a_list(client: TestClient) -> None:
+    """The exact defect the handler exists for, provoked deliberately.
+
+    An empty body fails both fields at once, so FastAPI's own `detail` would be a two-element array
+    of objects. This is the case a single-field test cannot distinguish from a working
+    implementation: a handler that returned `errors[0]` would pass that one and fail this.
+    """
+    response = client.post("/auth/login", json={})
+
+    body = response.json()
+    assert response.status_code == 422
+    assert isinstance(body["detail"], str)
+    assert "email" in body["detail"]
+    assert "password" in body["detail"]
+
+
+def test_the_flattened_message_keeps_the_field_name(client: TestClient) -> None:
+    """`app/main.py` keeps the field path on purpose, and the reason is a product one.
+
+    "value is not a valid email address" is unusable on a form with more than one field. The login
+    form has two. Dropping the prefix would be an easy "simplification" that costs nothing visible
+    in a test asserting only the type of `detail`.
+    """
+    response = client.post("/auth/login", json={"email": "not-an-email", "password": "irrelevant"})
+
+    assert response.json()["detail"].startswith("email:")
+
+
+def test_the_request_part_is_dropped_from_the_message(client: TestClient) -> None:
+    """FastAPI's `loc` is `("body", "email")`. The creator does not need to be told "body"."""
+    response = client.post("/auth/login", json={"email": "not-an-email", "password": "irrelevant"})
+
+    assert not response.json()["detail"].startswith("body")
+
+
+# ---------------------------------------------------------------------------
+# The generated document — the half the handler does not fix
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def generated_document(app: FastAPI) -> Any:
+    """A freshly generated `openapi.json`.
+
+    The cache is cleared on both sides because it is application-wide state: another test file
+    mounts a route and clears it on teardown, and a document generated before that happened would
+    be a different document. Regenerating costs milliseconds and removes the ordering question.
+    """
+    app.openapi_schema = None
+    document = app.openapi()
+    app.openapi_schema = None
+    return document
+
+
+def test_the_generated_document_declares_a_body_for_every_4xx(generated_document: Any) -> None:
+    """Every declared 4xx must reference a schema, not merely carry a description.
+
+    This is the assertion that would have caught the state of things before T020: `/auth/login`
+    declared a 401 with a description and no model, so the generated document promised no body at
+    all for the response the login form most needs to render, and `/auth/logout` declared no 401
+    whatsoever. A description is for a human reading the docs; a client is built from the schema.
+    """
+    undeclared = []
+    for path, operations in generated_document["paths"].items():
+        for method, operation in operations.items():
+            for code, response in operation["responses"].items():
+                if not code.startswith("4"):
+                    continue
+                schema = response.get("content", {}).get("application/json", {}).get("schema")
+                if schema is None:
+                    undeclared.append(f"{method.upper()} {path} {code}")
+
+    assert not undeclared, f"4xx responses with no body schema: {undeclared}"
+
+
+def test_every_declared_4xx_uses_the_one_error_schema(generated_document: Any) -> None:
+    """Uniformity in the document, not just in the bodies.
+
+    Two endpoints returning two differently-shaped errors would each be individually valid and
+    together make the contract's "uniformly" false. Asserting the `$ref` rather than the resolved
+    shape is deliberate: it fails if a second error model is introduced, which is the thing being
+    prevented.
+    """
+    refs = {
+        response["content"]["application/json"]["schema"].get("$ref")
+        for operations in generated_document["paths"].values()
+        for operation in operations.values()
+        for code, response in operation["responses"].items()
+        if code.startswith("4")
+    }
+
+    assert refs == {"#/components/schemas/ErrorResponse"}
+
+
+def test_the_error_schema_types_detail_as_a_required_string(generated_document: Any) -> None:
+    """What the generated client is actually built from."""
+    schema = generated_document["components"]["schemas"]["ErrorResponse"]
+
+    assert schema["properties"]["detail"]["type"] == "string"
+    assert schema["required"] == ["detail"]
+
+
+def test_fastapis_array_shaped_validation_model_is_absent_entirely(
+    generated_document: Any,
+) -> None:
+    """The trap in `backend/AGENTS.md`, pinned.
+
+    Declaring the 422 model on the `FastAPI()` constructor is what removes `HTTPValidationError` and
+    `ValidationError` from the components. Declaring it only in the exception handler fixes the
+    runtime body and leaves the document advertising the array shape — so a generated client would
+    still be wrong while every runtime test passed. Asserting the *absence* of these two names is
+    the only way to tell the two situations apart.
+    """
+    schemas = set(generated_document["components"]["schemas"])
+
+    assert "HTTPValidationError" not in schemas
+    assert "ValidationError" not in schemas
+
+
+def test_health_advertises_an_impossible_422_and_that_is_the_accepted_cost(
+    generated_document: Any,
+) -> None:
+    """Documents a known, deliberate wart so it is not "fixed" into a real defect.
+
+    `/health` takes no input and can never fail validation, but the global `responses=` on the
+    `FastAPI()` constructor applies to every route. The alternative — declaring the model per
+    route — lets one forgotten route reintroduce the array shape, which is a worse failure than an
+    impossible response appearing in the document. This test exists so that anyone who removes the
+    global declaration gets a failure pointing at the reason rather than a silently wrong schema.
+    """
+    assert "422" in generated_document["paths"]["/health"]["get"]["responses"]

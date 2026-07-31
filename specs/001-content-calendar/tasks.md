@@ -126,7 +126,35 @@ Two decisions taken here that the task text does not imply:
 - [x] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client — the harness creates the schema itself by running `alembic upgrade head`, not `metadata.create_all`, because the CI `test:backend` service container starts empty and no other pipeline step migrates it, and because `create_all` would build the enum types and CHECK constraints from model metadata instead of from the migration that actually runs in production
 - [x] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
 - [x] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
-- [ ] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
+- [x] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
+
+**T020 result (2026-07-31)**: done. 21 new tests, suite at **96 passing**; `ruff`, `ruff format`,
+`mypy --strict`, and `alembic check` clean. **Phase 2's backend half is complete** — T021 is frontend.
+
+**The contract's uniformity promise has two halves that fail independently**, and the task text only
+describes one. The runtime body is fixed by the flattener in `main.py`; the *generated document* is
+not, and a client is built from the document. Writing the second half's assertions found real drift:
+`POST /auth/login` declared its 401 with a description and **no model**, and `POST /auth/logout`
+declared no 401 at all — so the generated document promised no body for the response the login form
+most needs to render. Fixed by declaring `ErrorResponse` on both, which required lifting it out of
+`main.py` into the new `app/schemas.py` (a router importing `main` would be circular). Doing this now
+rather than at T030 means the six content-item routes inherit the right pattern instead of copying
+the wrong one.
+
+**One wart is now pinned rather than fixed**: `/health` advertises a 422 it can never produce, a side
+effect of declaring the 422 model on the `FastAPI()` constructor. Declaring it per route instead
+would let one forgotten route reintroduce FastAPI's array-shaped `HTTPValidationError`, which is a
+worse failure than an impossible response in the document. A test documents the trade so it is not
+"tidied" into a real defect.
+
+**Verified by breaking each guarantee in turn**, and the three failure sets are disjoint, which is
+the evidence that both halves are genuinely being tested:
+
+| Removed | What failed |
+|---|---|
+| the `RequestValidationError` flattener | only the runtime-shape tests; every document test stayed green |
+| the global 422 declaration | only the document tests; every runtime test stayed green |
+| the `model` on login's 401 | the two tests asserting a declared 4xx carries a schema |
 
 **T019 result (2026-07-31)**: done. 15 new tests, suite at **75 passing**; `ruff`, `ruff format`,
 `mypy --strict`, and `alembic check` clean.

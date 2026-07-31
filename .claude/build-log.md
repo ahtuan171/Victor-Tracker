@@ -185,6 +185,38 @@ had been verified once by hand and then had their verification script deleted.
 
 ---
 
+## T020 — the error-shape tests — 2026-07-31
+
+`backend/tests/test_errors.py`, 21 tests, suite at **96 passing**. Completes Phase 2's backend half.
+
+- **The task text describes one half of a two-half promise.** "Every 4xx body matches
+  `{"detail": "<string>"}`" is true of the runtime body *and* of the generated document, and the two
+  fail independently: the flattener in `main.py` fixes the first and does nothing for the second. A
+  client is built from the document, so testing only the runtime body would have left the half that
+  actually reaches the frontend unchecked.
+- **Which is not hypothetical — the document was wrong.** `POST /auth/login` declared its 401 with a
+  description and no model; `POST /auth/logout` declared no 401 at all. The generated document
+  therefore promised *no body* for the response the login form most needs to render. Fixed by
+  declaring `ErrorResponse` on both, which meant lifting it out of `main.py` into a new
+  `app/schemas.py` — a router importing `main` would be circular. Done now rather than at T030 so the
+  six content-item routes inherit the correct pattern rather than copying the broken one.
+- **`/health` advertises a 422 it cannot produce, and that stays.** It is a side effect of declaring
+  the 422 model on the `FastAPI()` constructor, which is what keeps `HTTPValidationError` out of the
+  components entirely. Per-route declaration would let one forgotten route reintroduce the array
+  shape. An impossible response is a smaller lie than a wrong one; a test pins the trade-off so
+  nobody "tidies" it.
+- **Verified by breaking each guarantee separately, and the failure sets are disjoint** — which is
+  the actual evidence that both halves are tested rather than one being asserted twice. Removing the
+  flattener failed only runtime tests; removing the global 422 declaration failed only document
+  tests; removing login's 401 model failed only the two "a declared 4xx carries a schema" tests.
+- **The first attempt at that verification was itself buggy** and worth recording: the patch script
+  spliced `s[:start] + ")"`, which discarded everything after the `responses=` block — handler,
+  CORS, routers, `/health` — so 18 tests failed for a reason that had nothing to do with the thing
+  under test. A "breaking it makes tests fail" check proves nothing unless you also confirm you broke
+  only what you meant to. The rerun asserts the app is still assembled before drawing a conclusion.
+
+---
+
 ## Stage 2 and stage 3 groundwork — 2026-07-30
 
 A check of the standing claim that *"stage 2 (Design) and stage 3 (Load) run in parallel with Phase 2"*.
