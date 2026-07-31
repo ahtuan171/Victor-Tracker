@@ -225,10 +225,10 @@ possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI de
 - [x] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
 - [x] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
 - [x] T024 Add a single 401 handler to `frontend/lib/api.ts` that redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002). **Amended at T022** — see the note below; the cookie is cleared by the proxy, not here
-- [ ] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success
-- [ ] T026 Build the root route in `frontend/app/page.tsx` as a server-side redirect to `/calendar` when a session cookie is present and `/login` otherwise, so the bookmarked root does not 404 (SC-001, US1 scenario 1)
-- [ ] T027 Add the session guard to `frontend/app/(app)/layout.tsx` as a server component, and re-assert it in the calendar page's own data load — App Router layouts are not re-executed on soft navigations, so the layout alone is not sufficient (FR-002, SC-006). **The re-assert half lands at T033**, which is where the calendar page first exists — see the note below
-- [ ] T028 [P] Implement date-only helpers in `frontend/lib/dates.ts`, parsing and formatting `YYYY-MM-DD` without ever constructing a `Date` from a bare date string, and exposing `today()` for client use only (research.md R-006 and its addendum)
+- [x] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success
+- [x] T026 Build the root route in `frontend/app/page.tsx` as a server-side redirect to `/calendar` when a session cookie is present and `/login` otherwise, so the bookmarked root does not 404 (SC-001, US1 scenario 1)
+- [x] T027 Add the session guard to `frontend/app/(app)/layout.tsx` as a server component, and re-assert it in the calendar page's own data load — App Router layouts are not re-executed on soft navigations, so the layout alone is not sufficient (FR-002, SC-006). **The re-assert half lands at T033**, which is where the calendar page first exists — see the note below
+- [x] T028 [P] Implement date-only helpers in `frontend/lib/dates.ts`, parsing and formatting `YYYY-MM-DD` without ever constructing a `Date` from a bare date string, and exposing `today()` for client use only (research.md R-006 and its addendum)
 
 Two amendments made while building T022, recorded here rather than absorbed silently — code and spec
 disagreeing is a thing this project fixes on one side and states, never codes around.
@@ -285,8 +285,41 @@ and App Router layouts are not re-executed on soft navigations, so a client-side
 `/login` without the server ever re-reading the cookie. `replace` rather than `assign` keeps the
 page that just 401'd out of history, where going back to it would 401 again.
 
+**T025–T028 result (2026-07-31)**: done, and **these four were the first tasks in this project to go
+through a real merge gate**. Before starting them, `only_allow_merge_if_pipeline_succeeds` was set to
+`true` and `main`'s allowed-to-push dropped from Maintainers to **no one** — both verified against the
+GitLab API rather than taken on trust. T025 is therefore **the task number where the constitution VI
+exception ends**: MRs !1–!4, each with a green pipeline before merge. Everything from the stage-1
+fast-forward through T024 remains a knowing exception, and T076 records the range.
+
+Frontend suite **65 → 90 passing, 4 skipped**. `pnpm typecheck`, `pnpm lint`, `pnpm build` clean.
+
+Four things worth carrying forward:
+
+- **T025 stores nothing on success, and its form renders its own error.** Both follow from T022–T024
+  and look like omissions otherwise: `login()` resolves to `{expires_at}` and no token because the
+  cookie was already set on that response, and `lib/api.ts` exempts `/auth/login` from the 401
+  redirect so a wrong password reaches the form instead of reloading the page. There is now a test
+  asserting the second end to end, so removing the exemption turns the suite red.
+- **Navigation after login is `window.location.replace`, not `router.push`.** Next's Router Cache can
+  replay a previously fetched `/calendar` payload, and on the "deep link → bounced to /login → sign
+  in" path that payload *is* the redirect back to login.
+- **T027's seam was closed three ways rather than noted.** `hasSessionCookie` was extracted into
+  `lib/session.ts` and unit-tested, so the part that can be silently wrong is covered continuously;
+  the e2e tests are written in full and **skipped**, needing only `.skip` deleted at T033; and the
+  wiring was proven once with a throwaway page inside `(app)` that was then removed. See the build
+  log — that probe caught a false-positive test that would otherwise have shipped into T033.
+- **T028's tests run under two timezones on purpose.** In UTC, which is what the runner uses, a
+  regression to `new Date(string)` or `toISOString().slice(0, 10)` is invisible.
+
 **Checkpoint**: a creator can sign in, an unauthenticated visitor sees nothing at any address, sign-out
 works even from an expired session, and the schema exists. No content feature works yet.
+
+**Checkpoint status (2026-07-31)**: automated coverage is green for all four clauses, but the
+**by-hand walk of quickstart V1 is still outstanding and blocked** — `SEED_CREATOR_EMAIL` in `.env`
+uses the reserved `.local` TLD, `email-validator` rejects it, and the `creator` table is empty, so no
+account exists to sign in with. Nothing in Phase 2 depends on it; the first hand-verified sign-in must
+happen before T033 builds a surface that assumes one. Diagnosis and fix are in `CLAUDE.local.md`.
 
 ---
 
@@ -369,7 +402,13 @@ dragging, and confirm zero route changes throughout.
 - [ ] T057 [US3] Write the one Playwright E2E flow in `frontend/tests/e2e/pipeline.spec.ts`: capture an idea, assign a platform, set a date, advance to `posted`, and verify it on the calendar — driven through the tap path for determinism (research.md R-003)
 - [ ] T058 [US3] Add two assertions to `frontend/tests/e2e/pipeline.spec.ts`: the journey completes with no drag gesture, and the URL never changes throughout (FR-015b, SC-002, SC-011)
 
-**Checkpoint**: the pipeline works end to end. Run quickstart V4, V5, V7, and V9.
+**Checkpoint**: the pipeline works end to end. Run quickstart V4, V5, V7, V8, and V9.
+
+**V8 added 2026-07-31** by the Phase 2 `/speckit-analyze` pass. SC-009 and FR-023 — "every change
+made in the previous session is still present after a reload" — were validated by **no checkpoint at
+all**, only by T072 at the very end of Polish. This is the phase that introduces editing every field,
+so a persistence regression born here would otherwise have surfaced after every user story was
+already called done.
 
 ---
 
@@ -537,7 +576,12 @@ not whether the tasks *close*. Both checks are needed, which is why T074 runs th
 - `[Story]` labels map tasks to spec.md user stories for traceability.
 - Verify tests fail before implementing.
 - Stop at any checkpoint to validate a story independently.
-- **Blocked before Phase 8**: no git remote and no `glab` installation exist yet, so the protected
-  `main` and the merge gate required by constitution principle VI are not yet real. See
-  [quickstart.md](./quickstart.md) Outstanding setup. This blocks stage 3 (Load) and shipping, not
-  implementation.
+- **The merge gate is real as of T025** (2026-07-31). `main` is protected with push access set to
+  **no one** and `only_allow_merge_if_pipeline_succeeds` is `true`, so constitution principle VI is
+  satisfied from T025 onward — every task from here arrives by merge request behind a green
+  pipeline. T001–T024 remain a knowing exception, and `T076` records its range. The note that
+  previously stood here said no remote and no `glab` existed; both do.
+- **Still outstanding, and it blocks by-hand validation rather than implementation**: the single
+  creator account has never been seeded (`SEED_CREATOR_EMAIL` uses the reserved `.local` TLD), so
+  **quickstart V1 has never been walked by a human**. See [quickstart.md](./quickstart.md)
+  Outstanding setup. Do it before T033.

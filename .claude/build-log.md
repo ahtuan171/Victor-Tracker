@@ -536,3 +536,109 @@ execution, and Phase 1 could not have caught any of these.
 `postgres:17-alpine` service container with no `alembic upgrade head` anywhere in the job, so the
 T017 harness really does migrate the schema itself. It has moved from a prediction to a verified
 property — and the rule it protects is unchanged: do not add a migration step to CI.
+
+---
+
+## T025–T028: Phase 2 closes, and the gate becomes real
+
+The four remaining Phase 2 tasks, all frontend. What makes them different from T001–T024 is not the
+code — it is that **they are the first tasks in this project's history to pass through a gate that
+could have stopped them.**
+
+### The gate, closed before the first line of T025
+
+`only_allow_merge_if_pipeline_succeeds` was set to `true` and `main`'s allowed-to-push dropped from
+Maintainers to **no one**. Both were then read back from the GitLab API rather than believed:
+`push_access_levels[0].access_level` is `0` ("No one"), and the project flag is `true`. That check
+cost one command and is the same discipline the three red pipelines taught — a setting someone says
+is on is not a setting that is on.
+
+So **T025 is the task number where the constitution VI exception ends.** MRs !1 through !4, one per
+task, each merged only after a green pipeline. The exception still covers everything from the
+stage-1 fast-forward through T024, and `T076` records that range rather than the single act.
+
+### T025 — the login page
+
+A server `page.tsx` exporting metadata plus a `"use client"` form. Splitting them is not ceremony:
+it keeps the route's own file on the server, where it cannot reach `lib/session.ts`.
+
+Three behaviours all follow from T022–T024 and read as omissions without the reason, which is why
+they are commented where they live: success **stores nothing** (the cookie was set by the proxy on
+that same response, and it is httpOnly); the form **renders `ApiError.detail` itself** (because
+`lib/api.ts` deliberately exempts `/auth/login` from the 401 redirect); and navigation is
+**`window.location.replace`, not `router.push`** (Next's Router Cache can replay a previously
+fetched `/calendar` payload, and on the "deep link → bounced to /login → sign in" path that payload
+*is* the redirect back to login — a soft navigation would bounce a correct sign-in straight back to
+the form).
+
+Mobile-first got assertions rather than a code review: the button must sit below the viewport
+midpoint, both fields must clear 44px, and the body must not scroll horizontally at 375px. That
+third one exposed something worth knowing — **every shadcn size variant is desktop-scaled**, `lg` is
+36px and the default input is 32px, so every tap target in this app needs an explicit height
+override. It is now in `frontend/AGENTS.md`.
+
+### T026 — the root route, and a trap that runs backwards
+
+`app/page.tsx` stops being the create-next-app scaffold and becomes a server-side redirect. The
+cookie's presence is a **routing hint, not an authorisation decision**: the signing secret never
+leaves Render, so this side cannot tell a live token from a dead one, and it does not need to — a
+stale cookie costs one redirect and renders no content.
+
+One test was written, failed, and was worth the detour. It asserted the redirect response carried no
+HTML body. **Next's dev server answers a redirect with a full HTML debug page; `next start` answers
+with an empty one.** CI runs the production server and local runs `pnpm dev`, so that assertion was
+green in CI and red on every developer machine — this project's "verified locally, red in CI" trap
+running exactly backwards. The assertion is now on status and `Location`, which agree in both.
+
+### T027 — the seam, closed three ways instead of noted
+
+A route group's layout does not execute when no page exists inside the group, and nothing lives in
+`(app)` until T033. Written naively the guard would ship unexercisable. The approach was decided
+before any code:
+
+1. **Extract the decision.** `hasSessionCookie()` moved into `lib/session.ts` as a pure predicate
+   with its own unit tests, so the part that can be silently wrong is covered continuously. T026's
+   page now calls it too — which removed the duplication that task had just introduced — and T033's
+   re-assert is the third caller, so this is not abstraction ahead of one.
+2. **Write the e2e tests and skip them.** Fully written, `test.describe.skip`, `GUARDED_PATH`
+   already `/calendar`. T033 deletes four characters.
+3. **Prove the wiring once.** A throwaway page went into `(app)`, the tests ran un-skipped, the page
+   was removed.
+
+**Step 3 paid for itself immediately, twice.** The probe was first named `__probe` — App Router
+treats a leading underscore as a *private folder* and excludes it from routing, so it 404'd and the
+layout never ran. And the "reaches the page" test **passed anyway**, because a 404 leaves the browser
+at the address it asked for. That test now asserts a `200` as well. A path-only assertion would have
+shipped into T033 as a test incapable of failing, and nothing else in the suite would have noticed.
+
+That is the argument for one-time evidence over a written note, recorded here because
+`tests/e2e/session-guard.spec.ts` points at this section for exactly that reason.
+
+### T028 — dates, tested in two timezones
+
+`lib/dates.ts`, the one module eslint lets touch `Date`. Two rules hold throughout: a `Date` it
+produces is at **local** midnight, and a `DateOnly` it produces is read from **local** calendar
+parts. Those are the two directions of the same off-by-one.
+
+Comparison turned out to need no `Date` at all — `YYYY-MM-DD` is fixed-width and big-endian, so
+lexicographic order is chronological order, which makes the overdue check at T045 the safest
+operation in the module rather than the riskiest.
+
+`today()` **throws outside the browser**, deliberately. A `"use client"` component is still
+server-rendered for its first paint, so this forces the pattern R-006's addendum actually requires —
+read it in a `useEffect`, hold it in state — instead of leaving it to a comment.
+
+The tests run every assertion under `Asia/Ho_Chi_Minh` and `America/Los_Angeles`. **In UTC, which is
+what the runner uses, both regressions this module exists to prevent are invisible.** One timezone
+each side of Greenwich is what makes them fail.
+
+### Where Phase 2 actually stands
+
+90 passing, 4 skipped; typecheck, lint, and build clean; four green pipelines. The checkpoint's
+automated coverage is complete.
+
+**The by-hand half is not, and it is blocked on a thing found at T022**: `SEED_CREATOR_EMAIL` uses
+the reserved `.local` TLD, `email-validator` rejects it, and the `creator` table is still empty. No
+account exists, so quickstart V1 cannot be walked by a human. Nothing in Phase 2 depended on it —
+every test stubs the proxy, because CI has no FastAPI behind it — but T033 builds the first surface
+that assumes a real session, so the first hand-verified sign-in has to happen before then.
