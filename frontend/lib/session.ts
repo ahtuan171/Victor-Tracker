@@ -29,6 +29,27 @@ export function sessionCookieName(): string {
 }
 
 /**
+ * Whether a session cookie value represents a session at all.
+ *
+ * **This is a presence check, not an authorisation check, and the difference is the design.** The
+ * JWT's signing secret lives on Render and deliberately never reaches Vercel (research.md R-001),
+ * so nothing on this side can tell a valid token from an expired or forged one. What this answers
+ * is the cheap question — "is there something to try?" — and the expensive one stays where the
+ * secret is. A present-but-dead cookie routes the creator to a page whose data load takes a 401,
+ * whose handler in `lib/api.ts` sends them to `/login` while the proxy clears the cookie on the
+ * way past. Guessing wrong costs one redirect and renders no content.
+ *
+ * The value matters, not merely the name: `cookies().has()` is true for an empty cookie, and an
+ * empty session cookie is not a session.
+ *
+ * Two callers by design — the root route (T026) and the session guard (T027) — with a third
+ * arriving at T033, where the calendar page re-asserts the guard in its own data load.
+ */
+export function hasSessionCookie(value: string | undefined): boolean {
+  return value !== undefined && value.trim().length > 0;
+}
+
+/**
  * Where the proxy forwards to. Read at call time, not at module load: the value is a runtime
  * concern on both Vercel and Render, and a module-level read invites it being captured at build.
  *

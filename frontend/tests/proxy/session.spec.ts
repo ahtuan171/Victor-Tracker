@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl, maxAgeFromToken, sessionCookieAttributes, sessionCookieName } from "../../lib/session";
+import {
+  apiBaseUrl,
+  hasSessionCookie,
+  maxAgeFromToken,
+  sessionCookieAttributes,
+  sessionCookieName,
+} from "../../lib/session";
 
 /**
  * The cookie's attributes and lifetime.
@@ -81,5 +87,28 @@ test.describe("environment", () => {
 
     if (configured === undefined) delete process.env.API_BASE_URL;
     else process.env.API_BASE_URL = configured;
+  });
+});
+
+test.describe("hasSessionCookie", () => {
+  /**
+   * The decision behind both the root route (T026) and the `(app)` guard (T027), and the reason
+   * neither of them duplicates it. Cheap to test here, and it is where the guard's actual logic
+   * lives — which is what keeps `tests/e2e/session-guard.spec.ts` being skipped until T033 from
+   * meaning "unverified".
+   */
+  test("a non-empty value is a session", () => {
+    expect(hasSessionCookie("eyJhbGciOi.payload.signature")).toBe(true);
+    // Not a valid token, and deliberately still true: this side cannot tell, because the signing
+    // secret never leaves Render (R-001). Validity is the backend's answer, not this function's.
+    expect(hasSessionCookie("nonsense")).toBe(true);
+  });
+
+  test("absent, empty, and whitespace are all not a session", () => {
+    // `cookies().has()` would call the middle two signed in and send the creator to a page they
+    // cannot load. This is why both callers check the value rather than the name.
+    expect(hasSessionCookie(undefined)).toBe(false);
+    expect(hasSessionCookie("")).toBe(false);
+    expect(hasSessionCookie("   ")).toBe(false);
   });
 });
