@@ -59,12 +59,14 @@ export default defineConfig({
       workers: 1,
     },
     {
-      // `lib/api.ts` driven against a stubbed `fetch`. Browserless for the same reason as the
-      // proxy project: what it asserts — a same-origin URL, an absent Authorization header, an
-      // error mapped to one type — is a property of the request, not of a rendered page.
+      // The browser-side `lib/` modules, driven directly. Browserless for the same reason as the
+      // proxy project: what they assert — a same-origin URL, an absent Authorization header, an
+      // error mapped to one type, a date that stays on its own day — is a property of the module,
+      // not of a rendered page.
       name: "client",
       testDir: "./tests/client",
-      // The stub replaces `globalThis.fetch` for the worker, so these must not interleave.
+      // These mutate worker globals and must not interleave: `api.spec.ts` replaces
+      // `globalThis.fetch`, and `dates.spec.ts` reassigns `process.env.TZ` and stubs `window`.
       fullyParallel: false,
       workers: 1,
     },

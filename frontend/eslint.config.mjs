@@ -62,8 +62,9 @@ const eslintConfig = defineConfig([
 
   {
     // The one module allowed to touch Date directly — which is what makes the rule above
-    // affordable everywhere else.
-    files: ["lib/dates.ts"],
+    // affordable everywhere else — plus its own test, which has to build the local-time Dates it
+    // asserts on and to construct an Invalid Date deliberately. Nothing else earns this.
+    files: ["lib/dates.ts", "tests/client/dates.spec.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
 ]);
