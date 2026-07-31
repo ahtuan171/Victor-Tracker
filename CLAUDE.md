@@ -2,20 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-31: Phase 1 complete, Phase 2 in progress — T001–T019 of 76
+## Status as of 2026-07-31: Phase 1 complete, Phase 2 in progress — T001–T020 of 76
 
-On `main`, 75 backend tests passing. Stage 1 planning is done and reviewed, the specs are on `main`,
+On `main`, 96 backend tests passing. Stage 1 planning is done and reviewed, the specs are on `main`,
 both projects are scaffolded and green, **the backend is a running application** — config, DB session,
 schema, a migration applied to a live Postgres, the auth primitives, the auth boundary, both auth
-endpoints, the seed script, `main.py` — the **pytest harness exists**, and **auth is covered end to
-end over HTTP**. `docker compose up backend` serves `GET /health`.
+endpoints, the seed script, `main.py` — the **pytest harness exists**, and **the backend is fully
+covered**: auth over HTTP, the schema's deliberate absences, and the uniform error shape.
+`docker compose up backend` serves `GET /health`.
 
-The next task is **T020**. Phase 2 has **9 of 21 tasks left**: T020 the last of the tests,
-T021–T028 the frontend foundation. Nothing in Phase 3–7 may start until Phase 2 is complete.
-
-**T020 is the last gap.** T018 covered login, logout, and the authentication boundary; T019 covered
-the schema absences (INV-4, constitution VII). The uniform-error-body assertion is not written yet,
-and the 32-check throwaway script that once covered it by hand is gone.
+**Phase 2's backend half is done.** The next task is **T021**, and it is the first frontend feature
+code in the project. Phase 2 has **8 of 21 tasks left**, all frontend: T021–T028. Nothing in
+Phase 3–7 may start until Phase 2 is complete.
 
 **No frontend feature code exists yet** — `frontend/app/page.tsx` is still the create-next-app
 placeholder, and `frontend/lib/` still has only `utils.ts`.
@@ -29,9 +27,9 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T017 ticked**), `checklists/requirements.md` (16/16). |
-| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
+| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
-| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019). **75 passing.** Auth and the schema absences are covered; `test_errors.py` (T020) is still missing. |
+| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020). **96 passing.** Backend coverage for Phase 2 is complete. |
 | `frontend/` | Scaffolded only. Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, Playwright at 375px. Routes are still the scaffold's; `lib/` has only `utils.ts`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `frontend` still not runnable — it needs T026. |
 | `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. YAML syntax verified parseable, all 10 jobs resolve; that is not the same as verified working. One known gap: `test:backend` runs `uv run pytest` with no `alembic upgrade head` — the T017 harness compensates by migrating the schema itself, so **do not add a migration step to CI without checking the harness first**; two of them racing is worse than neither. |
@@ -106,18 +104,18 @@ and neither is duplicated here.
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
    The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Continue at T020** in `specs/001-content-calendar/tasks.md`. The remaining Phase 2 order:
+2. **Continue at T021** in `specs/001-content-calendar/tasks.md`. Everything left in Phase 2 is
+   frontend, and **none of it exists yet** — `app/page.tsx` is still the create-next-app placeholder:
 
    | Tasks | What |
    |---|---|
-   | T020 | the error-shape test, against the T017 harness |
    | T021–T028 | proxy allowlist, the proxy itself, API client, 401 handler, login page, root redirect, session guard, `lib/dates.ts` |
 
-3. **T020 has a specification that is no longer on disk.** The T016 throwaway script — 32 assertions —
-   was deleted, and the error-shape half of it has not been rewritten. The trap it existed to catch is
-   in `backend/AGENTS.md`: FastAPI's `RequestValidationError` returns `detail` as an **array**, and the
-   flattener in `main.py` is what makes the contract true. Assert it against the **generated**
-   `openapi.json` as well as the runtime body — the handler alone fixes one and not the other.
+3. **Read `frontend/AGENTS.md` before the first edit**, not after. T021–T028 are the tasks its
+   traps were written for: the UTC-midnight `new Date` ban, `today` never being read during server
+   rendering, the dnd-kit activation constraint, and the cookie `Max-Age` the proxy must set. The
+   proxy at `app/api/[...path]/route.ts` is also the only thing that can rewrite the session cookie
+   from `X-Access-Token`; without that half, sessions die on day 30.
 4. **Two backend hazards to know before the first edit**, both explained in `backend/AGENTS.md` and
    not restated here: `app.auth.presented_token` must stay **logout-only**, and three entries in
    `backend/pyproject.toml` look removable but are load-bearing.
@@ -155,7 +153,7 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is 75 backend tests and 1 Playwright test at 375×667.
+**`frontend/AGENTS.md`**. Current green state is 96 backend tests and 1 Playwright test at 375×667.
 
 Not real yet: `pnpm dev` as anything but the scaffold (T026), and `docker compose up frontend`.
 

@@ -18,6 +18,7 @@ from sqlmodel import select
 from app.auth import PresentedToken, create_access_token, hash_password, verify_password
 from app.db import SessionDep
 from app.models import Creator
+from app.schemas import ErrorResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -82,7 +83,12 @@ def _invalid_credentials() -> HTTPException:
 @router.post(
     "/login",
     response_model=TokenResponse,
-    responses={401: {"description": "Email or password incorrect"}},
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "Email or password incorrect. The message does not reveal which.",
+        }
+    },
     summary="Exchange credentials for an access token",
 )
 def login(body: LoginRequest, session: SessionDep) -> TokenResponse:
@@ -111,6 +117,12 @@ def login(body: LoginRequest, session: SessionDep) -> TokenResponse:
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "No credential was presented at all. An invalid one still succeeds.",
+        }
+    },
     summary="End the session",
 )
 def logout(_token: PresentedToken) -> Response:

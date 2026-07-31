@@ -19,12 +19,7 @@ from pydantic import BaseModel
 
 from app.api import auth
 from app.config import get_settings
-
-
-class ErrorResponse(BaseModel):
-    """The contract's `Error`. One shape for every 4xx in the API."""
-
-    detail: str
+from app.schemas import ErrorResponse
 
 
 class HealthResponse(BaseModel):
@@ -40,7 +35,14 @@ app = FastAPI(
         "generated document disagrees with it, the code is what is wrong."
     ),
     # Declared globally so the generated schema shows the flattened shape the handler below actually
-    # returns, rather than FastAPI's own array-of-objects `HTTPValidationError`.
+    # returns, rather than FastAPI's own array-of-objects `HTTPValidationError`. Verified at T020:
+    # with this here, `HTTPValidationError` is absent from the generated components entirely.
+    #
+    # The cost is that every route advertises a 422, including `/health`, which takes no input and
+    # can never produce one. That is accepted rather than fixed: declaring the model per route
+    # instead would let a single forgotten route reintroduce the array shape, and an impossible
+    # response in the document is a smaller lie than a wrong one. `test_errors.py` pins both halves
+    # so neither can be "tidied" without a failure explaining why.
     responses={
         status.HTTP_422_UNPROCESSABLE_CONTENT: {
             "model": ErrorResponse,

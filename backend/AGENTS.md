@@ -42,7 +42,8 @@ All three look removable and all three break something non-obvious:
 | Login verifies an unknown email against a throwaway hash before refusing | Otherwise an unknown email returns in microseconds and a known one costs a full bcrypt verification, and the timing answers exactly the question the shared 401 message refuses to. |
 | Seed credentials live in their own `BaseSettings`, not `app.config.Settings` | Required there, the API refuses to boot on every deployment after the first. Optional there, every API process holds the plaintext password in memory. Still a settings model rather than `os.environ`, because the credentials live in `.env` and a bare environ read would not see them unless exported. |
 | Re-running the seed script updates the password; a *different* email is refused | This is v0.1's only password recovery — the alternative is a reset endpoint the tech defaults forbid. A second account is refused because `content_item` has no owner column (INV-4), so two creators would silently share every item. |
-| The 422 response model is declared on the `FastAPI()` constructor, not just in the handler | The handler alone fixes the runtime body while the *generated* schema still advertises FastAPI's array-shaped `HTTPValidationError` — so a client generated from the generated document would still be wrong. Verify in `openapi.json`, not by reading the handler. |
+| The 422 response model is declared on the `FastAPI()` constructor, not just in the handler | The handler alone fixes the runtime body while the *generated* schema still advertises FastAPI's array-shaped `HTTPValidationError` — so a client generated from the generated document would still be wrong. Verify in `openapi.json`, not by reading the handler. The cost is that `/health` advertises a 422 it can never produce; that is accepted, and `test_errors.py` pins it, because per-route declaration lets one forgotten route reintroduce the array shape. |
+| **Every 4xx declares `model=ErrorResponse`**, not just a `description` | A description is for a human reading `/docs`; the generated client is built from the schema. Before T020 login's 401 declared no model and logout declared no 401 at all, so the document promised no body for the response the login form most needs. `ErrorResponse` lives in `app/schemas.py` — importing it from `app.main` would make a router import the application it is mounted on. Add both `401` and any new 4xx to every route you write, and to `REACHABLE_4XX` in `tests/test_errors.py`. |
 | `GET /health` does not touch the database | Render recycles an instance whose probe fails. A probe that queries Postgres turns a momentary database blip into an outage. |
 | The test database is created by `scripts/init-test-db.sql` at initdb time | The pytest harness then needs no `CREATE DATABASE` privilege and **cannot point at the dev database by accident**. |
 | `tests/test_auth.py` mounts its own throwaway route to test `current_creator`, and keeps it after T030 | No shipped endpoint depends on `CurrentCreator` at T018, so there was nothing to aim FR-002's refusals at. The route goes on the **real** app — real handlers, real session override, real Postgres — and is removed after each test. Retargeting these assertions at a content-item endpoint once one exists would mean a failure no longer says whether authentication or the endpoint broke. |
@@ -102,6 +103,12 @@ transactional fixture did not work. The harness truncates both tables once per s
 that refuses any `TEST_DATABASE_URL` whose name does not end in `_test`. Any harness talking to a
 persistent database needs both halves — the clean-up *and* the guard, because the clean-up is what makes
 pointing at the wrong database catastrophic.
+
+**Proving a test works by breaking the code only proves something if you broke *only* that.** T020's
+first verification patch spliced the source with `s[:start] + ")"`, silently discarding the exception
+handler, the CORS middleware, the routers, and `/health` along with the block it meant to remove. 18
+tests went red and the conclusion drawn from them would have been wrong. Assert the app is still
+assembled — or diff the patched file — before believing a red run.
 
 **A test that asserts an absence passes trivially when it is broken.** `tests/test_schema.py` exists
 to prove `content_item` has no owner column, no foreign key, and no third table beside it — and every
