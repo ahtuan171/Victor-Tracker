@@ -222,7 +222,7 @@ possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI de
 ### Frontend foundation
 
 - [x] T021 Define the proxy path and method allowlist in `frontend/lib/proxy-allowlist.ts`, derived from the contract, with a test asserting the two stay in sync (research.md R-008)
-- [ ] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
+- [x] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
 - [ ] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
 - [ ] T024 Add a single 401 handler to `frontend/lib/api.ts` that clears the session cookie and redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002)
 - [ ] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success

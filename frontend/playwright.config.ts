@@ -49,6 +49,16 @@ export default defineConfig({
       testDir: "./tests/contract",
     },
     {
+      // The proxy driven directly with a stubbed upstream. Also browserless: it imports the route
+      // handler and calls it, because what it asserts — a stripped header, a cookie attribute, a
+      // credential absent from a body — is invisible from the browser side of the boundary.
+      name: "proxy",
+      testDir: "./tests/proxy",
+      // These mutate process.env for the whole worker, so they must not interleave.
+      fullyParallel: false,
+      workers: 1,
+    },
+    {
       name: "mobile-375",
       testDir: "./tests/e2e",
       use: {

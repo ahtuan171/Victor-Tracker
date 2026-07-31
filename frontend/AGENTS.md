@@ -27,6 +27,9 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | Client components + local state + optimistic updates | SC-005 (<1s filter) and "cue updates immediately" both want local state, and a server round trip per toggle risks Render's free-tier spin-down blowing SC-001. `lib/items.ts` establishes this once (research.md R-007) — do not invent a second data-fetching strategy per surface. |
 | Hand-built calendar grid, no library | Every calendar library's value is time-of-day layout, which FR-012a removed. |
 | The proxy allowlist forces a **decision per contract operation**, not a copy of the contract | `NOT_PROXIED` exists so the sync test can require every operation to be *either* allowed *or* excluded-with-a-reason. An allowlist that simply mirrors `openapi.yaml` gates nothing the moment the contract grows. `/health` is the one exclusion today — Render's probe, no screen reads it. |
+| The proxy **captures the login token out of the response body** | `POST /auth/login` returns `access_token` in its body. Forwarding that to the browser would hand a 30-day credential to JavaScript and undo the whole of R-001, so the proxy moves it into the httpOnly cookie and returns `{expires_at}` alone. The contract still describes the FastAPI origin truthfully — this response comes from the Vercel origin, which is deliberately not transparent about credentials. |
+| The proxy **clears the cookie on any 401**, not just on logout | JavaScript cannot delete an httpOnly cookie, so this route is the only thing that can. Without it T024's "clear the session cookie and redirect" would need a second endpoint invented to do it. |
+| Cookie `Max-Age` is derived from the token's own `exp`, not from a constant | The alternative is a frontend copy of the backend's `TOKEN_TTL_DAYS` kept equal across two separate deployments with nothing to notice drift. The signature is **not** verified and does not need to be: the value times a cookie, and the backend stays the only authority on validity. |
 | Contract tests run as a **second Playwright project**, not a second test runner | `tech-defaults.md` names Playwright as the frontend test tool, and `.gitlab-ci.yml`'s `test:e2e` job runs `playwright test` with no `--project` filter — a separate config file would be a merge gate nobody invokes. The project touches no `page` fixture, so no browser starts. |
 
 ## Traps
@@ -58,6 +61,28 @@ until it is added to `PROXY_ALLOWLIST` **or** to `NOT_PROXIED` in `lib/proxy-all
 test working, not a broken test — do not "fix" it by loosening the assertion. A path parameter also
 needs an anchored entry in `PARAM_PATTERNS`; without one the module throws at import rather than
 matching anything, because an unconstrained parameter is an unconstrained proxy.
+
+**The proxy rebuilds the upstream response instead of forwarding it, and that is load-bearing.** Only
+the status and `content-type` are copied. That is what makes "strip `X-Access-Token`" true by
+construction rather than by remembering to delete it, and it is why `content-encoding` and
+`content-length` cannot survive to describe a body `fetch` has already decoded. If you ever need
+another response header through, add it to the copy list — do not switch to forwarding
+`upstream.headers`.
+
+**A `Response` body is a one-shot stream.** `relay()` returns the login token alongside the response
+for this reason: reading the body twice needs a clone taken *before* the first read, which works
+until someone reorders two lines. Do not reintroduce a second `.json()` on the same response.
+
+**`RouteContext<'/api/[...path]'>` is generated, and CI type-checks without a build.** The
+`review:typecheck` job runs `pnpm typecheck` straight after `pnpm install`, so that global helper may
+not exist yet. Route handler context is written out longhand as
+`{ params: Promise<{ path?: string[] }> }`.
+
+**`lib/session.ts` is server-only by convention, not by guard.** It reads non-`NEXT_PUBLIC_` variables,
+so a client component importing it would silently get fallbacks. The `server-only` package would catch
+that at build time, but its default export throws the moment it is imported outside a React Server
+Component — including from the Playwright runner — which would make `maxAgeFromToken` untestable.
+Never import it from a `"use client"` module.
 
 **`playwright.config.ts` has a global `webServer`, so `--project=contract` still boots Next.** Costs a
 few seconds on a run that never issues a request. Known and accepted (see Decisions) — do not try to
