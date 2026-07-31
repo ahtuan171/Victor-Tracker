@@ -498,3 +498,23 @@ reads like configuration that has already been done. Corrected to `sharp: true` 
 **Neither attempt could be judged locally.** `pnpm install --frozen-lockfile` exits 0 here in both
 states, because the approval is cached in pnpm's own state directory outside the checkout — the same
 property that made the original failure CI-only. The only real verification is the pipeline.
+
+### Pipeline #4: the frontend gate went green, the backend one failed on its own config
+
+`build:frontend` passed, and **`test:e2e` passed — all 65 Playwright tests, in CI, against the
+production bundle**. That is the first time any test in this project has been a merge gate rather
+than a local claim.
+
+`test:backend` failed, and **not** on the migration hazard everyone was watching for. The job's own
+`JWT_SECRET` was `"ci-only-not-a-real-secret"` — 25 characters, against the 32-character minimum
+`Settings.jwt_secret` enforces. `app.main` therefore failed to import, `conftest.py` died at
+collection, and all 96 tests errored before a single query ran.
+
+Worth noting how that survived: the value has sat in `.gitlab-ci.yml` since Phase 1 and was
+"verified" only as parseable YAML with all ten jobs resolving. Neither check can evaluate a variable
+against a validator in application code. Padded to 41 characters.
+
+**The migration question is still open.** `test:backend` has still never reached a database, so
+whether the T017 harness migrates an empty service container on its own remains unexercised. The
+standing warning against adding `alembic upgrade head` to CI without reading the harness first still
+applies.

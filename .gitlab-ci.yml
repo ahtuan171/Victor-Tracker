@@ -112,7 +112,10 @@ test:backend:
     # this is the whole database rather than a schema inside a shared one.
     TEST_DATABASE_URL: "postgresql+psycopg://creatorhub:creatorhub@postgres:5432/creatorhub_test"
     DATABASE_URL: "postgresql+psycopg://creatorhub:creatorhub@postgres:5432/creatorhub_test"
-    JWT_SECRET: "ci-only-not-a-real-secret"
+    # Must clear Settings.jwt_secret's 32-character minimum (backend/app/config.py) or the app
+    # fails to import and every backend test errors in collection. The previous value was 25 and
+    # had never run. Not a secret: it signs tokens for a throwaway service container.
+    JWT_SECRET: "ci-only-not-a-real-secret-padded-to-length"
     TOKEN_TTL_DAYS: "30"
     FRONTEND_ORIGIN: "http://localhost:3000"
   script:
