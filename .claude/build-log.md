@@ -285,3 +285,58 @@ regex-scraping it; a fragile reader is the one thing that would make this test l
 present transitively only, which pnpm's strict layout correctly refuses to expose.
 
 Green: `pnpm typecheck`, `pnpm lint`, 13 Playwright tests (12 contract + the 375px viewport check).
+
+---
+
+## T022 — the proxy — 2026-07-31
+
+`app/api/[...path]/route.ts` plus `lib/session.ts`, and 25 tests in a third Playwright project.
+
+**Two responsibilities were added beyond the task text, both because nothing else can do them.**
+
+- **Login's token is captured out of the response body.** The task text says "attach the token from
+  the session cookie", which presumes a cookie already exists. Nothing in T021–T028 said who creates
+  it, and T025's "setting the session cookie through the proxy" assigns the *page*, not the mechanism.
+  Left alone, the proxy would have forwarded `POST /auth/login`'s 200 body — containing
+  `access_token` — to browser JavaScript, which is precisely the thing R-001 exists to prevent
+  ("JavaScript cannot read the token"). So the proxy moves it into the cookie and returns
+  `{expires_at}` alone. This is not a contract violation: `openapi.yaml`'s `servers` are the FastAPI
+  origins, and this response comes from Vercel.
+- **The cookie is cleared on any 401.** T024 is specified as "clears the session cookie and redirects
+  to /login" *in `lib/api.ts`* — but `lib/api.ts` runs in the browser and an httpOnly cookie is
+  unreachable from there. Either the proxy does it or T024 invents an endpoint whose only job is to
+  delete a cookie. The proxy does it; T024 is now just the redirect.
+
+**`Max-Age` is read from the token's own `exp`.** The obvious implementation is a 30-day constant, but
+that is a second copy of the backend's `TOKEN_TTL_DAYS` living in a different deployment with nothing
+to notice when the two drift. Decoding `exp` makes cookie and token expire together by construction.
+The signature is deliberately not verified — the value decides a cookie lifetime, the backend remains
+the only authority on validity, and verifying would mean shipping the signing secret to Vercel to
+learn a number we already trust the browser to forget. It also sidesteps the eslint `new Date` ban,
+since `exp` is a number and `expires_at` is a string that would have needed `lib/dates.ts` (T028).
+
+**The response is rebuilt, not forwarded.** Only status and `content-type` are copied. Stripping
+`X-Access-Token` then needs no code, and `content-encoding`/`content-length` cannot survive to
+describe a body `fetch` already decoded. An early draft read the login body twice — once in `relay`
+and once in `applyCookie` via `.clone()` — which only works if the clone is taken before the first
+read; the token now travels back beside the response instead.
+
+**Smoke-tested against the real FastAPI**, not only the stub, because the stub can agree with a wrong
+idea of what the backend sends:
+
+| Through the proxy | Result |
+|---|---|
+| `GET /api/health` | 404, and **it never appears in the backend access log** — R-008's gate holds |
+| `POST /api/auth/login`, wrong password | 401 `{"detail": ...}` passed through, cookie cleared |
+| `POST /api/auth/login`, correct | 200 `{"expires_at": ...}`, **no `access_token` in the body**, `Set-Cookie: ch_session=…; Max-Age=2591999; HttpOnly; SameSite=lax` |
+| `POST /api/auth/logout` with cookie | 204 — which proves the bearer attach, since T014 needs a credential |
+| `POST /api/auth/logout` without | 401, cookie cleared anyway |
+| `GET /api/content-items` | forwarded; 404 from FastAPI because T030 has not built it |
+
+**Found while doing it: no creator account has ever been seeded on this machine.** `.env` sets
+`SEED_CREATOR_EMAIL=creator@creatorhub.local`, and `email-validator` refuses `.local` as a
+special-use reserved TLD, so the seed script has never succeeded. The smoke test used a throwaway
+`smoke@example.com` account, deleted afterwards — `creator` is empty again, so a future seed with a
+corrected address will not hit the "a different email is refused" branch.
+
+Green: `pnpm typecheck`, `pnpm lint`, 38 Playwright tests across three projects.
