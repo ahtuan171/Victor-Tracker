@@ -100,15 +100,26 @@ shape — R-007 puts every content read in a client component — but it means t
 (unlike Vitest's). To keep a type assertion in a test, annotate the expected value —
 `const expected: ContentItem = {...}` — which fails the build if the type stops requiring a field.
 
-**`pnpm install` fails in CI and passes locally, for a reason that is not in the repo.** pnpm 10+
-refuses to run a dependency's install scripts unless it is listed under `pnpm.onlyBuiltDependencies`
-in `package.json`, and in a non-interactive shell that refusal is `ERR_PNPM_IGNORED_BUILDS` with exit
-code 1 — not a warning. Locally it stays invisible because the approval is cached in pnpm's own state
-outside the checkout. This is what turned the **first `build:frontend` that ever ran** red. `sharp`
-(Next's image optimiser) and `unrs-resolver` (eslint-config-next's module resolver) are listed there
-now. **Any new dependency with a postinstall script needs adding, and the symptom will be a CI-only
-failure** — reproduce with `pnpm install --frozen-lockfile --ignore-scripts=false` in a clean store,
-never by trusting a local install.
+**`pnpm install` fails in CI and passes locally, and the setting lives in a file pnpm wrote itself.**
+pnpm will not run a dependency's install scripts unless allowed, and non-interactively that refusal
+is `ERR_PNPM_IGNORED_BUILDS` with exit code 1, not a warning. It turned the **first `build:frontend`
+that ever ran** red, twice.
+
+The control is `allowBuilds` in **`frontend/pnpm-workspace.yaml`** — *not* a `pnpm` key in
+`package.json`, which pnpm 11 ignores. That was the second failed attempt at this fix; do not repeat
+it. pnpm creates the file itself on first meeting an unapproved package and what it writes is a
+**placeholder plus a refusal**:
+
+```yaml
+allowBuilds:
+  sharp: set this to true or false    # literal placeholder text, not a value
+ignoredBuiltDependencies: [sharp, unrs-resolver]
+```
+
+Left as generated, that is a red pipeline. Correct form is `sharp: true` with no
+`ignoredBuiltDependencies`. **A new dependency with a postinstall script needs adding, and the
+symptom is CI-only** — a local `pnpm install` passes on an interactive approval cached in pnpm's
+state outside the checkout, so never take a clean local install as proof.
 
 **`lib/session.ts` is server-only by convention, not by guard.** It reads non-`NEXT_PUBLIC_` variables,
 so a client component importing it would silently get fallbacks. The `server-only` package would catch

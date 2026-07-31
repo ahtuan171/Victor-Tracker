@@ -475,3 +475,26 @@ job runs `uv run pytest` with no `alembic upgrade head` and the T017 harness is 
 the schema itself — that compensation has never been exercised, because no pipeline has reached the
 test stage yet. It is the next thing to watch, and the standing warning against adding a migration
 step to CI still applies (see `.claude/memory.md`).
+
+### The pnpm fix took two attempts, and the first one was wrong
+
+`pnpm.onlyBuiltDependencies` in `package.json` — the documented answer for pnpm 10 — is **ignored by
+pnpm 11**, which reads install settings from `pnpm-workspace.yaml`. Pipeline #3 failed identically to
+#2 with that change in place.
+
+The real cause was already sitting in the repo: `frontend/pnpm-workspace.yaml`, written by pnpm
+itself at some earlier install, containing a placeholder it expects a human to fill —
+
+```yaml
+allowBuilds:
+  sharp: set this to true or false
+ignoredBuiltDependencies: [sharp, unrs-resolver]
+```
+
+That is not a default awaiting a decision; `ignoredBuiltDependencies` is a refusal, and the file
+reads like configuration that has already been done. Corrected to `sharp: true` /
+`unrs-resolver: true` with the ignore list removed.
+
+**Neither attempt could be judged locally.** `pnpm install --frozen-lockfile` exits 0 here in both
+states, because the approval is cached in pnpm's own state directory outside the checkout — the same
+property that made the original failure CI-only. The only real verification is the pipeline.

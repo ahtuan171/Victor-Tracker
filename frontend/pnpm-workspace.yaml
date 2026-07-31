@@ -1,6 +1,15 @@
+# pnpm 11 reads install settings from here, not from a `pnpm` key in package.json.
+#
+# pnpm will not run a dependency's install scripts unless it is allowed here, and in a
+# non-interactive shell that refusal is `ERR_PNPM_IGNORED_BUILDS` with exit code 1 rather than a
+# warning. pnpm writes this file itself when it first meets an unapproved package — and what it
+# writes is a placeholder (`sharp: set this to true or false`) plus an `ignoredBuiltDependencies`
+# list, which is a refusal, not a default. Left unfilled it is a CI failure that cannot reproduce
+# locally, because the interactive approval is cached in pnpm's own state outside the checkout.
+#
+# Both entries are load-bearing: sharp is Next's image optimiser, unrs-resolver is
+# eslint-config-next's module resolver. A new dependency with a postinstall script has to be added
+# here or `build:frontend` goes red on the next push.
 allowBuilds:
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+  sharp: true
+  unrs-resolver: true
