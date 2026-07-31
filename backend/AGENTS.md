@@ -52,6 +52,40 @@ All three look removable and all three break something non-obvious:
 
 ---
 
+## Open seam: the 409 body, decided but not yet built (T030)
+
+`contracts/openapi.yaml:414-416` declares `InvariantError` with `required: [code, detail]` and uses it
+on both 409s (lines 208 and 276). `tests/test_errors.py:31` declares `CONTRACTED_ERROR_KEYS = {"detail"}`
+— *exactly* one key, and its docstring says so deliberately. **Both are green today only because no
+endpoint returns 409 yet.** T030 creates the first one and one of them has to give.
+
+**The contract wins.** `specs/` outranks code (CLAUDE.md non-negotiable 1), and `code` is doing real
+work there: it is the only thing distinguishing `platform_required` from `platform_locked`, which are
+two different instructions to the creator ("pick a platform" vs "move it back to `idea` first"). A
+`detail` string the frontend must pattern-match is not a substitute.
+
+So at T030, not before:
+
+- 409 bodies carry `{code, detail}` via a second schema — `Error` stays exactly one key for 401, 404
+  and 422, which is what FR-002 and SC-006 actually require of a 401.
+- `assert_matches_the_contracted_error_shape` takes the expected key set as an argument instead of
+  reading the module constant. Its "exactly one key, not at least" rule is right about the responses
+  it was written against and was over-generalised to every 4xx; keep the strictness, narrow the scope.
+- Both 409 codes get a test. A `code` field nothing asserts is a field that drifts.
+
+Do not fix this ahead of T030 — the change is meaningless without an endpoint that can emit a 409, and
+a speculative schema is the thing constitution VII exists to prevent.
+
+Two smaller notes from the same review, neither blocking:
+
+- **`tests/test_harness.py:45-60` depends on execution order.** Safe today only because no ordering
+  plugin is installed. Fix that file *before* adding `pytest-randomly` or anything like it.
+- **The half-life boundary itself is untested.** `app/auth.py:128-138` compares with a strict `>`;
+  the tests only probe 10 and 20 days into a 30-day window. Worth an exact-boundary case whenever
+  that code is next touched.
+
+---
+
 ## Traps
 
 **A SQLAlchemy enum column stores the Python member *names* by default.** `Status.IDEA` persists as
