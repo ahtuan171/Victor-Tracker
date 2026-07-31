@@ -48,6 +48,18 @@ fast-forward**, and the cost of deferring stage 3 is not flat — each task adde
 is one more change that never passed it. Delete this entry once `main` is protected and the first real
 MR has merged; replace it with the task number where the gate became real.
 
+**2026-07-31 — a remote exists and `main` is protected, but the local `--no-ff` flow continues, by
+decision.** `CLAUDE.md` previously said the local flow stops being valid the moment `main` is
+protected. It now is (`gitlab.com/ahtuan1701/creator-hub`, private, `glab` authenticated) — and the
+gate still does not exist: the **first and only pipeline failed with zero jobs created and
+`yaml_errors: null`**, meaning no runner accepted it, which on GitLab.com free tier is almost always
+the account-validation requirement for shared runners. `only_allow_merge_if_pipeline_succeeds` is
+`false` and `main`'s push access is **Maintainers**, not "no one", so the repo owner can still push
+directly. An MR today would therefore be a self-merge with extra clicks, which is not what
+constitution VI asks for — it asks for a gate. T023–T028 continue merging locally. **The exception
+count above keeps growing**, and the trigger to stop is not "a remote exists" but "a pipeline
+actually ran and gated something".
+
 ## Traps
 
 Only the ones that bite outside a single tree. **Backend traps live in

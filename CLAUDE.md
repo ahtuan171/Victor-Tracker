@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-07-31: Phase 1 complete, Phase 2 in progress — T001–T022 of 76
+## Status as of 2026-07-31: Phase 1 complete, Phase 2 in progress — T001–T024 of 76
 
 On `main`, **96 backend tests and 38 frontend tests passing**. Stage 1 planning is done and reviewed,
 the specs are on `main`, **the backend is a running application** — config, DB session, schema, a
@@ -16,8 +16,20 @@ allowlist are built and **verified against a live FastAPI**, not only against a 
 404s without appearing in the backend access log, login returns no token to the browser, and logout
 returns 204 — which only a correctly attached bearer can.
 
-The next task is **T023**. Phase 2 has **6 of 21 tasks left**, all frontend: T023–T028. Nothing in
+**The client layer is done.** `lib/api.ts` carries hand-written types from the contract (no codegen is
+installed — "generate" means "write by hand"), four operations, one `fetch`, and one 401 handler that
+redirects to `/login` while exempting the two `/auth/*` endpoints.
+
+The next task is **T025**. Phase 2 has **4 of 21 tasks left**, all frontend: T025–T028. Nothing in
 Phase 3–7 may start until Phase 2 is complete.
+
+**A remote now exists and `main` is protected — but the gate is not real yet.** `origin` is
+`gitlab.com/ahtuan1701/creator-hub` and `glab` is authenticated. The **first pipeline failed with zero
+jobs created** and `yaml_errors: null`, which is a runner problem rather than a config one — most
+likely GitLab.com's account validation for shared runners. `only_allow_merge_if_pipeline_succeeds` is
+also still `false`, and `main`'s push access is **Maintainers**, not "no one", so direct push still
+works. Until a pipeline actually runs, an MR would be a self-merge with extra steps, so **T023–T028
+continue with the local `--no-ff` flow** by explicit decision (2026-07-31). See `.claude/memory.md`.
 
 **There is still no frontend *screen*** — `frontend/app/page.tsx` is the create-next-app placeholder
 until T026, and there is no `/calendar` route until **T033**, so between T026 and T033 a signed-in
@@ -36,15 +48,15 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020). **96 passing.** Backend coverage for Phase 2 is complete. |
-| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022), `utils.ts`. `app/api/[...path]/route.ts` is the proxy. **38 Playwright tests across three projects** — `contract` (allowlist vs the contract), `proxy` (the route driven with a stubbed upstream), `mobile-375` (the E2E project, one test so far). No page routes yet: `app/page.tsx` is still the scaffold's. |
+| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022), `api.ts` (T023–T024), `utils.ts`. `app/api/[...path]/route.ts` is the proxy. **65 Playwright tests across four projects** — `contract` (allowlist and the client's enums vs the contract), `proxy` (the route driven with a stubbed upstream), `client` (`lib/api.ts` against a stubbed `fetch`), `mobile-375` (the E2E project, one test so far). No page routes yet: `app/page.tsx` is still the scaffold's. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service still has no page to serve — it needs T026. |
 | `.gitlab-ci.yml` | Written: `build → test → review → deploy`, deploy manual. **Never executed** — no GitLab project. YAML syntax verified parseable, all 10 jobs resolve; that is not the same as verified working. One known gap: `test:backend` runs `uv run pytest` with no `alembic upgrade head` — the T017 harness compensates by migrating the schema itself, so **do not add a migration step to CI without checking the harness first**; two of them racing is worse than neither. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | `content-calendar/BRIEF.md` only — the stage-2 brief and the data-shape audit checklist the export must pass. No export yet: the claude.ai design-system project exists but is empty. |
 | Claude Design | Project **`CreatorHub Design System`** created 2026-07-30, id `756a66ad-4f2e-42ff-9513-48b969855d40`. Created through `DesignSync create_project` specifically so the project type is right — see Decisions. **Empty**: the design work itself has not been done. |
 | `docs/` | Does not exist. Correct — T076 creates it. |
-| GitLab / remote | **Still none of it.** No remote, no protected `main`, no pipeline run. Blocked on a GitLab account. |
-| `glab` | **Installed**, 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. Not yet authenticated. |
+| GitLab / remote | **Exists.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private, `main` protected at **Maintainers** (so direct push still works — not the "no one" the plan called for). One pipeline has run and **failed with zero jobs created**, `yaml_errors: null` — a runner problem, not a config one. `only_allow_merge_if_pipeline_succeeds` is still `false`. No issues imported yet. |
+| `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 — the daemon does not survive a reboot, so start Docker Desktop first every session. |
 
 ### History lives in `.claude/build-log.md`
@@ -110,23 +122,28 @@ and neither is duplicated here.
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
    The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Continue at T023** in `specs/001-content-calendar/tasks.md`. Everything left in Phase 2 is
+2. **Continue at T025** in `specs/001-content-calendar/tasks.md`. Everything left in Phase 2 is
    frontend, and none of it is a *screen* yet — `app/page.tsx` is still the create-next-app
    placeholder:
 
    | Tasks | What |
    |---|---|
-   | T023–T024 | typed API client in `lib/api.ts`, then the single 401 handler in the same file |
    | T025–T027 | login page, root redirect, session guard in `app/(app)/layout.tsx` |
-   | T028 [P] | `lib/dates.ts` — independent of the other five, do it whenever |
+   | T028 [P] | `lib/dates.ts` — independent of the other three, do it whenever |
 
-3. **Read `frontend/AGENTS.md` before the first edit**, not after. Four things T022 decided will make
-   T023–T024 wrong if you do not know them, and all four are in that file: login through the proxy
-   returns **`{expires_at}` and no token**, so the client must not look for one; **T024 is only the
-   redirect** because the proxy already clears the cookie on every 401; every request goes to
-   `/api/...` on this origin and never to the backend origin; and `lib/session.ts` must never be
-   imported from a `"use client"` module. Its older traps — the UTC-midnight `new Date` ban and
-   `today` never being read during server rendering — are what T028 exists for.
+3. **Read `frontend/AGENTS.md` before the first edit**, not after. For T025 the load-bearing ones:
+   `login()` returns **`{expires_at}` and no token** — the cookie is already set on that response, so
+   there is nothing for the page to store; the 401 handler **deliberately does not redirect** for
+   `/auth/login`, so the form must render `ApiError.detail` itself; every request goes to `/api/...`
+   on this origin; and `lib/session.ts` must never be imported from a `"use client"` module. The
+   UTC-midnight `new Date` ban and `today` never being read during server rendering are what T028
+   exists for.
+
+   **T027 has a seam with no verification path.** No route lives in the `(app)` group until T033, and
+   a route group's layout does not run with no page inside it — so the guard will be written with no
+   way to exercise it in Phase 2. Decide the approach before coding (write it and record that it is
+   unexercised until T033, or stand up a throwaway route and remove it). Do **not** "fix" it by
+   building the calendar page early — non-negotiable 3.
 4. **A backend seam is already decided and waiting at T030**, written up in `backend/AGENTS.md`: the
    409 body carries `{code, detail}` while `test_errors.py` currently asserts exactly `{detail}`.
    Both are green today only because no endpoint returns 409 yet. Do not resolve it early. Two other
@@ -141,15 +158,18 @@ and neither is duplicated here.
 **Three things are waiting on the human, not on code.** None blocks T023, and the two stages were
 checked and confirmed safe to run in parallel with Phase 2:
 
-7. **Stage 3 (Load)** needs a **GitLab account**. Then: create the private project `creator-hub`,
-   `git remote add origin`, `git push -u origin main` — that push fires the **first pipeline run ever**,
-   which is the point of doing it early rather than at Phase 8. Protect `main` (allowed-to-push = no
-   one) and require pipelines to succeed. Then `glab auth login` and import `tasks.md` as issues,
-   creating T001–T022 and closing them immediately so `closes #N` references do not skew.
-   `/speckit-taskstoissues` is GitHub-only and will abort — do not try to make it work.
-   **After `main` is protected the local `--no-ff` merge flow is no longer valid**: push the branch,
-   open an MR, let the pipeline gate it. Update `.claude/memory.md`, `tasks.md`'s closing note, and
-   `quickstart.md`'s Outstanding setup at that moment.
+7. **Stage 3 (Load) is half done, and the half that is missing is the gate.** The account, project,
+   remote, protection, and `glab auth` all exist. What does not work: **the pipeline**. The one run so
+   far failed instantly with **zero jobs and no YAML error**, which means no runner picked it up —
+   on GitLab.com free tier that is almost always account validation (identity / credit card) before
+   shared runners will execute. Until that is fixed there is no merge gate at all, which is why
+   T023–T028 kept the local `--no-ff` flow. Three follow-ups, all human-side: fix the runner, set
+   `only_allow_merge_if_pipeline_succeeds = true` and drop `main`'s push access to "no one", then
+   import `tasks.md` as issues — creating T001–T024 and closing them immediately so `closes #N`
+   references do not skew. `/speckit-taskstoissues` is GitHub-only and will abort — do not try to
+   make it work. **The moment a pipeline actually gates an MR, the local merge flow ends**: update
+   `.claude/memory.md`, `tasks.md`'s closing note, and `quickstart.md`'s Outstanding setup with the
+   task number where that happened.
 8. **Stage 2 (Design)** needs the **design work itself** in the `CreatorHub Design System` project
    (already created, id in the table above, currently empty). Read
    `design/content-calendar/BRIEF.md` first — it carries the surface list, the locked status-cue
@@ -170,7 +190,7 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is **96 backend tests and 38 frontend tests**, with
+**`frontend/AGENTS.md`**. Current green state is **96 backend tests and 65 frontend tests**, with
 `pnpm typecheck` and `pnpm lint` both silent.
 
 `pnpm dev` serves the proxy for real — `/api/auth/login` and `/api/auth/logout` work against a running
