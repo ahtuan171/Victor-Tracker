@@ -100,6 +100,16 @@ shape — R-007 puts every content read in a client component — but it means t
 (unlike Vitest's). To keep a type assertion in a test, annotate the expected value —
 `const expected: ContentItem = {...}` — which fails the build if the type stops requiring a field.
 
+**`pnpm install` fails in CI and passes locally, for a reason that is not in the repo.** pnpm 10+
+refuses to run a dependency's install scripts unless it is listed under `pnpm.onlyBuiltDependencies`
+in `package.json`, and in a non-interactive shell that refusal is `ERR_PNPM_IGNORED_BUILDS` with exit
+code 1 — not a warning. Locally it stays invisible because the approval is cached in pnpm's own state
+outside the checkout. This is what turned the **first `build:frontend` that ever ran** red. `sharp`
+(Next's image optimiser) and `unrs-resolver` (eslint-config-next's module resolver) are listed there
+now. **Any new dependency with a postinstall script needs adding, and the symptom will be a CI-only
+failure** — reproduce with `pnpm install --frozen-lockfile --ignore-scripts=false` in a clean store,
+never by trusting a local install.
+
 **`lib/session.ts` is server-only by convention, not by guard.** It reads non-`NEXT_PUBLIC_` variables,
 so a client component importing it would silently get fallbacks. The `server-only` package would catch
 that at build time, but its default export throws the moment it is imported outside a React Server

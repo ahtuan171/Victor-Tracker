@@ -445,3 +445,33 @@ nothing in `spec.md` asks for it — non-negotiable 3. Cheap to add later at the
 One test was written and then deleted rather than committed: an assertion that the client never
 touches `document.cookie`, which as written only proved `document` is undefined in the runner. A
 vacuous test is worse than none; the rule lives in the code comment and `frontend/AGENTS.md`.
+
+---
+
+## The first pipeline that actually ran (2026-07-31, after T024)
+
+Worth recording because two conclusions written earlier the same session were wrong.
+
+**Pipeline #1 was not a broken runner.** It failed with zero jobs created and `yaml_errors: null`,
+which was read as "no runner accepted the job" — plausibly GitLab.com's shared-runner account
+validation. The T023–T024 push then produced **pipeline #2 with all 10 jobs created and executing**.
+A zero-job pipeline at project creation is a one-off. **One failed pipeline is not evidence that CI
+does not work; push again before diagnosing a runner.**
+
+**Pipeline #2 was red, and the cause was real.** `build:backend` passed; `build:frontend` failed and
+the other eight jobs skipped, so the merge gate has still never evaluated a test. The failure was
+`ERR_PNPM_IGNORED_BUILDS` on `sharp` and `unrs-resolver`: pnpm 10 will not run a dependency's install
+scripts unless `package.json` names it under `pnpm.onlyBuiltDependencies`, and non-interactively that
+is exit code 1 rather than a warning.
+
+This is the CI-only failure class in its purest form — it cannot reproduce locally, because pnpm
+caches the approval in its own state outside the checkout, so `pnpm install` here had been silently
+succeeding on an approval that exists on this machine and nowhere else. Fixed by listing both
+packages, which is the mechanism that makes the two environments agree. Both are load-bearing:
+`sharp` is Next's image optimiser, `unrs-resolver` is `eslint-config-next`'s module resolver.
+
+Still unknown after this: whether `test:backend` survives an empty Postgres service container. The
+job runs `uv run pytest` with no `alembic upgrade head` and the T017 harness is supposed to migrate
+the schema itself — that compensation has never been exercised, because no pipeline has reached the
+test stage yet. It is the next thing to watch, and the standing warning against adding a migration
+step to CI still applies (see `.claude/memory.md`).

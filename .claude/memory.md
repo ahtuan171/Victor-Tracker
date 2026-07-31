@@ -48,17 +48,21 @@ fast-forward**, and the cost of deferring stage 3 is not flat — each task adde
 is one more change that never passed it. Delete this entry once `main` is protected and the first real
 MR has merged; replace it with the task number where the gate became real.
 
-**2026-07-31 — a remote exists and `main` is protected, but the local `--no-ff` flow continues, by
-decision.** `CLAUDE.md` previously said the local flow stops being valid the moment `main` is
-protected. It now is (`gitlab.com/ahtuan1701/creator-hub`, private, `glab` authenticated) — and the
-gate still does not exist: the **first and only pipeline failed with zero jobs created and
-`yaml_errors: null`**, meaning no runner accepted it, which on GitLab.com free tier is almost always
-the account-validation requirement for shared runners. `only_allow_merge_if_pipeline_succeeds` is
-`false` and `main`'s push access is **Maintainers**, not "no one", so the repo owner can still push
-directly. An MR today would therefore be a self-merge with extra clicks, which is not what
-constitution VI asks for — it asks for a gate. T023–T028 continue merging locally. **The exception
-count above keeps growing**, and the trigger to stop is not "a remote exists" but "a pipeline
-actually ran and gated something".
+**2026-07-31 — T023 and T024 merged locally on evidence that went stale the same session.** A remote
+now exists (`gitlab.com/ahtuan1701/creator-hub`, private, `main` protected, `glab` authenticated).
+The local `--no-ff` flow was kept for these two because the only pipeline on record — **#1, zero jobs
+created, `yaml_errors: null`** — suggested no runner had ever accepted a job, making an MR a
+self-merge with extra clicks rather than a gate. Then the T023–T024 push fired **pipeline #2, which
+created and ran all 10 jobs**. **Lesson worth keeping: one failed pipeline is not evidence that CI
+does not work — a zero-job pipeline at project creation is a one-off, so push again before concluding
+anything about a runner.**
+
+Two settings still leave the gate optional and are the real remaining work:
+`only_allow_merge_if_pipeline_succeeds` is `false`, and `main`'s allowed-to-push is **Maintainers**
+rather than "no one", so the owner can still push directly. **Close both, then stop merging locally**
+— the trigger for ending the constitution VI exception is not "a remote exists" but "a pipeline gates
+an MR", and it is now one settings change away. Record the task number where that happens, then
+delete this entry and the two above it.
 
 ## Traps
 
