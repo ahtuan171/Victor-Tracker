@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { sessionCookieName } from "@/lib/session";
+import { hasSessionCookie, sessionCookieName } from "@/lib/session";
 
 /**
  * The root route (T026, SC-001, US1 scenario 1).
@@ -11,20 +11,13 @@ import { sessionCookieName } from "@/lib/session";
  * calendar; everyone else goes to sign in. Without this the bookmarked root is a 404, which is how
  * the post-review pass found it.
  *
- * **The cookie's presence is a routing hint, not an authorisation decision, and that distinction is
- * the whole design.** Nothing here validates the token: the signing secret lives on Render and
- * deliberately never reaches Vercel (research.md R-001), so this route could not verify one even if
- * it wanted to. A present-but-expired cookie therefore routes to `/calendar`, whose data load takes
- * a 401, whose handler in `lib/api.ts` returns the creator to `/login` — while the proxy clears the
- * dead cookie on the way past. FR-002 is enforced by the backend rejecting the bearer, never by
- * this line.
+ * **The cookie's presence is a routing hint, not an authorisation decision** — see
+ * `hasSessionCookie` in `lib/session.ts` for why this side cannot do better, and why it does not
+ * need to. FR-002 is enforced by the backend rejecting the bearer, never by this line.
  *
- * Guessing wrong is cheap in exactly one direction, which is what makes it safe: a stale cookie
- * costs one redirect, and no content is ever rendered on the strength of it.
- *
- * `lib/session.ts` is imported here rather than hard-coding `"ch_session"`, and this is a server
- * component, so that import is correct — it is the same module the proxy names the cookie with, so
- * the two cannot drift.
+ * Both helpers come from `lib/session.ts` rather than being written out here: it is the same module
+ * the proxy names the cookie with, so the two cannot drift. This is a server component, so that
+ * import is correct.
  */
 
 /**
@@ -37,10 +30,7 @@ export const dynamic = "force-dynamic";
 export default async function RootPage(): Promise<never> {
   const store = await cookies();
 
-  // The value, not merely the name: `has()` is true for an empty cookie, and an empty session
-  // cookie is not a session.
-  const session = store.get(sessionCookieName())?.value;
-  const signedIn = session !== undefined && session.length > 0;
+  const signedIn = hasSessionCookie(store.get(sessionCookieName())?.value);
 
   // `redirect` throws, which is why this returns `never` and why nothing follows it.
   redirect(signedIn ? "/calendar" : "/login");
