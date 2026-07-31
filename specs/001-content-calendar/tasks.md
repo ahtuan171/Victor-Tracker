@@ -224,7 +224,7 @@ possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI de
 - [x] T021 Define the proxy path and method allowlist in `frontend/lib/proxy-allowlist.ts`, derived from the contract, with a test asserting the two stay in sync (research.md R-008)
 - [x] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
 - [x] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
-- [ ] T024 Add a single 401 handler to `frontend/lib/api.ts` that redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002). **Amended at T022** — see the note below; the cookie is cleared by the proxy, not here
+- [x] T024 Add a single 401 handler to `frontend/lib/api.ts` that redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002). **Amended at T022** — see the note below; the cookie is cleared by the proxy, not here
 - [ ] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success
 - [ ] T026 Build the root route in `frontend/app/page.tsx` as a server-side redirect to `/calendar` when a session cookie is present and `/login` otherwise, so the bookmarked root does not 404 (SC-001, US1 scenario 1)
 - [ ] T027 Add the session guard to `frontend/app/(app)/layout.tsx` as a server component, and re-assert it in the calendar page's own data load — App Router layouts are not re-executed on soft navigations, so the layout alone is not sufficient (FR-002, SC-006). **The re-assert half lands at T033**, which is where the calendar page first exists — see the note below
@@ -269,6 +269,21 @@ and `pnpm lint` silent. Three notes worth carrying:
   session really is over by the time the client sees it; throwing would strand the creator in a
   signed-out state the UI still believes is signed in. This is what makes the checkpoint's "sign-out
   works even from an expired session" true from the client side.
+
+**T024 result (2026-07-31)**: done. 7 new tests, frontend suite at **65 passing**; `pnpm typecheck`
+and `pnpm lint` silent. The amendment above held — no cookie is written here, and the handler is one
+branch inside the single `request()` helper.
+
+**Two exemptions the task line does not mention, both required for it to be correct.** A 401 from
+`POST /auth/login` is a wrong password, not a dead session: redirecting would reload `/login` and
+discard the message the form exists to show. A 401 from `POST /auth/logout` means the session was
+already over, which is where logout was heading anyway — its caller owns that navigation. Everything
+else redirects. A third guard skips the redirect when the page is already `/login`.
+
+**It is a full `window.location.replace`, not a router push.** The T027 guard is a server component
+and App Router layouts are not re-executed on soft navigations, so a client-side push could reach
+`/login` without the server ever re-reading the cookie. `replace` rather than `assign` keeps the
+page that just 401'd out of history, where going back to it would 401 again.
 
 **Checkpoint**: a creator can sign in, an unauthenticated visitor sees nothing at any address, sign-out
 works even from an expired session, and the schema exists. No content feature works yet.
