@@ -224,11 +224,33 @@ possible in `pyproject.toml`. A blanket ignore would have hidden real FastAPI de
 - [x] T021 Define the proxy path and method allowlist in `frontend/lib/proxy-allowlist.ts`, derived from the contract, with a test asserting the two stay in sync (research.md R-008)
 - [x] T022 Implement the server-side proxy at `frontend/app/api/[...path]/route.ts`: reject anything off the allowlist with 404, attach the token from the session cookie, and on seeing `X-Access-Token` rewrite the cookie with a fresh `Max-Age` and strip the header before responding (research.md R-001, R-002)
 - [ ] T023 Generate the typed API client in `frontend/lib/api.ts` for login, logout, list, and create only — the remaining operations arrive with the stories that call them
-- [ ] T024 Add a single 401 handler to `frontend/lib/api.ts` that clears the session cookie and redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002)
+- [ ] T024 Add a single 401 handler to `frontend/lib/api.ts` that redirects to `/login`, so an expired session cannot leave content data on screen (spec Edge Cases, FR-002). **Amended at T022** — see the note below; the cookie is cleared by the proxy, not here
 - [ ] T025 Build the login page in `frontend/app/login/page.tsx`, setting the session cookie through the proxy on success
 - [ ] T026 Build the root route in `frontend/app/page.tsx` as a server-side redirect to `/calendar` when a session cookie is present and `/login` otherwise, so the bookmarked root does not 404 (SC-001, US1 scenario 1)
-- [ ] T027 Add the session guard to `frontend/app/(app)/layout.tsx` as a server component, and re-assert it in the calendar page's own data load — App Router layouts are not re-executed on soft navigations, so the layout alone is not sufficient (FR-002, SC-006)
+- [ ] T027 Add the session guard to `frontend/app/(app)/layout.tsx` as a server component, and re-assert it in the calendar page's own data load — App Router layouts are not re-executed on soft navigations, so the layout alone is not sufficient (FR-002, SC-006). **The re-assert half lands at T033**, which is where the calendar page first exists — see the note below
 - [ ] T028 [P] Implement date-only helpers in `frontend/lib/dates.ts`, parsing and formatting `YYYY-MM-DD` without ever constructing a `Date` from a bare date string, and exposing `today()` for client use only (research.md R-006 and its addendum)
+
+Two amendments made while building T022, recorded here rather than absorbed silently — code and spec
+disagreeing is a thing this project fixes on one side and states, never codes around.
+
+- **T024 no longer clears the cookie; T022 does.** The original wording put "clears the session
+  cookie" in `frontend/lib/api.ts`, which runs in the browser — and an `httpOnly` cookie is
+  unreachable from there by design (research.md R-001). The proxy is the only component that can
+  delete it, so it clears the cookie on *every* 401, not just on sign-out. The alternative was
+  inventing an endpoint whose sole job is deleting a cookie, which is a worse answer to the same
+  question. T024 keeps its purpose — one place that notices a 401 — and loses a mechanism it never
+  had access to.
+- **T027's second half is deferred to T033.** "Re-assert it in the calendar page's own data load"
+  names `frontend/app/(app)/calendar/page.tsx`, which does not exist until T033. T027 therefore
+  delivers the layout guard only, and T033 carries the re-assert. Between T026 and T033 a signed-in
+  creator landing on `/` is redirected to a `/calendar` that 404s; that is an honest intermediate
+  state for a phase whose own checkpoint says no content feature works yet, and **not** a reason to
+  build the calendar page early — nothing outside the current phase gets built.
+
+T022 also did two things its own line does not describe, both because no other component could:
+it captures `access_token` out of the login response body into the cookie (forwarding it would hand
+a 30-day credential to browser JavaScript, undoing R-001), and it derives the cookie's `Max-Age`
+from the token's own `exp` claim rather than from a frontend copy of `TOKEN_TTL_DAYS`.
 
 **Checkpoint**: a creator can sign in, an unauthenticated visitor sees nothing at any address, sign-out
 works even from an expired session, and the schema exists. No content feature works yet.
@@ -251,7 +273,7 @@ three appear in the backlog drawer. Delivers a usable capture inbox with no cale
 - [ ] T030 [US1] Implement `POST /content-items` in `backend/app/api/content_items.py` with title as the only required field, validating INV-1 at the API boundary so a bad create returns 409 rather than letting the `CHECK` constraint surface as a 500 (FR-005)
 - [ ] T031 [US1] Implement `GET /content-items` in `backend/app/api/content_items.py` supporting the `scheduled` parameter and ordering by `created_at DESC` (FR-011, backlog ordering assumption)
 - [ ] T032 [US1] Implement client-side item state and optimistic updates in `frontend/lib/items.ts` — the shared hook every surface reads from, per research.md R-007
-- [ ] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads the visible period once and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007)
+- [ ] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads the visible period once and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007). **Also carries T027's deferred half**: re-assert the session guard in this page's own data load, because App Router layouts are not re-executed on soft navigations
 - [ ] T034 [US1] Build the bottom-anchored capture sheet in `frontend/components/capture/CaptureSheet.tsx` with a single title field, reachable in at most 3 interactions from the landing screen (FR-005, FR-022, SC-001)
 - [ ] T035 [US1] Build the backlog drawer in `frontend/components/backlog/BacklogDrawer.tsx` with a collapsed peek strip and an expanded state, listing undated items newest-first, with an empty state pointing at the capture action (FR-011, research.md R-003a)
 
