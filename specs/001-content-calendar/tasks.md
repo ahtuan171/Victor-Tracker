@@ -315,11 +315,12 @@ Four things worth carrying forward:
 **Checkpoint**: a creator can sign in, an unauthenticated visitor sees nothing at any address, sign-out
 works even from an expired session, and the schema exists. No content feature works yet.
 
-**Checkpoint status (2026-07-31)**: automated coverage is green for all four clauses, but the
-**by-hand walk of quickstart V1 is still outstanding and blocked** — `SEED_CREATOR_EMAIL` in `.env`
-uses the reserved `.local` TLD, `email-validator` rejects it, and the `creator` table is empty, so no
-account exists to sign in with. Nothing in Phase 2 depends on it; the first hand-verified sign-in must
-happen before T033 builds a surface that assumes one. Diagnosis and fix are in `CLAUDE.local.md`.
+**Checkpoint status (2026-08-01): fully met, by test and by hand.** Automated coverage was green for
+all four clauses on 2026-07-31, but the by-hand walk of quickstart V1 was blocked — `SEED_CREATOR_EMAIL`
+in `.env` used the reserved `.local` TLD, `email-validator` rejected it, and the `creator` table was
+empty. That is now closed: the address was changed to a real domain, `app.scripts.seed_user` ran, and
+**V1 was walked in a browser** — sign-in through the proxy to FastAPI to Postgres. T033 can now build
+on a session that has been proven once outside the test suite rather than only inside it.
 
 ---
 
@@ -581,7 +582,7 @@ not whether the tasks *close*. Both checks are needed, which is why T074 runs th
   satisfied from T025 onward — every task from here arrives by merge request behind a green
   pipeline. T001–T024 remain a knowing exception, and `T076` records its range. The note that
   previously stood here said no remote and no `glab` existed; both do.
-- **Still outstanding, and it blocks by-hand validation rather than implementation**: the single
-  creator account has never been seeded (`SEED_CREATOR_EMAIL` uses the reserved `.local` TLD), so
-  **quickstart V1 has never been walked by a human**. See [quickstart.md](./quickstart.md)
-  Outstanding setup. Do it before T033.
+- **Closed 2026-08-01**: the single creator account is seeded and **quickstart V1 has been walked by
+  a human** — the project's oldest open item, open since T022. The `.local` TLD in
+  `SEED_CREATOR_EMAIL` was the cause. See [quickstart.md](./quickstart.md) Outstanding setup, where
+  the remaining item is the GitLab issue import.
