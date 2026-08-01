@@ -167,24 +167,59 @@ def list_content_items(
         Literal["none"] | None,
         Query(description="`none` returns only undated items — the backlog drawer (FR-011)."),
     ] = None,
+    date_from: Annotated[
+        date | None,
+        Query(description="Inclusive lower bound on `scheduled_date` (FR-013)."),
+    ] = None,
+    date_to: Annotated[
+        date | None,
+        Query(description="Inclusive upper bound on `scheduled_date` (FR-013)."),
+    ] = None,
 ) -> list[ContentItem]:
-    """FR-011 and the calendar's read, which are the same query with one clause different.
+    """FR-011, FR-012 and FR-013 — the backlog read and the calendar read, one query apart.
 
     `Literal["none"]` rather than a free string: the contract's enum has exactly one member, so
     `scheduled=all` is a typo and must be refused rather than quietly treated as "no filter". That
-    distinction is invisible in the response body, which is why it gets a 422.
+    distinction is invisible in the response body, which is why it gets a 422. The same reasoning
+    makes the two bounds `date` rather than `str`: a bound the endpoint cannot parse must be a 422,
+    because a silently dropped filter returns *every* item and on a calendar that reads as the grid
+    working rather than as the filter failing.
+
+    **Both bounds are inclusive**, which is what the contract declares and what T036 pins from both
+    sides. `>=` and `<=`, not `>` and `<`: an off-by-one here hides the first or last day of every
+    period the creator opens.
+
+    **Neither bound can match an undated item, and no clause here says so.** `NULL >= '2026-09-01'`
+    is `NULL`, not `TRUE`, so SQL's three-valued logic does the work — which is exactly the kind of
+    behaviour that disappears in a rewrite, because nothing in this function looks like the line
+    implementing it. It is the behaviour the calendar needs (an item with no date is on no day of
+    the grid, FR-012) and the reason `scheduled=none` remains the *only* way to reach the backlog.
+
+    Two combinations therefore always return an empty array, and both are deliberate rather than
+    special-cased. `scheduled=none` with a date bound asks for a row that is both NULL and within a
+    range; `date_from > date_to` asks for a day after itself. The contract declares these parameters
+    as independent filters with no stated interaction, so refusing either pair with a 422 would be
+    inventing a response the contract does not carry — and no surface issues either query, because
+    the drawer sends `scheduled=none` and period navigation always builds `from <= to`.
 
     **Ordering is `created_at DESC, id DESC`, and the second key is not decoration.** `created_at`
     alone is not a total order: Postgres `now()` is transaction time, so anything written in one
     transaction shares a timestamp, and the row order Postgres returns for ties is not stable
     between reads. The creator-visible symptom is a backlog that reshuffles on refresh, which reads
     as data loss. `id` is monotonic with insertion, so it never contradicts `created_at` — it only
-    decides what `created_at` leaves open.
+    decides what `created_at` leaves open. Applied once, after every filter, so it holds on all four
+    paths through this function rather than on the one a test happened to exercise.
     """
     query = select(ContentItem)
 
     if scheduled == "none":
         query = query.where(col(ContentItem.scheduled_date).is_(None))
+
+    if date_from is not None:
+        query = query.where(col(ContentItem.scheduled_date) >= date_from)
+
+    if date_to is not None:
+        query = query.where(col(ContentItem.scheduled_date) <= date_to)
 
     query = query.order_by(col(ContentItem.created_at).desc(), col(ContentItem.id).desc())
 

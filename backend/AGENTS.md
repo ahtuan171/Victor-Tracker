@@ -50,6 +50,7 @@ All three look removable and all three break something non-obvious:
 | `create_access_token` truncates `now` to whole seconds | `exp` and `iat` are integer seconds. Without the truncation the returned `expires_at` carries microseconds the claim cannot, so the login body advertises an expiry a fraction of a second later than the token enforces — and that function's docstring promises the two cannot drift. |
 | `ContentItemRead` is a hand-written `BaseModel`, not the `ContentItem` table model | The one place this backend departs from tech-defaults' "one class for DB model and API schema", and the divergence is real: `ContentItem.id` is `int \| None` because it is None until the insert, so serialising the table model generates a schema whose `id` is nullable — contradicting the contract, which lists `id` as required, and telling a generated client to null-check a value that is never null. |
 | The API always emits every nullable field; the contract permits omitting them | `ContentItem` in `contracts/openapi.yaml` lists only five properties as required, but FR-017 and FR-018 promise the calendar renders from the list response with no follow-up per item. Always emitting is *stricter* than the contract, so no client written against it breaks — and `frontend/lib/api.ts` already types them present-and-nullable with a normaliser. **Not drift, and not a reason to amend the contract**: the looseness there is deliberate and the frontend's `toContentItem` note explains why. |
+| `date_from`/`date_to` compose with `scheduled=none` by `AND`, so the pair returns an empty array rather than a 422 | The contract declares them as independent filters and states no interaction between them, so refusing the combination would be a response the contract does not carry. Same reasoning for `date_from > date_to`. Neither query is produced by any surface — the drawer sends `scheduled=none`, period navigation always builds `from <= to`. **If a later task wants a 422 here, it needs a contract amendment first, plus a `REACHABLE_4XX` case.** |
 | The harness runs `alembic upgrade head`, not `metadata.create_all` | `create_all` builds enum types and CHECK constraints from model metadata, so the migration that actually runs in production would go untested — and the `values_callable` trap below would lose the only place it could resurface. Separately, CI's `test:backend` has no migration step, so the harness is the only thing that can create the schema there. |
 
 ---
@@ -116,6 +117,18 @@ makes the length check mean what INV-2 means. This is why `Title` in `app/api/co
 shared annotated type rather than three keyword arguments repeated per model: T049's `PATCH` needs the
 identical rule, and a second hand-written copy is where the two would drift.
 
+**A pydantic `date` accepts an RFC 3339 datetime string whose time is exactly zero.** Found at T037.
+`2026-09-01T00:00:00Z`, `2026-09-01T00:00:00` and `2026-09-01T00:00:00+02:00` all validate to
+`date(2026, 9, 1)`; `2026-09-01T12:00:00Z` is refused, and so is `20260901`. So a query bound or a
+body field typed `date` is *slightly* looser than the contract's `format: date` — but not
+dangerously, because the only extra spellings accepted already name the whole day and nothing can be
+silently truncated. Two consequences. First, do not write `assert status_code == 422` for a
+midnight-timestamp input; it is a 200, and `tests/test_content_items.py` characterises that rather
+than tightening it, because tightening costs a bespoke validator for an input no client sends.
+Second, **the looseness stops being safe the moment a field is retyped `datetime`** — then
+`2026-09-01T12:00:00Z` starts validating and FR-012a's "no time of day" quietly stops being true.
+The paired tests (`timestamp-with-a-time` refused, exact midnight accepted) are what notice.
+
 **A SQLAlchemy enum column stores the Python member *names* by default.** `Status.IDEA` persists as
 `IDEA` while the contract, the frontend, and every fixture use `idea`. Pass
 `values_callable=lambda e: [m.value for m in e]`. It only surfaces on a round trip against a real
@@ -178,6 +191,15 @@ one of those assertions is green against a schema, against an empty database, an
 the table name. Green is not evidence. Before trusting one, make it fail: `ALTER TABLE ... ADD COLUMN
 creator_id` inside a transaction you roll back. That is how T019 was verified, and it is the only
 reason its results mean anything. The same applies to any future `assert not ...` about the schema.
+
+**A membership assertion about a filtered list is green against no filter at all.** The sibling of
+the trap above, and it bit at T036: `assert "First day" in titles` proves `date_from` is inclusive
+*and* passes against a `GET /content-items` that has never heard of `date_from`, because an
+unfiltered list contains everything. Four of that task's tests were green before its implementation
+existed. Every filter test needs at least one **exact-set** assertion — `== {…}` — which is the only
+form that fails when the filter is too wide, and the only form that distinguishes "the filter works"
+from "the parameter was ignored". FastAPI ignores undeclared query parameters silently, so this is
+the default failure mode for every parameter added from here: `platform` at T060 has the same shape.
 
 **A forbidden-name pattern list does not know this project's nouns.** T019 was specified as
 `%user%`, `%owner%`, `%tenant%`, `%version%` — generic multi-tenancy vocabulary, none of which
