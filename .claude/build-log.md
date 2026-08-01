@@ -878,3 +878,61 @@ Unlike `today()` it does **not** refuse to run outside the browser. It is called
 handler on a user action, never during render, so there is no hydration flip to prevent — and the
 reducer that consumes it takes the timestamp as an argument, which is what keeps that reducer testable
 in a Node runner.
+
+## T033 — the calendar shell, and two debts from Phase 2 paid
+
+**2026-08-01.** `/calendar` exists. Frontend suite **110 → 120 passing, and 4 skipped → 0** — the
+first time this project has had no skipped tests since T027.
+
+The surface itself is the frame from the export's `Month grid 375` panel: header band (eyebrow,
+period, derived count), content region, bottom action band. What goes *inside* it is deliberately
+absent — month grid T042, week list T043, period nav T044, backlog drawer T035, platform filter T061.
+Each has a reserved place and a task. Building one because the export draws it is letting a picture
+reorder the task board.
+
+### T027's deferred half, and why it is a page rather than a layout
+
+The re-assert landed in `app/(app)/calendar/page.tsx`. The reasoning is a property of App Router that
+is easy to state and easy to forget: **layouts are not re-executed on soft navigations, page segments
+are.** So once the app is open, a client-side route change within `(app)` reuses the layout's
+credential check from whenever the tab was opened; a second layout would inherit the same problem,
+and only a page segment re-runs.
+
+Both checks call `hasSessionCookie`, so "is there a session" has one definition. Worth being blunt
+about the limit: **a full page load exercises both at once**, so no e2e test can distinguish them —
+delete the page-level check and `session-guard.spec.ts` stays green. That is recorded in
+`frontend/AGENTS.md` as the guard, because a comment in the file it protects is not one.
+
+### The four skipped tests are on, and one stub had been passing for the wrong reason
+
+Deleting `.skip` was the one-line change T027 promised. What was *not* anticipated: two tests in
+`login.spec.ts` had been green only because `/calendar` returned a 404, and **a 404 leaves the
+browser at the address it asked for**. `stubLogin` reproduced the proxy's response body but not its
+`Set-Cookie`, so the moment the destination became guarded a correct sign-in would have bounced
+straight back to `/login` — a failure caused entirely by the stub.
+
+Fixed by making the stub set the cookie on a 2xx, which is what the proxy does. The general rule,
+now in `frontend/AGENTS.md`: a stub has to do everything the real thing does that the assertions
+depend on, and **when a route becomes guarded, re-check every stub that navigates to it**. This is
+the same family as the `__probe` trap at T027 — a path-only assertion cannot tell "rendered" from
+"not found".
+
+### `useSyncExternalStore`, not `useEffect` + `useState`
+
+R-006's addendum prescribes reading `today()` in an effect and holding it in state, and that is
+correct — but React 19's compiler lint flags setting state from an effect, and the form renders once
+with the wrong value before correcting itself. `useSyncExternalStore` with `getServerSnapshot`
+returning `null` gives the identical guarantee — the server never reads a clock — with neither
+problem. The three arguments are module-scope functions, because an inline `() => today()` is a new
+identity every render.
+
+The lint rule was right and the fix was better than a suppression, which is worth recording: the
+addendum's advice was written before this codebase had a compiler lint, not wrong.
+
+### Screenshotted, because the suite cannot see this class of bug
+
+Per the trap in `frontend/AGENTS.md`: a misspelled Tailwind class generates nothing and fails no
+check. `/calendar` was built, served from the production bundle, and captured at 375px with a stubbed
+list — eyebrow in brand red, skewed uppercase Oswald period, hairline borders, the notched capture
+button in the bottom band. Every token resolved. `pnpm typecheck`, `pnpm lint` and 120 green tests
+would all have passed had they not.
