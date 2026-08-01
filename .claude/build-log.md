@@ -954,3 +954,60 @@ before pushing again.
 `tests/client/dates.spec.ts` already ran its assertions under two timezones for exactly this reason,
 via `process.env.TZ`. That mechanism does not reach the browser, so the lesson did not transfer on its
 own — which is why it is now in `frontend/AGENTS.md` in browser terms.
+
+## T034 — the capture sheet, and US1 becomes usable
+
+**2026-08-01.** The flow the whole of User Story 1 exists for now works end to end in the browser:
+tap `+ CAPTURE`, type a title, tap `SAVE TO BACKLOG`. Frontend suite **121 → 131 passing**, still
+none skipped.
+
+Built from the export's `Capture sheet 375` panel (`1f`/`2f`) on shadcn's `Sheet`, which
+`.claude/rules/design.md` asks for ahead of hand-rolling a modal. `shadcn add sheet` **fully
+succeeded this time** — worth recording, because the trap in `frontend/AGENTS.md` says it can
+half-succeed. The reason it did not: it generates against `@base-ui/react`, which was already a
+dependency, so nothing new had to be installed and the pnpm `allowBuilds` hazard never arose.
+
+### One field, and the test asserts the request rather than the form
+
+FR-005 makes title the only required field and `.claude/memory.md` records why in a sentence worth
+re-reading before adding a second: *"ideas arrive mid-task, and any required field is enough friction
+to send the creator back to a notes app."* The item sheet at T052 is where platform, date, hook and
+link get set — on an item that already exists. **This sheet is not a smaller version of that one.**
+
+`capture.spec.ts` asserts the *request body* is exactly `{title}` rather than counting inputs on
+screen, because a field that quietly defaulted to something and sent it would still be this surface
+making a decision that belongs to T052.
+
+It also counts the interactions: tap, type, tap. `autoFocus` on the field turns out to be
+load-bearing rather than a nicety — without it the count is four, and on a phone it is the difference
+between the keyboard appearing and the creator hunting for the field.
+
+### The failure path is where the design actually shows
+
+Three tests cover one refused save, because it has three separate ways to go wrong and only one of
+them is visible in a screenshot: the error must be readable, **the typing must survive**, and the
+optimistic row must roll back off the count. That is why `lib/items.ts` rethrows write failures
+instead of folding them into the list's error state — a decision made at T032 that had no consumer
+until now, and this is the consumer.
+
+Cancel also keeps the text. Clearing it would make a mis-tap on the scrim destructive, which
+`.claude/rules/design.md` reserves for confirmed actions.
+
+### Twenty-two tests failed on a port collision, and none of them were broken
+
+Between the T033 screenshot and this task's test run, a `next start -p 3100` was left running.
+`playwright.config.ts` uses **3100** with `reuseExistingServer` outside CI, so Playwright silently
+adopted it — serving from a `.next` that had since been deleted. The symptom was 22 failures spread
+across files this task never touched, with a 21px login input, because **no CSS was being served at
+all**. `pnpm build` passed the whole time.
+
+The lesson is not "kill your servers". It is that the mandatory screenshot step (forced by the
+silent-Tailwind-class trap) and the test suite were using the same port by default, so the two
+required parts of the workflow collide by construction. Recorded in `frontend/AGENTS.md`: screenshot
+on a different port.
+
+### Screenshotted at 375px
+
+Sheet bottom-anchored with the notched corner, grip bar, `CAPTURE IDEA` in letterspaced Oswald, the
+52px field with the brand focus ring, the helper line, and `CANCEL` / `SAVE TO BACKLOG` with the
+notch on the primary. Every token resolved against panel `1f`.

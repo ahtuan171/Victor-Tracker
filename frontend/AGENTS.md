@@ -28,6 +28,9 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | `lib/items.ts` is **pure functions plus a thin hook**, not one `useContentItems` | Forced by a real constraint: `tech-defaults.md` rules out Jest and RTL at v0.1, so **there is no renderer in this project** and a hook cannot be exercised in isolation. As one lump, the rollback branch — reachable only when the server refuses a write — would need a browser test that fails a request on purpose, and would never be asserted at the level of "which rows in which order". Split out, those are ordinary unit tests in `tests/client/items.spec.ts`; the hook keeps only what a browser test does cover. Add new state transitions as exported pure functions, not as logic inside the hook. |
 | A pending item is a **real `ContentItem` with a negative id** | Postgres identity starts at 1 and never goes negative, so it cannot collide — a stronger guarantee than a `_pending` flag, which a spread or a reconciliation can drop while leaving the row looking saved. Surfaces then render one list and key on `item.id`, which is the point of an optimistic update. **`isPending` is load-bearing beyond rendering**: T049's `PATCH` and T050's `DELETE` name an id that does not exist yet, so every surface offering them must skip pending rows. |
 | `useContentItems` takes `params` but depends on a **JSON key** of it | The idiomatic call site `useContentItems({ scheduled: "none" })` builds a new object every render, and an effect depending on it refetches forever. Doing this inside means callers never need `useMemo` — a requirement nobody remembers and nothing enforces. |
+| The capture sheet has **one field and keeps it**, and the item sheet at T052 is not its bigger sibling | FR-005 plus the reason in `.claude/memory.md`: "ideas arrive mid-task, and any required field is enough friction to send the creator back to a notes app". Platform, date, hook and link are set at T052, on an item that already exists. `tests/e2e/capture.spec.ts` asserts the *request body* rather than counting inputs, because a field that defaulted to something and sent it would still be this surface making a decision that belongs to T052. |
+| Capture costs exactly **three interactions** and a test counts them | Tap, type, tap — SC-001's budget with no room for a confirmation step or a second screen. `autoFocus` on the field is load-bearing rather than a nicety: without it the count is four, and on a phone it is the difference between the keyboard appearing and the creator hunting for the field. |
+| A refused save **keeps the sheet open with the typing intact** | The counterpart to the rethrow rule below, and the reason it exists. Losing the optimistic row *and* the creator's text is the worst outcome of a failed save, and it is exactly what closing the sheet optimistically produces. Cancel also keeps the text — clearing it would make a mis-tap on the scrim destructive. |
 | A failed **write** rethrows; only a failed **read** sets `state.error` | The capture sheet renders a refused save beside its own field, with the creator's text still on screen. Folding it into the list's error would blank the calendar because one save was refused. |
 | Hand-built calendar grid, no library | Every calendar library's value is time-of-day layout, which FR-012a removed. |
 | The proxy allowlist forces a **decision per contract operation**, not a copy of the contract | `NOT_PROXIED` exists so the sync test can require every operation to be *either* allowed *or* excluded-with-a-reason. An allowlist that simply mirrors `openapi.yaml` gates nothing the moment the contract grows. `/health` is the one exclusion today — Render's probe, no screen reads it. |
@@ -59,6 +62,15 @@ a transparent panel. `pnpm build`, `pnpm typecheck`, `pnpm lint`, and the whole 
 passed on the login redesign *before* it had ever been looked at. **Screenshot the surface at 375px
 after restyling it** — the suite asserts geometry (tap targets, thumb reach, overflow), which is
 exactly what survives a dropped colour class.
+
+**The screenshot step and the test suite fight over port 3100.** `playwright.config.ts` uses 3100
+with `reuseExistingServer: !CI`, so a `next start -p 3100` left running from a manual screenshot is
+silently adopted by the next `playwright test` — and if `.next` was rebuilt or deleted in between,
+that server serves a stale or empty bundle. The symptom is spectacular and misleading: **22 tests
+fail, including ones in files you never touched**, with a 21px-tall login input, because no CSS is
+being served at all. `pnpm build` passes throughout. Screenshot on a **different port** and kill the
+server afterwards. Since the Tailwind trap above makes screenshotting mandatory after any restyle,
+these two steps meet constantly.
 
 **A browser test that fixes a clock must also fix a timezone, or it encodes the author's location.**
 `page.clock.setFixedTime` pins the *instant*; the zone that turns it into a calendar day still comes

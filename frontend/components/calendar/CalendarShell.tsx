@@ -1,7 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
+import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { today, type DateOnly } from "@/lib/dates";
 import { useContentItems } from "@/lib/items";
 
@@ -41,10 +42,17 @@ import { useContentItems } from "@/lib/items";
  * to the period now would mean building the coupling twice.
  */
 export function CalendarShell() {
-  const { items, status, error } = useContentItems();
+  const { items, status, error, createItem } = useContentItems();
 
   /** Null on the server and during hydration, the real month afterwards — see the note above. */
   const period = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+
+  /**
+   * Owned here rather than inside `CaptureSheet` because the trigger lives in the action band and
+   * the sheet does not render one of its own — the export puts capture in the bottom bar, which is
+   * also the only place `.claude/rules/design.md` allows a primary action to be.
+   */
+  const [capturing, setCapturing] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface-0 text-ink">
@@ -79,7 +87,9 @@ export function CalendarShell() {
         </p>
       </main>
 
-      <CalendarActionBar />
+      <CalendarActionBar onCapture={() => setCapturing(true)} />
+
+      <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
     </div>
   );
 }
@@ -168,7 +178,7 @@ function CalendarHeader({
  * where the export places them to the left of the spacer. The band is laid out to receive them —
  * that is why the capture button is pushed right by a spacer that currently has nothing to its left.
  */
-function CalendarActionBar() {
+function CalendarActionBar({ onCapture }: { onCapture: () => void }) {
   return (
     <div className="border-hairline bg-surface-0 flex items-center gap-2 border-t px-4 pt-2.5 pb-4">
       {/* T044's period controls land here, to the left of this spacer. */}
@@ -176,10 +186,8 @@ function CalendarActionBar() {
 
       <button
         type="button"
-        // Disabled rather than absent: T034 wires this to the capture sheet, and a control that is
-        // present-but-inert states where capture lives instead of moving it a task later.
-        disabled
-        className="bg-brand notch-card font-display h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1 disabled:opacity-60"
+        onClick={onCapture}
+        className="bg-brand notch-card font-display h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
         data-testid="capture-action"
       >
         + Capture

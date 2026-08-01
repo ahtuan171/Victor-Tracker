@@ -341,7 +341,7 @@ three appear in the backlog drawer. Delivers a usable capture inbox with no cale
 - [x] T031 [US1] Implement `GET /content-items` in `backend/app/api/content_items.py` supporting the `scheduled` parameter and ordering by `created_at DESC` (FR-011, backlog ordering assumption)
 - [x] T032 [US1] Implement client-side item state and optimistic updates in `frontend/lib/items.ts` — the shared hook every surface reads from, per research.md R-007
 - [x] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads the visible period once and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007). **Also carries T027's deferred half**: re-assert the session guard in this page's own data load, because App Router layouts are not re-executed on soft navigations
-- [ ] T034 [US1] Build the bottom-anchored capture sheet in `frontend/components/capture/CaptureSheet.tsx` with a single title field, reachable in at most 3 interactions from the landing screen (FR-005, FR-022, SC-001)
+- [x] T034 [US1] Build the bottom-anchored capture sheet in `frontend/components/capture/CaptureSheet.tsx` with a single title field, reachable in at most 3 interactions from the landing screen (FR-005, FR-022, SC-001)
 - [ ] T035 [US1] Build the backlog drawer in `frontend/components/backlog/BacklogDrawer.tsx` with a collapsed peek strip and an expanded state, listing undated items newest-first, with an empty state pointing at the capture action (FR-011, research.md R-003a)
 
 **Checkpoint**: US1 fully functional. Run quickstart V1 and V2 — this is a deployable MVP.
