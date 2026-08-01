@@ -25,6 +25,10 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | Playwright's only project is 375×667, written out explicitly | 375px is a hard floor (constitution I), not one entry in a matrix. A named device preset could change the number under a Playwright upgrade; the number *is* the requirement. |
 | shadcn theme tokens hand-written into `globals.css` | `shadcn init` half-succeeded (see traps). The block is explicitly **provisional** — the stage-2 design export replaces it wholesale. Safe to replace wholesale because R-005 encodes status as shape and fill, so FR-017/SC-004 do not depend on any colour in that file. |
 | Client components + local state + optimistic updates | SC-005 (<1s filter) and "cue updates immediately" both want local state, and a server round trip per toggle risks Render's free-tier spin-down blowing SC-001. `lib/items.ts` establishes this once (research.md R-007) — do not invent a second data-fetching strategy per surface. |
+| `lib/items.ts` is **pure functions plus a thin hook**, not one `useContentItems` | Forced by a real constraint: `tech-defaults.md` rules out Jest and RTL at v0.1, so **there is no renderer in this project** and a hook cannot be exercised in isolation. As one lump, the rollback branch — reachable only when the server refuses a write — would need a browser test that fails a request on purpose, and would never be asserted at the level of "which rows in which order". Split out, those are ordinary unit tests in `tests/client/items.spec.ts`; the hook keeps only what a browser test does cover. Add new state transitions as exported pure functions, not as logic inside the hook. |
+| A pending item is a **real `ContentItem` with a negative id** | Postgres identity starts at 1 and never goes negative, so it cannot collide — a stronger guarantee than a `_pending` flag, which a spread or a reconciliation can drop while leaving the row looking saved. Surfaces then render one list and key on `item.id`, which is the point of an optimistic update. **`isPending` is load-bearing beyond rendering**: T049's `PATCH` and T050's `DELETE` name an id that does not exist yet, so every surface offering them must skip pending rows. |
+| `useContentItems` takes `params` but depends on a **JSON key** of it | The idiomatic call site `useContentItems({ scheduled: "none" })` builds a new object every render, and an effect depending on it refetches forever. Doing this inside means callers never need `useMemo` — a requirement nobody remembers and nothing enforces. |
+| A failed **write** rethrows; only a failed **read** sets `state.error` | The capture sheet renders a refused save beside its own field, with the creator's text still on screen. Folding it into the list's error would blank the calendar because one save was refused. |
 | Hand-built calendar grid, no library | Every calendar library's value is time-of-day layout, which FR-012a removed. |
 | The proxy allowlist forces a **decision per contract operation**, not a copy of the contract | `NOT_PROXIED` exists so the sync test can require every operation to be *either* allowed *or* excluded-with-a-reason. An allowlist that simply mirrors `openapi.yaml` gates nothing the moment the contract grows. `/health` is the one exclusion today — Render's probe, no screen reads it. |
 | The proxy **captures the login token out of the response body** | `POST /auth/login` returns `access_token` in its body. Forwarding that to the browser would hand a 30-day credential to JavaScript and undo the whole of R-001, so the proxy moves it into the httpOnly cookie and returns `{expires_at}` alone. The contract still describes the FastAPI origin truthfully — this response comes from the Vercel origin, which is deliberately not transparent about credentials. |
@@ -54,6 +58,13 @@ a transparent panel. `pnpm build`, `pnpm typecheck`, `pnpm lint`, and the whole 
 passed on the login redesign *before* it had ever been looked at. **Screenshot the surface at 375px
 after restyling it** — the suite asserts geometry (tap targets, thumb reach, overflow), which is
 exactly what survives a dropped colour class.
+
+**A list read that lands mid-save deletes the row being saved, unless something stops it.** The
+creator taps save and then the already-in-flight list response arrives; replacing `items` wholesale
+makes the new row vanish and reappear seconds later, which reads as data loss rather than as latency.
+`itemsLoaded` re-prepends pending rows for exactly this reason, and it is a **replacement** for saved
+rows rather than a merge-by-id — a merge would leave a deleted item on screen forever. Both halves are
+asserted in `tests/client/items.spec.ts`; neither is obvious from reading the function.
 
 **`new Date("2026-08-04")` is parsed as UTC midnight.** Formatting that back in a timezone west of
 Greenwich gives the previous day. Never construct a `Date` from a bare `YYYY-MM-DD` string;

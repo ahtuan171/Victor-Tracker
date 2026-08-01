@@ -112,6 +112,28 @@ export function today(): DateOnly {
 }
 
 /**
+ * The current instant as an ISO 8601 timestamp — the shape `created_at` and `updated_at` arrive in.
+ *
+ * **This is not a `DateOnly` and must never be treated as one.** It carries a time and a `Z`, so
+ * `parseDateOnly` rejects it by design (`DATE_ONLY_PATTERN` is anchored precisely so a timestamp
+ * cannot sneak through a date-shaped hole). The two live in the same module because both are `Date`
+ * access, and this module is the only one eslint lets touch `Date` — not because they are
+ * interchangeable.
+ *
+ * Written for `lib/items.ts`, whose optimistic rows need timestamps shaped like the server's before
+ * the server has assigned any (T032). Unlike `today()` this does **not** refuse to run outside the
+ * browser: it is called from an event handler on a user action, never during render, so there is no
+ * hydration flip to prevent — and the reducer that consumes it takes the value as an argument, which
+ * is what keeps that reducer testable in a Node runner.
+ *
+ * `toISOString` is correct here and would be wrong in `toDateOnly`: an instant genuinely is a point
+ * on the UTC timeline, whereas a calendar date is not.
+ */
+export function nowInstant(): string {
+  return new Date().toISOString();
+}
+
+/**
  * Compare two calendar dates: negative if `a` is earlier, `0` if equal, positive if later.
  *
  * **Plain string comparison, and that is not a shortcut.** `YYYY-MM-DD` is fixed-width and
