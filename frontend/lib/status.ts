@@ -34,6 +34,17 @@ import { type Platform, type Status } from "@/lib/api";
  *   renderer at all (`tech-defaults.md` rules out Jest and RTL at v0.1), so it stays pure data.
  */
 
+/**
+ * The three sizes the export draws an item at, named once so the chip and both cues cannot disagree
+ * about how many there are. This is vocabulary, not geometry — what each size *measures* stays in the
+ * component that renders it.
+ *
+ * - `micro` — the month grid's 50px day cell (T042). Title dropped; cue and monogram only.
+ * - `peek` — the backlog drawer's collapsed strip, a single clipped row of chips.
+ * - `full` — the expanded drawer and the week list (T043), where the title leads.
+ */
+export type CueSize = "micro" | "peek" | "full";
+
 /** One status's encoding. Everything a cue needs except how big it is. */
 export interface StatusCue {
   readonly status: Status;

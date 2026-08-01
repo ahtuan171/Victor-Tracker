@@ -62,6 +62,13 @@ async function stubApi(
 
 const toggle = (page: Page) => page.getByTestId("backlog-toggle");
 const rows = (page: Page) => page.getByTestId("backlog-row");
+/**
+ * Rows are `ItemChip`s since T041, so their text is no longer the title alone — a `posted` chip
+ * contains a check glyph and a platformed one contains a monogram. Assertions about *which items are
+ * listed* read the title element; assertions about the cues read the cues.
+ */
+const chips = (page: Page) => page.getByTestId("backlog-row").getByTestId("item-chip");
+const titles = (page: Page) => page.getByTestId("backlog-row").getByTestId("item-title");
 
 test("undated items appear in the drawer, newest first", async ({ page, baseURL }) => {
   await signedIn(page, baseURL);
@@ -72,7 +79,7 @@ test("undated items appear in the drawer, newest first", async ({ page, baseURL 
   await page.goto("/calendar");
   await toggle(page).click();
 
-  await expect(rows(page)).toHaveText(["Newest", "Middle", "Oldest"]);
+  await expect(titles(page)).toHaveText(["Newest", "Middle", "Oldest"]);
 });
 
 test("dated items are not in the backlog", async ({ page, baseURL }) => {
@@ -88,7 +95,7 @@ test("dated items are not in the backlog", async ({ page, baseURL }) => {
   await expect(page.getByTestId("backlog-count").first()).toHaveText("1");
 
   await toggle(page).click();
-  await expect(rows(page)).toHaveText(["Undated"]);
+  await expect(titles(page)).toHaveText(["Undated"]);
 });
 
 test("a posted item with no date still belongs in the backlog", async ({ page, baseURL }) => {
@@ -100,7 +107,7 @@ test("a posted item with no date still belongs in the backlog", async ({ page, b
 
   // The backlog is "undated", not "ideas" — which is why T041 has its own task to put the status cue
   // on these rows rather than assuming they are all `idea`.
-  await expect(rows(page)).toHaveText(["Published, never scheduled"]);
+  await expect(titles(page)).toHaveText(["Published, never scheduled"]);
 });
 
 test("the empty state names the capture action", async ({ page, baseURL }) => {
@@ -182,11 +189,11 @@ test("a captured idea reaches the backlog before the server answers", async ({ p
 
   // US1 on one surface: capture, then find it. The create request is never answered, so this can
   // only pass through `lib/items.ts`'s optimistic insert.
-  await expect(rows(page)).toHaveText([/Rooftop b-roll cutdown/]);
+  await expect(titles(page)).toHaveText(["Rooftop b-roll cutdown"]);
   // `isPending` marks the row rather than hiding it. **T052's tap-to-open and T054's drag both name
   // an id the server has not issued**, so both must skip these rows rather than render a control
   // that 404s — this attribute is what they read.
-  await expect(rows(page).first()).toHaveAttribute("aria-busy", "true");
+  await expect(chips(page).first()).toHaveAttribute("aria-busy", "true");
 });
 
 test("a saved idea is no longer marked pending", async ({ page, baseURL }) => {
@@ -203,7 +210,7 @@ test("a saved idea is no longer marked pending", async ({ page, baseURL }) => {
   // Reconciliation swapped the optimistic row for the server's. A row that stayed `aria-busy` after
   // saving would leave every id-bearing control at T052 and T054 permanently disabled.
   await expect(rows(page)).toHaveCount(1);
-  await expect(rows(page).first()).not.toHaveAttribute("aria-busy", "true");
+  await expect(chips(page).first()).toHaveAttribute("aria-busy", "false");
 });
 
 test("a captured idea survives a reload once the server has it", async ({ page, baseURL }) => {
@@ -214,11 +221,11 @@ test("a captured idea survives a reload once the server has it", async ({ page, 
 
   await page.goto("/calendar");
   await toggle(page).click();
-  await expect(rows(page)).toHaveText(["Rooftop b-roll cutdown"]);
+  await expect(titles(page)).toHaveText(["Rooftop b-roll cutdown"]);
 
   await page.reload();
   await toggle(page).click();
-  await expect(rows(page)).toHaveText(["Rooftop b-roll cutdown"]);
+  await expect(titles(page)).toHaveText(["Rooftop b-roll cutdown"]);
 });
 
 test("the page body does not scroll horizontally with the drawer open", async ({
@@ -257,5 +264,85 @@ test("the drawer toggle clears the 44px tap minimum", async ({ page, baseURL }) 
   await page.goto("/calendar");
 
   const box = await toggle(page).boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+});
+
+/**
+ * T041 — the cues in the backlog, which is also the first time T039 and T040 are exercised against a
+ * real DOM. There is no renderer in this project (`tech-defaults.md` rules out Jest and RTL at v0.1),
+ * so a component's first test is the surface that renders it.
+ */
+
+test("every backlog row carries a status cue, whatever its status", async ({ page, baseURL }) => {
+  await signedIn(page, baseURL);
+  await stubApi(page, [
+    item(3, { title: "An idea", status: "idea" }),
+    item(2, { title: "A draft", status: "draft", platform: "tiktok" }),
+    item(1, { title: "Published, never scheduled", status: "posted", platform: "youtube" }),
+  ]);
+
+  await page.goto("/calendar");
+  await toggle(page).click();
+
+  // FR-017 covers the backlog explicitly, and this is the reason T041 exists as its own task: a
+  // `posted` item with no date lives here legitimately, so the drawer cannot assume everything in it
+  // is an `idea` and skip the cue.
+  const cues = page.getByTestId("backlog-row").getByTestId("status-cue");
+  await expect(cues).toHaveCount(3);
+  await expect(cues.nth(0)).toHaveAttribute("data-status", "idea");
+  await expect(cues.nth(1)).toHaveAttribute("data-status", "draft");
+  await expect(cues.nth(2)).toHaveAttribute("data-status", "posted");
+
+  // The cue names itself. A shape announces as nothing, so this is the whole of FR-017 for a creator
+  // who is not looking at the screen.
+  await expect(cues.nth(2)).toHaveAccessibleName("Posted");
+});
+
+test("the platform monogram appears only when there is a platform", async ({ page, baseURL }) => {
+  await signedIn(page, baseURL);
+  await stubApi(page, [
+    item(2, { title: "Bound for TikTok", platform: "tiktok" }),
+    item(1, { title: "No platform yet" }),
+  ]);
+
+  await page.goto("/calendar");
+  await toggle(page).click();
+
+  const badges = page.getByTestId("backlog-row").getByTestId("platform-cue");
+  // FR-018 for the one that has a platform; and *nothing at all* for the one that does not. An empty
+  // box on every unplatformed chip would sit on most of a fresh account's backlog and read as
+  // something failing to load — FR-005 means every capture starts this way.
+  await expect(badges).toHaveCount(1);
+  await expect(badges.first()).toHaveText("T");
+  await expect(badges.first()).toHaveAccessibleName("TikTok");
+});
+
+test("the peek strip carries the same cues as the expanded list", async ({ page, baseURL }) => {
+  await signedIn(page, baseURL);
+  await stubApi(page, [item(1, { title: "Client edit pass", status: "draft", platform: "youtube" })]);
+
+  await page.goto("/calendar");
+
+  // The strip is the backlog view that is on screen whenever the calendar is, so FR-017's "in both
+  // calendar and backlog views" has to hold here and not only once the drawer is opened.
+  const peek = page.getByTestId("backlog-peek-list");
+  await expect(peek.getByTestId("status-cue")).toHaveAttribute("data-status", "draft");
+  await expect(peek.getByTestId("platform-cue")).toHaveText("Y");
+});
+
+test("a full-size chip clears the 44px tap minimum before it becomes tappable", async ({
+  page,
+  baseURL,
+}) => {
+  await signedIn(page, baseURL);
+  await stubApi(page, [item(1, { title: "Rooftop b-roll cutdown" })]);
+
+  await page.goto("/calendar");
+  await toggle(page).click();
+
+  // T052 turns this chip into a button. Sizing it to the tap floor now means that task is a
+  // behaviour change rather than a re-layout, and it keeps the row the same height as the one T035
+  // shipped — shrinking it here to grow it back there would be a visible regression in between.
+  const box = await chips(page).first().boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(44);
 });

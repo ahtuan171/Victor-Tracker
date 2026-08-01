@@ -1,5 +1,5 @@
 import type { Platform } from "@/lib/api";
-import { platformCue } from "@/lib/status";
+import { platformCue, type CueSize } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,7 +24,7 @@ export function PlatformCue({
   className,
 }: {
   readonly platform: Platform | null;
-  readonly size?: "micro" | "full";
+  readonly size?: CueSize;
   readonly className?: string;
 }) {
   const cue = platformCue(platform);
@@ -38,10 +38,7 @@ export function PlatformCue({
       data-testid="platform-cue"
       className={cn(
         "font-display text-ink-mid flex-none text-center font-semibold",
-        size === "micro"
-          ? // No border at 8-9px: the box would be most of the ink and the letter would lose out.
-            "text-[9px] leading-none"
-          : "border-hairline size-5 rounded-sm border text-[11px] leading-[18px]",
+        BADGE[size],
         className,
       )}
     >
@@ -49,3 +46,14 @@ export function PlatformCue({
     </span>
   );
 }
+
+/**
+ * The export's three badges. `micro` has **no box** — at 8-9px the border would be most of the ink
+ * and the letter, which is the actual information, would lose out. The other two are bordered squares
+ * whose line-height centres the glyph without a flex context.
+ */
+const BADGE: Readonly<Record<CueSize, string>> = {
+  micro: "text-[9px] leading-none",
+  peek: "border-hairline size-[18px] rounded-sm border text-[10px] leading-4",
+  full: "border-hairline size-5 rounded-sm border text-[11px] leading-[18px]",
+};

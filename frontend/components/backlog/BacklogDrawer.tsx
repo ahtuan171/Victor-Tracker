@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useState } from "react";
 
+import { ItemChip } from "@/components/item/ItemChip";
 import type { ContentItem } from "@/lib/api";
-import { isPending, selectBacklog } from "@/lib/items";
+import { selectBacklog } from "@/lib/items";
 
 /**
  * The backlog, as a drawer on the calendar surface (T035, FR-011, research.md R-003a).
@@ -29,10 +30,9 @@ import { isPending, selectBacklog } from "@/lib/items";
  *
  * ## What is deliberately not here
  *
- * Rows show a title and nothing else. The status cue and platform monogram the export draws on each
- * row are **T038–T040**, and **T041 is the task that puts `ItemChip` in this drawer** — its own line
- * in `tasks.md` exists because FR-017 covers the backlog explicitly. Drag is **T054**. Opening an item
- * is **T052**. Each has a seam marked below rather than a partial implementation.
+ * Rows are `ItemChip`s as of **T041**, so status and platform are legible here exactly as they are in
+ * the grid. Drag is **T054**. Opening an item is **T052**. Each has a seam marked below rather than a
+ * partial implementation.
  */
 export function BacklogDrawer({
   items,
@@ -142,12 +142,11 @@ function PeekStrip({
           data-testid="backlog-peek-list"
         >
           {backlog.slice(0, PEEK_LIMIT).map((item) => (
-            <li
-              key={item.id}
-              className="border-hairline bg-surface-3 max-w-[170px] flex-none truncate rounded-sm border px-2.5 py-2 text-xs"
-              data-pending={isPending(item) ? "" : undefined}
-            >
-              {item.title}
+            <li key={item.id} className="flex-none">
+              {/* T041: the peek strip carries the cues too. FR-017 says status is legible "in both
+                  calendar and backlog views" without qualification, and this strip is the backlog
+                  view a creator sees most — it is on screen whenever the calendar is. */}
+              <ItemChip item={item} size="peek" />
             </li>
           ))}
         </ul>
@@ -263,37 +262,22 @@ function ExpandedBacklog({
 }
 
 /**
- * One backlog row.
+ * One backlog row — an `ItemChip` in a list item, since T041.
  *
- * **T041 replaces the inside of this with `ItemChip`**, which brings the status cue and platform
- * monogram FR-017 requires here as well as in the grid. It has its own task because a `posted` item
- * with no date legitimately lives in the backlog, so "the drawer only holds ideas" is not a shortcut
- * available to it.
+ * **Why this was its own task rather than part of T035.** FR-017 requires status to be legible in the
+ * backlog as well as the grid, and a `posted` item with no scheduled date legitimately lives here —
+ * so "the drawer only holds ideas, and ideas need no cue" was a shortcut that was never available.
+ * Until the cues existed there was nothing to put here, and half a chip would have had to be undone.
  *
- * Pending rows are shown — that is the point of the optimistic update — but marked, and this is where
- * `isPending` earns its export. **T052's tap-to-open and T054's drag both name an id the server has
- * not issued yet**, so both must skip these rows rather than render a control that produces a 404.
- * The row is deliberately not a button today, so there is nothing yet to guard.
+ * The row keeps `data-testid` and drops everything else it used to own: `aria-busy`, the pending
+ * dimming and the "Saving" label all live on the chip now, so the drawer and the grid mark a pending
+ * item identically. **T052's tap-to-open and T054's drag both name an id the server has not issued
+ * yet** and must skip these rows; `aria-busy` on the chip is what they read.
  */
 function BacklogRow({ item }: { item: ContentItem }) {
-  const pending = isPending(item);
-
   return (
-    <li
-      className="border-hairline bg-surface-2 mb-2 flex items-center gap-2.5 rounded-sm border p-3 last:mb-0"
-      aria-busy={pending}
-      data-pending={pending ? "" : undefined}
-      data-testid="backlog-row"
-    >
-      <span className={pending ? "text-ink flex-1 text-sm opacity-60" : "text-ink flex-1 text-sm"}>
-        {item.title}
-      </span>
-
-      {pending ? (
-        <span className="text-ink-lo font-display flex-none text-[10px] tracking-[0.16em] uppercase">
-          Saving
-        </span>
-      ) : null}
+    <li className="mb-2 last:mb-0" data-testid="backlog-row">
+      <ItemChip item={item} />
     </li>
   );
 }

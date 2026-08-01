@@ -1,5 +1,5 @@
 import type { Status } from "@/lib/api";
-import { statusCue } from "@/lib/status";
+import { statusCue, type CueSize } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,20 +35,16 @@ export function StatusCue({
   className,
 }: {
   readonly status: Status;
-  /**
-   * `micro` is the 50px day cell's chip, where the title is dropped entirely and the cue is 8px;
-   * `full` is the week list and the backlog drawer at 14px. Two sizes because the export draws two,
-   * and because a single size that fits a day cell is unreadable in a drawer row.
-   */
-  readonly size?: "micro" | "full";
+  /** 8px in a day cell, 12px in the drawer's peek strip, 14px in a full row. See `CueSize`. */
+  readonly size?: CueSize;
   readonly className?: string;
 }) {
   const cue = statusCue(status);
 
-  // `border-2` at 14px and `border` (1px, nudged to 1.5 by the export) at 8px. Written as whole
-  // classes rather than assembled from fragments: Tailwind scans for literal strings, and a class
-  // built by concatenation generates no CSS and fails silently.
-  const geometry = size === "micro" ? "size-2 border" : "size-3.5 border-2";
+  // Whole classes per size rather than fragments assembled with template strings: Tailwind scans
+  // source for literal class names, so a name built by concatenation generates no CSS at all and
+  // fails silently — the trap recorded in `frontend/AGENTS.md`.
+  const geometry = GEOMETRY[size];
 
   return (
     <span
@@ -66,8 +62,8 @@ export function StatusCue({
         cue.fill === "solid" && cue.fillClass,
         cue.fill === "half" &&
           "bg-[linear-gradient(90deg,var(--color-status-draft)_50%,transparent_50%)]",
-        cue.check && "text-surface-0 grid place-items-center font-bold",
-        size === "micro" ? "text-[6px] leading-none" : "text-[9px] leading-none",
+        cue.check && "text-surface-0 grid place-items-center leading-none font-bold",
+        cue.check && CHECK_SIZE[size],
         className,
       )}
     >
@@ -77,3 +73,17 @@ export function StatusCue({
     </span>
   );
 }
+
+/** The export's three cue diameters, with the ring weight each one can carry. */
+const GEOMETRY: Readonly<Record<CueSize, string>> = {
+  micro: "size-2 border",
+  peek: "size-3 border-2",
+  full: "size-3.5 border-2",
+};
+
+/** The check inside a `posted` disc, sized to fit it rather than to a type scale. */
+const CHECK_SIZE: Readonly<Record<CueSize, string>> = {
+  micro: "text-[6px]",
+  peek: "text-[8px]",
+  full: "text-[9px]",
+};
