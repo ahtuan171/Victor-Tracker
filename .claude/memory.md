@@ -51,6 +51,22 @@ only means anything pinned to the commit where it was taken (`caca814~4`).
 The entry above stays because T076 still has to record the fast-forward *specifically* — it is the
 one merge that predates even the local branch-per-task convention.
 
+**2026-08-01 — stage 2 is closed, and the export is not where the earlier decision expected it.**
+The design lives in claude.ai project `32445b82-32e5-4ac4-86d3-4fcc885a5484`, a **regular** project —
+not the `CreatorHub Design System` project created at stage-2 groundwork specifically so its type
+would be right. That project is still empty. Nothing was lost: `DesignSync get_file` reads a regular
+project fine, and the project-type decision only ever protected *pushing a component library back*,
+which this export never needed. Keep the `create_project` reasoning in `CLAUDE.md`'s Decisions table —
+it is still correct about what is irreversible — but stop treating the empty project as the source of
+truth. The export in `design/content-calendar/` is.
+
+The data-shape audit ran **clean**: every control maps to one of the six editable fields, so no
+`spec.md` amendment was needed and constitution IV is satisfied. Findings are written into
+`design/content-calendar/BRIEF.md` rather than here, because the next reader of that question will be
+holding the brief. **Only the token layer and `/login` were integrated** — the other ten surfaces are
+built at their own tasks from T033 on, which is the difference between adapting a design and letting
+a picture reorder the task board.
+
 **Two lessons from getting here, both still live:**
 
 - **A config file that is "verified" as parseable is not verified.** Three red pipelines preceded the

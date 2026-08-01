@@ -4,78 +4,147 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PLACEHOLDER TOKENS.
+ * CreatorHub design tokens — stage 2.
  *
- * `shadcn init` is supposed to write this block and did not — it created components.json and
- * stopped — so the neutral base palette is checked in by hand. Every shadcn primitive references
- * these names, so without them an added component renders unstyled.
+ * These values come from the Claude Design export in `design/content-calendar/`
+ * (`CreatorHub-Content-Calendar.dc.html`, panels `1a` dark / `2a` light). They replace the
+ * placeholder shadcn palette that used to live here, which this file always described as provisional
+ * and disposable for exactly this moment.
  *
- * These values are deliberately provisional. research.md's Open items make the real palette a
- * stage-2 decision: the Claude Design export into design/content-calendar/ establishes colour,
- * spacing, and type scale for all four modules. Re-skinning happens by replacing the values below,
- * not by touching components.
+ * Two rules travel with these values, and both outrank convenience:
  *
- * The status cue does NOT depend on this. R-005 encodes status as shape and fill so SC-004 holds in
- * greyscale; colour is decoration on top. Restyling this file cannot break FR-017.
+ *   1. **The brand red is chrome, never meaning.** It is for focus, primary action, and identity.
+ *      Status is NEVER communicated with it. The status ramp below is neutral / amber / green and is
+ *      kept visibly separable from the red at 16px.
+ *   2. **Colour is decoration on the status cue, not the cue itself.** R-005 encodes status as shape
+ *      and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour here
+ *      cannot break FR-017, and no component may start depending on hue to say what a status is.
  *
- * Chart and sidebar tokens are absent on purpose — v0.1 has neither surface, and tokens for
- * components that will not be built are the speculative infrastructure constitution VII names. Add
- * them if and when `shadcn add` needs them.
+ * Content Calendar establishes the tokens for all four CreatorHub modules (`.claude/rules/design.md`).
+ * Later modules consume these; they do not introduce competing ones.
+ *
+ * Chart and sidebar tokens stay absent on purpose — v0.1 has neither surface, and tokens for
+ * components that will not be built are the speculative infrastructure constitution VII names.
+ */
+
+/*
+ * Light is the export's counterpart turn, kept in the shadcn `:root` slot so the convention holds.
+ * The app renders dark by default — that is the export's primary direction — via `class="dark"` on
+ * <html> in `app/layout.tsx`.
  */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.125rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Surface stack — light */
+  --ch-void: #e9e9ee;
+  --ch-surface-0: #f6f6f9;
+  --ch-surface-1: #ffffff;
+  --ch-surface-2: #fafafc;
+  --ch-surface-3: #f3f3f7;
+  --ch-hairline: #d5d7de;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  /* Ink */
+  --ch-ink-hi: #14141a;
+  --ch-ink-mid: #666c75;
+  --ch-ink-lo: #7c828b;
 
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  /* Brand red — chrome, focus, primary action only */
+  --ch-brand: #e8232f;
+  --ch-brand-hi: #c8102e;
+  --ch-brand-sunk: #fbe3e5;
 
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Status ramp — decoration over the shape/fill encoding */
+  --ch-status-idea: #6a7079;
+  --ch-status-draft: #b5781a;
+  --ch-status-posted: #1e9455;
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* Overdue — a dashed left border, orthogonal to status, never a fourth state */
+  --ch-overdue: #5c5240;
 
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Elevation */
+  --ch-e1: 0 2px 6px rgb(24 26 34 / 0.13);
+  --ch-e2: 0 -10px 30px rgb(24 26 34 / 0.13);
+
+  /* shadcn surface contract */
+  --background: var(--ch-surface-0);
+  --foreground: var(--ch-ink-hi);
+
+  --card: var(--ch-surface-1);
+  --card-foreground: var(--ch-ink-hi);
+  --popover: var(--ch-surface-1);
+  --popover-foreground: var(--ch-ink-hi);
+
+  --primary: var(--ch-brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ch-surface-3);
+  --secondary-foreground: var(--ch-ink-hi);
+
+  --muted: var(--ch-surface-3);
+  --muted-foreground: var(--ch-ink-mid);
+  /* shadcn's `accent` is a hover/active surface, NOT the brand. Keeping them distinct is what stops
+     a hover state from turning red and reading as meaning. */
+  --accent: var(--ch-surface-3);
+  --accent-foreground: var(--ch-ink-hi);
+
+  --destructive: var(--ch-brand-hi);
+  --destructive-foreground: #ffffff;
+
+  --border: var(--ch-hairline);
+  --input: var(--ch-hairline);
+  --ring: var(--ch-brand-hi);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
+  /* Surface stack — dark */
+  --ch-void: #07070a;
+  --ch-surface-0: #0a0a0c;
+  --ch-surface-1: #101014;
+  --ch-surface-2: #16161b;
+  --ch-surface-3: #1d1d24;
+  --ch-hairline: #2a2a33;
 
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --ch-ink-hi: #f2f3f5;
+  --ch-ink-mid: #8c939c;
+  --ch-ink-lo: #6b727b;
 
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --ch-brand: #e8232f;
+  --ch-brand-hi: #ff4b54;
+  --ch-brand-sunk: #3a0e13;
 
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --ch-status-idea: #9aa0a8;
+  --ch-status-draft: #f0a63a;
+  --ch-status-posted: #4bc07a;
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* Bone, dashed — separable from the solid red chrome in colour and in greyscale alike */
+  --ch-overdue: #dcd3be;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ch-e1: 0 2px 6px rgb(0 0 0 / 0.5);
+  --ch-e2: 0 -10px 30px rgb(0 0 0 / 0.75);
+
+  --background: var(--ch-void);
+  --foreground: var(--ch-ink-hi);
+
+  --card: var(--ch-surface-1);
+  --card-foreground: var(--ch-ink-hi);
+  --popover: var(--ch-surface-2);
+  --popover-foreground: var(--ch-ink-hi);
+
+  --primary: var(--ch-brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ch-surface-3);
+  --secondary-foreground: var(--ch-ink-hi);
+
+  --muted: var(--ch-surface-2);
+  --muted-foreground: var(--ch-ink-mid);
+  --accent: var(--ch-surface-3);
+  --accent-foreground: var(--ch-ink-hi);
+
+  --destructive: var(--ch-brand-hi);
+  --destructive-foreground: #ffffff;
+
+  --border: var(--ch-hairline);
+  --input: var(--ch-hairline);
+  --ring: var(--ch-brand-hi);
 }
 
 @theme inline {
@@ -99,12 +168,46 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /*
+   * The CreatorHub names, exposed as Tailwind colours so the surfaces built from T033 onward can say
+   * `bg-surface-1`, `text-ink-mid`, `border-hairline`, `text-status-draft` rather than re-deriving a
+   * hex per component. This is the half of the token layer those tasks actually consume.
+   */
+  --color-void: var(--ch-void);
+  --color-surface-0: var(--ch-surface-0);
+  --color-surface-1: var(--ch-surface-1);
+  --color-surface-2: var(--ch-surface-2);
+  --color-surface-3: var(--ch-surface-3);
+  --color-hairline: var(--ch-hairline);
 
-  --font-sans: var(--font-geist-sans);
+  --color-ink: var(--ch-ink-hi);
+  --color-ink-mid: var(--ch-ink-mid);
+  --color-ink-lo: var(--ch-ink-lo);
+
+  --color-brand: var(--ch-brand);
+  --color-brand-hi: var(--ch-brand-hi);
+  --color-brand-sunk: var(--ch-brand-sunk);
+
+  --color-status-idea: var(--ch-status-idea);
+  --color-status-draft: var(--ch-status-draft);
+  --color-status-posted: var(--ch-status-posted);
+  --color-overdue: var(--ch-overdue);
+
+  --shadow-e1: var(--ch-e1);
+  --shadow-e2: var(--ch-e2);
+
+  /*
+   * Written out rather than derived with `calc()` from `--radius`. The export's chip radius is 2px,
+   * and shadcn's stock `calc(var(--radius) - 4px)` would compute a negative length from it.
+   */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+
+  /* Oswald for display and labels, Barlow for everything a person reads as content. */
+  --font-display: var(--font-oswald);
+  --font-sans: var(--font-barlow);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -125,5 +228,75 @@
   html,
   body {
     overflow-x: hidden;
+  }
+}
+
+/*
+ * Two shape primitives from the export, defined once here because they are token-level decisions
+ * (the corner treatment and the background texture are part of the visual language, not of any one
+ * screen) and because each already has more than one caller on the login surface alone.
+ *
+ * Deliberately plain classes rather than components: `.claude/rules/workflow.md` says no abstraction
+ * before a second caller exists, and a CSS class is the smallest thing that carries a clip-path.
+ */
+
+/* Angular panel treatment — clipped corners, not uniform pill radii. */
+.notch-card {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+.notch-sheet {
+  clip-path: polygon(0 18px, 18px 0, 100% 0, 100% 100%, 0 100%);
+}
+
+/*
+ * Web-line geometry plus halftone grain, at the export's opacities. Structural texture, never busy,
+ * and purely decorative — it carries no information, so it is hidden from assistive technology by
+ * being a background rather than an element.
+ */
+.web-grain {
+  background-image:
+    repeating-conic-gradient(
+      from 0deg at 50% 8%,
+      rgb(255 255 255 / 0.06) 0 0.2deg,
+      transparent 0.2deg 12deg
+    ),
+    repeating-radial-gradient(
+      circle at 50% 8%,
+      rgb(255 255 255 / 0.05) 0 1px,
+      transparent 1px 44px
+    ),
+    radial-gradient(rgb(255 255 255 / 0.05) 0.6px, transparent 0.6px);
+  background-size:
+    auto,
+    auto,
+    3px 3px;
+}
+
+/* The texture is drawn in white, so it only reads on the dark surfaces it was designed for. */
+:root:not(.dark) .web-grain {
+  background-image:
+    repeating-conic-gradient(
+      from 0deg at 50% 8%,
+      rgb(20 20 26 / 0.05) 0 0.2deg,
+      transparent 0.2deg 12deg
+    ),
+    repeating-radial-gradient(circle at 50% 8%, rgb(20 20 26 / 0.04) 0 1px, transparent 1px 44px),
+    radial-gradient(rgb(20 20 26 / 0.04) 0.6px, transparent 0.6px);
+}
+
+/*
+ * Reduced motion is structural, not polish (constitution V). The export's motion language is
+ * "snap and settle" — fast in, small overshoot — which is exactly the kind of movement that provokes
+ * vestibular symptoms, so it is switched off wholesale rather than per-animation.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

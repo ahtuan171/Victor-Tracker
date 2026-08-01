@@ -76,76 +76,127 @@ export function LoginForm() {
     }
   }
 
+  /**
+   * The layout is the stage-2 export's login surface (`design/content-calendar/`, panel `1l`):
+   * identity in the upper field, and every control in a bottom-anchored panel.
+   *
+   * That split is the mobile-first rule rather than a style choice — at 375x667 it puts both fields
+   * and the submit button in the bottom half, within one-handed thumb reach (constitution I,
+   * design.md), which `tests/e2e/login.spec.ts` asserts rather than leaves to review. The spacer
+   * `div` is what pushes the panel down; on wider screens the whole thing stays capped at `max-w-sm`
+   * and centres horizontally, because desktop is an enhancement and not the design target.
+   */
   return (
-    // `justify-end` is the mobile-first rule, not a style choice: at 375x667 it puts the submit
-    // button in the bottom third, within one-handed thumb reach (constitution I, design.md). The
-    // `sm:` centring is the desktop enhancement, in that order and not the reverse.
-    <main className="flex flex-1 flex-col justify-end px-6 pt-16 pb-10 sm:justify-center">
-      <div className="mx-auto w-full max-w-sm">
-        <h1 className="text-3xl font-semibold tracking-tight">CreatorHub</h1>
-        <p className="text-muted-foreground mt-2 text-base">Sign in to your content calendar.</p>
+    <main className="relative flex flex-1 flex-col overflow-hidden">
+      {/* Web-line geometry plus halftone grain. Purely decorative, so it is a background layer that
+          cannot take focus or be read out. */}
+      <div className="web-grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
-        {/* Native validation is left on: `required` plus `type="email"` is free, localised, and
-            already the behaviour a phone browser gives. The backend still validates. */}
-        <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              // Every one of these matters on a phone: the right keyboard, no capitalisation of an
-              // address, and a password manager that recognises the pair.
-              autoComplete="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              inputMode="email"
-              // 44px. Every shadcn size variant is desktop-scaled — even `lg` is 36px — which is
-              // below the minimum comfortable tap target. `text-base` is kept from the primitive
-              // for a second reason: iOS zooms the page in on focusing any input under 16px.
-              className="h-11 text-base"
-              aria-invalid={error !== null}
-              aria-describedby={error !== null ? ERROR_ID : undefined}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              disabled={pending}
+      <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col">
+        <div className="flex-1 px-6 pt-24">
+          <div className="mb-2.5 flex items-center gap-2.5">
+            {/* The brand mark: an original geometric diamond, not a licensed emblem. */}
+            <span
+              aria-hidden="true"
+              className="bg-brand size-3 [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]"
             />
+            <span className="font-display text-ink-mid text-[11px] leading-none font-semibold tracking-[0.28em] uppercase">
+              CreatorHub
+            </span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="h-11 text-base"
-              aria-invalid={error !== null}
-              aria-describedby={error !== null ? ERROR_ID : undefined}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+          <h1 className="font-display text-ink text-[34px] leading-[0.95] font-bold tracking-[0.03em] uppercase skew-x-[-5deg]">
+            Content
+            <br />
+            Calendar
+          </h1>
+        </div>
+
+        <div className="notch-sheet border-hairline bg-surface-1 shadow-e2 border-t px-6 pt-6 pb-8">
+          {/* Native validation is left on: `required` plus `type="email"` is free, localised, and
+              already the behaviour a phone browser gives. The backend still validates. */}
+          <form className="flex flex-col gap-3.5" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-[7px]">
+              <Label
+                htmlFor="email"
+                className="font-display text-ink-lo text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+              >
+                Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                // Every one of these matters on a phone: the right keyboard, no capitalisation of an
+                // address, and a password manager that recognises the pair.
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
+                // 50px, from the export. Every shadcn size variant is desktop-scaled — even `lg` is
+                // 36px — which is below the minimum comfortable tap target, and the 44px floor is
+                // asserted in the suite. `text-base` is kept from the primitive for a second reason
+                // the export cannot express: iOS zooms the page in on focusing any input under 16px,
+                // so the design's 15px body size is deliberately not applied to form fields.
+                className="bg-void h-[50px] rounded-sm text-base"
+                aria-invalid={error !== null}
+                aria-describedby={error !== null ? ERROR_ID : undefined}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={pending}
+              />
+            </div>
+
+            <div className="flex flex-col gap-[7px]">
+              <Label
+                htmlFor="password"
+                className="font-display text-ink-lo text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+              >
+                Password
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                className="bg-void h-[50px] rounded-sm text-base"
+                aria-invalid={error !== null}
+                aria-describedby={error !== null ? ERROR_ID : undefined}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={pending}
+              />
+            </div>
+
+            {/*
+              `role="alert"` so the failure is announced rather than only drawn — a wrong password is
+              the one thing this screen exists to communicate. Rendered only when set, so the layout
+              does not reserve a gap for a message that is usually absent.
+
+              This is the one place the brand red carries meaning rather than chrome, and it is
+              allowed precisely because it is prose: the "red is never meaning" rule exists to keep
+              *status* off the red, and no status cue appears on this screen.
+            */}
+            {error !== null && (
+              <p id={ERROR_ID} role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="notch-card font-display mt-1 h-[52px] w-full rounded-none text-[15px] font-semibold tracking-[0.18em] uppercase shadow-[0_8px_22px_rgb(232_35_47_/_0.35)]"
               disabled={pending}
-            />
-          </div>
+            >
+              {pending ? "Signing in…" : "Sign in"}
+            </Button>
 
-          {/*
-            `role="alert"` so the failure is announced rather than only drawn — a wrong password is
-            the one thing this screen exists to communicate. Rendered only when set, so the layout
-            does not reserve a gap for a message that is usually absent.
-          */}
-          {error !== null && (
-            <p id={ERROR_ID} role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" className="mt-1 h-12 w-full text-base" disabled={pending}>
-            {pending ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
+            <p className="text-ink-lo mt-1 text-center text-xs">One account, one calendar.</p>
+          </form>
+        </div>
       </div>
     </main>
   );
