@@ -17,9 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.api import auth
+from app.api import auth, content_items
 from app.config import get_settings
-from app.schemas import ErrorResponse
+from app.schemas import ErrorResponse, InvariantViolationError
 
 
 class HealthResponse(BaseModel):
@@ -79,6 +79,28 @@ async def flatten_validation_error(_request: Request, exc: RequestValidationErro
     )
 
 
+@app.exception_handler(InvariantViolationError)
+async def render_invariant_violation(
+    _request: Request, exc: InvariantViolationError
+) -> JSONResponse:
+    """The contract's `InvariantError`: a 409 carrying `code` alongside `detail`.
+
+    A handler rather than an `HTTPException`, because `HTTPException(detail={...})` nests the dict
+    as `{"detail": {"code": ..., "detail": ...}}` and there is no argument that produces a sibling
+    key.
+
+    This is the **only** error in the API whose body is not exactly `{"detail": "..."}`, and it is a
+    deliberate, contract-declared exception rather than a drift — `code` is what separates
+    `platform_required` from `platform_locked`, and those are two different instructions to the
+    creator. `tests/test_errors.py` allows the extra key on 409 and on nothing else, so a third
+    error shape cannot appear without a test failing.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"code": exc.code, "detail": exc.detail},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     # Defence in depth only, and deliberately one exact origin rather than a regex. research.md
@@ -93,6 +115,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(content_items.router)
 
 
 @app.get(
