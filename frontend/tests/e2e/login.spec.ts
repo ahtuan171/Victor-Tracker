@@ -17,7 +17,23 @@ import { expect, test, type Page } from "@playwright/test";
 
 const LOGIN_RESPONSE = { expires_at: "2026-08-30T09:00:00Z" };
 
-/** Stub `POST /api/auth/login` with a given status and body, and record what the page sent. */
+/** Matches `sessionCookieName()`'s default and `.env.example`. See `stubLogin`. */
+const SESSION_COOKIE = "ch_session";
+
+/**
+ * Stub `POST /api/auth/login` with a given status and body, and record what the page sent.
+ *
+ * **A 2xx also sets the session cookie, because that is the other half of what the proxy does.**
+ * Until T033 this stub returned only the body, and the two tests that follow a successful sign-in
+ * passed anyway — `/calendar` did not exist, and a 404 leaves the browser at the address it asked
+ * for. Now that the route exists it is guarded, so a stub that skipped the cookie would send a
+ * correct sign-in straight back to `/login` and fail on a shortcoming of the stub rather than of the
+ * page.
+ *
+ * The cookie is not `httpOnly` here and does not need to be: what is under test is where the page
+ * goes next. The real attributes are asserted against the real proxy in `tests/proxy/route.spec.ts`,
+ * which is the seam that owns them.
+ */
 async function stubLogin(
   page: Page,
   status: number,
@@ -31,6 +47,7 @@ async function stubLogin(
       status,
       contentType: "application/json",
       body: JSON.stringify(body),
+      ...(status < 400 ? { headers: { "set-cookie": `${SESSION_COOKIE}=stub-session; Path=/` } } : {}),
     });
   });
 
@@ -112,7 +129,8 @@ test("a successful sign-in sends the credentials and leaves for the landing scre
   await page.goto("/login");
   await signIn(page, "creator@example.com", "hunter2");
 
-  // `/calendar` does not exist until T033, so this asserts the destination, not a rendered page.
+  // Since T033 this lands on a real, guarded page rather than a 404 — which is why `stubLogin` now
+  // sets the session cookie as well as returning the body.
   await page.waitForURL("**/calendar");
   expect(new URL(page.url()).pathname).toBe("/calendar");
 

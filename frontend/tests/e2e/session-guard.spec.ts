@@ -5,39 +5,46 @@ import { expect, test } from "@playwright/test";
  *
  * ---
  *
- * ## Why this whole file is skipped, and the exact change that switches it on
+ * ## These ran skipped from T027 to T033, and now they run
  *
  * The guard lives in `app/(app)/layout.tsx`. A route group's layout **does not execute when no page
- * exists inside the group**, and the first route to live in `(app)` is the calendar page at T033.
- * So in Phase 2 there is nothing to navigate to and nothing to assert against — not because the
- * guard is untested by choice, but because the surface it guards has not been built, and building
- * it early is exactly what "nothing outside the current phase gets built" forbids.
+ * exists inside the group**, and the first route to live in `(app)` was the calendar page at T033.
+ * So through Phase 2 there was nothing to navigate to and nothing to assert against — not because
+ * the guard was untested by choice, but because the surface it guards had not been built, and
+ * building it early is what "nothing outside the current phase gets built" forbids.
  *
- * These tests are therefore written in full and skipped, rather than described in a comment
- * somewhere and written later. **At T033, one edit switches them on**: change `test.describe.skip(`
- * below to `test.describe(`. `GUARDED_PATH` is already the address T033 creates.
+ * They were therefore written in full and skipped, rather than described in a comment and written
+ * later. T033 created `/calendar` and deleted the `.skip` — the one-line change this docstring
+ * promised, made in the same commit as the page.
  *
- * ## They are not unverified in the meantime
+ * ## They were not unverified in the meantime
  *
- * Two of the three things this file covers are already exercised continuously elsewhere:
+ * Two of the three things this file covers were already exercised continuously elsewhere:
  * `hasSessionCookie` — the actual decision — is unit-tested in `tests/proxy/session.spec.ts`, and
  * the identical cookie-reading path is covered end to end by `tests/e2e/root-redirect.spec.ts`,
  * because `app/page.tsx` reads the same cookie through the same two helpers.
  *
- * What was *not* covered is the wiring: that a route group layout actually runs, and runs before
+ * What was *not* covered was the wiring: that a route group layout actually runs, and runs before
  * its children. That was verified once by hand at T027 by standing up a throwaway page inside
  * `(app)`, running this file un-skipped, and removing the page — recorded in `.claude/build-log.md`
- * so the evidence is not just this sentence. It is one-time evidence rather than a standing gate,
- * which is precisely why the tests are left here ready to run instead of deleted.
+ * so the evidence is not just this sentence. From T033 it is a standing gate instead.
+ *
+ * ## What this file does *not* cover, and where that lives
+ *
+ * Every assertion here is about the **layout**, which runs on a full page load. T033 added a second
+ * check in `app/(app)/calendar/page.tsx` for the case a full load cannot reach: App Router layouts
+ * are not re-executed on soft navigations, so a client-side route change reuses the layout's result.
+ * Both checks call the same helper and a full load exercises both at once, so nothing here can tell
+ * them apart — which is why removing the page-level check would leave this file green.
  */
 
-/** The first route to live inside `(app)`, created at T033. Does not exist yet. */
+/** The first route to live inside `(app)`, created at T033. */
 const GUARDED_PATH = "/calendar";
 
 /** Matches `sessionCookieName()`'s default and `.env.example`. Unset in the test environment. */
 const SESSION_COOKIE = "ch_session";
 
-test.describe.skip("the (app) session guard", () => {
+test.describe("the (app) session guard", () => {
   test("a signed-out visitor is redirected to /login", async ({ page }) => {
     await page.goto(GUARDED_PATH);
     expect(new URL(page.url()).pathname).toBe("/login");

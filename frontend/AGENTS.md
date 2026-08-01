@@ -42,7 +42,8 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | Post-login navigation is `window.location.replace`, not `router.push` | Same reason as the 401 redirect, plus one of its own: Next's Router Cache can replay a previously fetched RSC payload for `/calendar`, and on the common "deep link → bounced to /login → sign in" path that payload **is** the redirect back to login. A soft navigation would bounce a correct sign-in straight back to the form with no error to show. `replace` keeps `/login` out of history. |
 | `hasSessionCookie` lives in `lib/session.ts`, and both server-side callers use it | The root route (T026) and the `(app)` guard (T027) ask the same question, and T033's re-assert is the third caller — so it is not abstraction ahead of one. It also gives the guard's *decision* continuous test coverage while the guard's *wiring* cannot be exercised (see below). It checks the **value**: `cookies().has()` is true for an empty cookie, and an empty session cookie is not a session. |
 | The cookie is a **routing hint**, never an authorisation decision | The signing secret lives on Render and deliberately never reaches Vercel (R-001), so nothing on this side can tell a live token from a dead one — and it does not need to. Unauthenticated is stopped before any markup exists (SC-006 is about the HTML, not the screen); expired is caught by the backend rejecting the bearer, surfacing as the 401 `lib/api.ts` handles. Guessing wrong costs one redirect and renders no content. Do not "harden" this by verifying a JWT here — that would mean shipping the signing secret to Vercel. |
-| The `(app)` guard's e2e tests are **written and skipped**, not deferred | A route group's layout does not execute with no page inside it, and nothing lives in `(app)` until T033. The tests exist in full in `tests/e2e/session-guard.spec.ts`; T033 switches them on by deleting `.skip`, and `GUARDED_PATH` is already `/calendar`. The wiring was proven once by hand with a throwaway route — see `.claude/build-log.md`. |
+| The `(app)` guard is checked **twice** — in the group layout and again in `calendar/page.tsx` | App Router layouts are not re-executed on soft navigations, so once the app is open a client-side route change reuses a credential check from when the tab was opened. Page segments *are* re-fetched, which is why the second check is a page and not another layout. Both call `hasSessionCookie`, so there is one definition of "is there a session". **A full page load exercises both at once**, so no e2e test can tell them apart — deleting the page-level check leaves `session-guard.spec.ts` green. This row is the guard. (T027's e2e tests were written-and-skipped through Phase 2 and switched on at T033.) |
+| Read the browser clock with `useSyncExternalStore`, not `useEffect` + `useState` | R-006's addendum describes the effect form and it is correct, but it sets state from an effect — which React 19's compiler lint flags — and renders once with the wrong value before correcting itself. `getServerSnapshot` returning `null` gives the same guarantee with neither problem. Pass **module-scope** functions: an inline `() => today()` is a new identity every render, which is the subscription version of the unstable-params bug. Safe to call repeatedly because `today()` returns a string and React compares snapshots with `Object.is`. |
 | **`app/globals.css` is the only file allowed to contain a colour**, and its values come from the stage-2 export | The design export in `design/content-calendar/` establishes the tokens for **all four** modules (`.claude/rules/design.md`), so a hex written into a component is a project-wide decision taken in the wrong place. Every surface from T033 on says `bg-surface-1`, `text-ink-mid`, `text-status-draft` — those names exist in `@theme inline` precisely so no one re-derives a hex per component. |
 | The app is dark by **`class="dark"` on `<html>`**, not by `prefers-color-scheme` | The export's primary direction is the dark one and v0.1 ships no theme switch, so a media query would make the design a coin flip on the creator's OS setting. The light counterpart is still in `:root`, so turning this into a real preference later is one line, not a re-skin. |
 | Form fields keep **`text-base` (16px)** even though the export's body size is 15px | iOS zooms the page in when focusing any input under 16px, which on a 375px-floor product throws away the layout on first tap. This is the one place the design is knowingly not followed to the pixel; it is a platform constraint, not a preference. |
@@ -58,6 +59,24 @@ a transparent panel. `pnpm build`, `pnpm typecheck`, `pnpm lint`, and the whole 
 passed on the login redesign *before* it had ever been looked at. **Screenshot the surface at 375px
 after restyling it** — the suite asserts geometry (tap targets, thumb reach, overflow), which is
 exactly what survives a dropped colour class.
+
+**A browser test that fixes a clock must also fix a timezone, or it encodes the author's location.**
+`page.clock.setFixedTime` pins the *instant*; the zone that turns it into a calendar day still comes
+from the machine running the browser. T033's first period test asserted `"May 2026"` from
+`2026-04-30T18:00:00Z` — true in UTC+7, where it was written, and false on GitLab's UTC runner, which
+read April. **Green locally, red in CI, for the fourth time in this project.** Pin it with
+`test.use({ timezoneId })`, and prefer asserting the *same instant in two zones* one either side of
+Greenwich: two different answers from one timestamp is the only thing that proves the browser's clock
+produced them rather than the server's. `tests/client/dates.spec.ts` does the same for Node via
+`process.env.TZ` — the browser needs its own mechanism, and inheriting is not one.
+
+**A stub that mimics a response body but not its `Set-Cookie` passes until the destination is
+guarded.** `login.spec.ts` stubbed `POST /api/auth/login` with a body alone from T025, and the two
+tests that follow a successful sign-in were green — because `/calendar` did not exist, and **a 404
+leaves the browser at the address it asked for**. T033 created that route behind the session guard,
+which would have bounced a correct sign-in back to `/login` and failed on a shortcoming of the stub
+rather than of the page. A stub of the proxy has to do everything the proxy does that the test's
+assertions depend on; when a route becomes guarded, re-check every stub that navigates to it.
 
 **A list read that lands mid-save deletes the row being saved, unless something stops it.** The
 creator taps save and then the already-in-flight list response arrives; replacing `items` wholesale
