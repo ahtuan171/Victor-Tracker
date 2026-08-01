@@ -48,33 +48,41 @@ All three look removable and all three break something non-obvious:
 | The test database is created by `scripts/init-test-db.sql` at initdb time | The pytest harness then needs no `CREATE DATABASE` privilege and **cannot point at the dev database by accident**. |
 | `tests/test_auth.py` mounts its own throwaway route to test `current_creator`, and keeps it after T030 | No shipped endpoint depends on `CurrentCreator` at T018, so there was nothing to aim FR-002's refusals at. The route goes on the **real** app — real handlers, real session override, real Postgres — and is removed after each test. Retargeting these assertions at a content-item endpoint once one exists would mean a failure no longer says whether authentication or the endpoint broke. |
 | `create_access_token` truncates `now` to whole seconds | `exp` and `iat` are integer seconds. Without the truncation the returned `expires_at` carries microseconds the claim cannot, so the login body advertises an expiry a fraction of a second later than the token enforces — and that function's docstring promises the two cannot drift. |
+| `ContentItemRead` is a hand-written `BaseModel`, not the `ContentItem` table model | The one place this backend departs from tech-defaults' "one class for DB model and API schema", and the divergence is real: `ContentItem.id` is `int \| None` because it is None until the insert, so serialising the table model generates a schema whose `id` is nullable — contradicting the contract, which lists `id` as required, and telling a generated client to null-check a value that is never null. |
+| The API always emits every nullable field; the contract permits omitting them | `ContentItem` in `contracts/openapi.yaml` lists only five properties as required, but FR-017 and FR-018 promise the calendar renders from the list response with no follow-up per item. Always emitting is *stricter* than the contract, so no client written against it breaks — and `frontend/lib/api.ts` already types them present-and-nullable with a normaliser. **Not drift, and not a reason to amend the contract**: the looseness there is deliberate and the frontend's `toContentItem` note explains why. |
 | The harness runs `alembic upgrade head`, not `metadata.create_all` | `create_all` builds enum types and CHECK constraints from model metadata, so the migration that actually runs in production would go untested — and the `values_callable` trap below would lose the only place it could resurface. Separately, CI's `test:backend` has no migration step, so the harness is the only thing that can create the schema there. |
 
 ---
 
-## Open seam: the 409 body, decided but not yet built (T030)
+## The 409 seam: closed at T030, and how it landed
 
-`contracts/openapi.yaml:414-416` declares `InvariantError` with `required: [code, detail]` and uses it
-on both 409s (lines 208 and 276). `tests/test_errors.py:31` declares `CONTRACTED_ERROR_KEYS = {"detail"}`
-— *exactly* one key, and its docstring says so deliberately. **Both are green today only because no
-endpoint returns 409 yet.** T030 creates the first one and one of them has to give.
+The seam this section used to describe is built. `contracts/openapi.yaml` declared `InvariantError`
+with `required: [code, detail]` while `tests/test_errors.py` asserted *exactly* one key on every 4xx,
+and both were green only because no endpoint could return a 409. **The contract won**, per CLAUDE.md
+non-negotiable 1 — `code` is the only thing separating `platform_required` from `platform_locked`, two
+different instructions to the creator, and a `detail` string the frontend pattern-matches is not a
+substitute.
 
-**The contract wins.** `specs/` outranks code (CLAUDE.md non-negotiable 1), and `code` is doing real
-work there: it is the only thing distinguishing `platform_required` from `platform_locked`, which are
-two different instructions to the creator ("pick a platform" vs "move it back to `idea` first"). A
-`detail` string the frontend must pattern-match is not a substitute.
+What exists now, so a later 409 follows the same path rather than inventing a second one:
 
-So at T030, not before:
+- `app/schemas.py` holds `InvariantCode` (a two-member `Literal`), `InvariantErrorResponse`, and
+  `InvariantViolationError`. `ErrorResponse` is unchanged and still the shape of every other 4xx.
+- **The 409 is raised, never caught.** `app/main.py` registers a handler for
+  `InvariantViolationError`; `HTTPException(detail={...})` cannot produce a sibling key to `detail`,
+  it only nests. The `CHECK` constraint stays a backstop for writes that arrive by other routes — a
+  constraint reached over HTTP is a 500 carrying a Postgres string.
+- `expected_keys_for(status_code)` in `tests/test_errors.py` picks the legal key set per status code.
+  The old "exactly one key, not at least" rule was right about the responses it was written against
+  and over-generalised to every 4xx; the strictness is kept, the scope narrowed. **A 401 that grew a
+  `code` still fails, and so does a 409 that lost one.**
+- `check_invariant_1` in `app/api/content_items.py` is the shared guard. **T049's `PATCH` is its
+  second caller** and raises `platform_locked` from the same rule — do not write a parallel check
+  there. `platform_locked` is declared but unreachable until then, because nothing can yet *clear* a
+  platform.
 
-- 409 bodies carry `{code, detail}` via a second schema — `Error` stays exactly one key for 401, 404
-  and 422, which is what FR-002 and SC-006 actually require of a 401.
-- `assert_matches_the_contracted_error_shape` takes the expected key set as an argument instead of
-  reading the module constant. Its "exactly one key, not at least" rule is right about the responses
-  it was written against and was over-generalised to every 4xx; keep the strictness, narrow the scope.
-- Both 409 codes get a test. A `code` field nothing asserts is a field that drifts.
-
-Do not fix this ahead of T030 — the change is meaningless without an endpoint that can emit a 409, and
-a speculative schema is the thing constitution VII exists to prevent.
+**Register every new 4xx in `REACHABLE_4XX`**, which now hands each case both `client` and
+`auth_client`. The content-item routes were the first that can fail *after* authenticating, so a case
+using the wrong client asserts the shape of a response it was not written about.
 
 Two smaller notes from the same review, neither blocking:
 
@@ -87,6 +95,26 @@ Two smaller notes from the same review, neither blocking:
 ---
 
 ## Traps
+
+**Postgres `now()` is transaction time, so every row a test writes shares one `created_at`.** Not
+statement time — `func.now()` is `CURRENT_TIMESTAMP`, fixed at the start of the transaction. The
+pytest harness wraps each test in one transaction, so three items created over HTTP inside a test have
+**identical** `created_at` values to the microsecond, and an `ORDER BY created_at DESC` test written
+the obvious way cannot distinguish `DESC` from `ASC` — it passes on whatever order Postgres happens to
+return. In production each request is its own transaction and the problem does not exist, which is why
+this only ever shows up as a flaky or vacuous test. Two consequences, both live in
+`tests/test_content_items.py`: ordering is asserted against rows written **directly through the
+session** with explicit distinct timestamps, and `list_content_items` orders by `created_at DESC, id
+DESC` so ties are resolved deterministically rather than arbitrarily. The tiebreaker is not
+test-only scaffolding — a creator emptying their head into the capture sheet produces several items a
+second, and a backlog that reshuffles between two reads of the same rows reads as data loss.
+
+**`min_length=1` on a string does not implement "not blank".** `"   "` is three characters long and
+passes it, then hits `length(trim(title)) > 0` in the database as a 500. `StringConstraints` must
+carry `strip_whitespace=True` *as well*, because pydantic strips before it measures — that is what
+makes the length check mean what INV-2 means. This is why `Title` in `app/api/content_items.py` is a
+shared annotated type rather than three keyword arguments repeated per model: T049's `PATCH` needs the
+identical rule, and a second hand-written copy is where the two would drift.
 
 **A SQLAlchemy enum column stores the Python member *names* by default.** `Status.IDEA` persists as
 `IDEA` while the contract, the frontend, and every fixture use `idea`. Pass

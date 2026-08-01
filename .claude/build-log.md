@@ -738,3 +738,82 @@ creator rows would silently share every item.
 Five documents claimed this was outstanding — `CLAUDE.md`, `CLAUDE.local.md`, `.claude/memory.md`,
 `quickstart.md`, and `tasks.md` in two places. All were corrected before T029 began, in their own
 merge request, so the Phase 3 branches carry code and nothing else.
+
+## Phase 3 opens — T029–T031, create and list
+
+**2026-08-01.** The first content-item routes. `POST /content-items` and `GET /content-items`, plus
+the test file every later story extends. Backend suite **96 → 142 passing**.
+
+### One merge request carried three tasks, deliberately
+
+`tasks.md` says two things that cannot both hold here: "tests are written before the implementation
+they cover, and must fail first", and "one merge request per task". T029 is a test task whose subject
+is *both* T030 and T031 — one file covering create and list — so an MR containing T029 alone is an MR
+with a red pipeline, and the gate that became real at T025 refuses it. Splitting the test file by
+endpoint would have made the ordering assertions homeless: they need a create path to produce rows and
+a list path to read them.
+
+So the fail-first requirement was satisfied where its value actually is — **in the doing, not in the
+merging**. T029 was written and run against a codebase with no `content_items.py` at all: **41 tests,
+41 failures, zero passes.** That number is the evidence the rule exists to produce, and it is the
+reason the green run afterwards means something. One failure was inspected by hand rather than
+counted, to confirm it was a missing route (a 404 body being indexed as a list) and not a broken test
+helper.
+
+The three tasks then landed together. The deviation is stated here and in the MR rather than smoothed
+over; the alternative was a knowingly red pipeline, which is worse.
+
+### `created_at DESC` is not an order inside the harness
+
+The sharpest thing this task turned up. `func.now()` is `CURRENT_TIMESTAMP`, which in Postgres is
+**transaction** time, not statement time. Every test runs in one transaction, so three items created
+over HTTP inside a test share a `created_at` to the microsecond — and the obvious ordering test
+therefore cannot tell `DESC` from `ASC`. It passes on whatever order the planner returns. In
+production every request is its own transaction, so this is invisible outside the suite, which is
+exactly what makes it dangerous: the test would have been vacuous and green.
+
+Two things came out of it. The ordering assertions write rows **through the session** with explicit
+distinct timestamps, so they test the documented order rather than an accident. And the endpoint
+orders by `created_at DESC, id DESC`. The tiebreaker is not test scaffolding: a creator emptying their
+head into the capture sheet produces several items a second, and a backlog that reshuffles between two
+reads of the same rows reads as data loss. `id` is monotonic with insertion, so it never contradicts
+`created_at` — it only decides what `created_at` leaves open. There is a test asserting two reads
+agree.
+
+### The 409 seam closed the way `backend/AGENTS.md` said it would
+
+The contract won. `InvariantErrorResponse` carries `{code, detail}`; `ErrorResponse` stays exactly one
+key everywhere else. The mechanism is a raised `InvariantViolationError` and a handler in `main.py`,
+because `HTTPException(detail={...})` can only nest a dict under `detail` — there is no argument that
+produces a sibling key.
+
+`test_errors.py`'s "exactly one key, not at least" rule was **narrowed rather than relaxed**:
+`expected_keys_for(status_code)` gives each code one legal shape, so a 401 that grew a `code` still
+fails and a 409 that lost one fails too. The document-level assertion was rewritten the same way —
+per status code, not "allow two schemas anywhere" — which is what keeps it able to catch the mistake
+in both directions.
+
+**The strongest confirmation came from the frontend, which was written first.** `lib/api.ts` at T023
+already declares `INVARIANT_CODES`, already types `ApiError.code` as present only on a 409, and
+already declares `scheduled?: "none"`. It was written from the contract months before an endpoint
+could return any of it, and the backend built from the same contract met it exactly with no
+adjustment on either side. That is the argument for contract-first stated better than prose can.
+
+### Two smaller decisions worth not re-litigating
+
+**A blank title is 422, not 409.** INV-2 is as real an invariant as INV-1, but `InvariantError.code`
+has exactly two members and neither describes a blank title; a 409 would need a third code the
+contract does not declare. So a title that trims to nothing is a *validation* failure. The 409 is
+reserved for the one rule that cannot be expressed as a field constraint because it spans two fields.
+Note that `min_length=1` alone does not implement this — `"   "` is three characters and passes it.
+`strip_whitespace=True` is what makes the length check mean what INV-2 means.
+
+**`published_url` is bounded now, not at T063.** T063 writes the `javascript:`/`data:` tests, but the
+constraint has to exist from the moment the field is first writable, which is this task — `POST`
+accepts it today and an unbounded value is a 500 from `String(2048)`, one of the six defects the
+post-review pass already caught. The pattern is an allowlist of two schemes rather than a denial list,
+because this value is rendered as an `href`.
+
+The two query parameters this endpoint does *not* implement — `date_from`/`date_to` at T037,
+`platform` at T060 — were left out on purpose. The contract describes the finished module; a parameter
+appearing before its task is the speculative build principle VII forbids.

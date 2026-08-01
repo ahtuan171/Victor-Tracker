@@ -30,12 +30,37 @@ from app.models import Creator
 
 CONTRACTED_ERROR_KEYS = {"detail"}
 """Exactly one key. Not "at least" — FR-002 and SC-006 say a 401 carries no content data of any
-kind, and an error body that grew a `code`, a `field`, or an `errors` array would break the
-generated client's type as surely as an array-shaped `detail` would."""
+kind, and an error body that grew a `field` or an `errors` array would break the generated client's
+type as surely as an array-shaped `detail` would."""
+
+CONTRACTED_INVARIANT_ERROR_KEYS = {"code", "detail"}
+"""The contract's `InvariantError`, which 409 — and only 409 — returns.
+
+Until T030 this file asserted `CONTRACTED_ERROR_KEYS` against every 4xx, and said so deliberately.
+That was right about the responses it was written against and wrong as a generalisation: the
+contract has always declared `InvariantError` on both 409s, and the two were only ever consistent
+because no endpoint could return one. `backend/AGENTS.md` recorded the seam and called it for the
+contract, on the grounds that `code` is the only thing separating `platform_required` from
+`platform_locked` — two different instructions to the creator, not two phrasings of one.
+
+The strictness is kept and the scope narrowed. Each status code has exactly one legal key set,
+chosen by `expected_keys_for`, so a 401 that grew a `code` still fails and a third shape cannot
+appear anywhere without being declared here first.
+"""
+
+
+def expected_keys_for(status_code: int) -> set[str]:
+    """The one legal body shape for a status code.
+
+    A function rather than a per-case parameter so that a 409 added to `REACHABLE_4XX` later cannot
+    be registered with the wrong expectation — the shape follows from the contract, not from whoever
+    writes the test.
+    """
+    return CONTRACTED_INVARIANT_ERROR_KEYS if status_code == 409 else CONTRACTED_ERROR_KEYS
 
 
 def assert_matches_the_contracted_error_shape(response: Any) -> None:
-    """The whole of `components.schemas.Error`, asserted in one place.
+    """The whole of `components.schemas.Error` — or of `InvariantError` on a 409 — in one place.
 
     Written as a helper rather than repeated so that the shape has exactly one definition in this
     file. If the contract ever gains a field, this is the only line that changes — and every case
@@ -46,9 +71,14 @@ def assert_matches_the_contracted_error_shape(response: Any) -> None:
         "an error rendered as HTML is an error the generated client cannot read at all"
     )
 
+    expected_keys = expected_keys_for(response.status_code)
+
     body = response.json()
     assert isinstance(body, dict), f"error body is {type(body).__name__}, not an object"
-    assert set(body) == CONTRACTED_ERROR_KEYS, f"unexpected keys: {sorted(set(body))}"
+    assert set(body) == expected_keys, (
+        f"{response.status_code} body has keys {sorted(set(body))}, "
+        f"contract says {sorted(expected_keys)}"
+    )
     assert isinstance(body["detail"], str), (
         f"detail is {type(body['detail']).__name__}, not a string - this is the array-shaped "
         "RequestValidationError leaking past the handler in app/main.py"
@@ -56,66 +86,96 @@ def assert_matches_the_contracted_error_shape(response: Any) -> None:
     assert body["detail"].strip(), "detail is present but empty, which tells the creator nothing"
 
 
-# Every 4xx this API can currently produce. The content-item routes add 404 and 409 at T030; those
-# belong to the tasks that build them, and each must be added here as well as there.
+# Every 4xx this API can currently produce. T049 and T050 add the 404s when the by-id routes exist;
+# each new 4xx must be registered here as well as in the test file for its own route.
 REACHABLE_4XX = [
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post("/content-items", json={"title": "x"}),
+        401,
+        id="create-item-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/content-items"),
+        401,
+        id="list-items-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post(
+            "/content-items", json={"title": "   "}
+        ),
+        422,
+        id="create-item-blank-title",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post(
+            "/content-items", json={"title": "x", "status": "draft"}
+        ),
+        409,
+        id="create-item-invariant-violation",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": creator.email, "password": "not the password"}
         ),
         401,
         id="login-wrong-password",
     ),
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": "nobody@example.com", "password": "irrelevant"}
         ),
         401,
         id="login-unknown-email",
     ),
     pytest.param(
-        lambda client, creator: client.post("/auth/logout"),
+        lambda client, auth_client, creator: client.post("/auth/logout"),
         401,
         id="logout-no-credential",
     ),
     pytest.param(
-        lambda client, creator: client.post("/auth/login", json={"email": creator.email}),
+        lambda client, auth_client, creator: client.post(
+            "/auth/login", json={"email": creator.email}
+        ),
         422,
         id="login-missing-password",
     ),
     pytest.param(
-        lambda client, creator: client.post("/auth/login", json={"password": "irrelevant"}),
+        lambda client, auth_client, creator: client.post(
+            "/auth/login", json={"password": "irrelevant"}
+        ),
         422,
         id="login-missing-email",
     ),
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": creator.email, "password": ""}
         ),
         422,
         id="login-empty-password",
     ),
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": "not-an-email", "password": "irrelevant"}
         ),
         422,
         id="login-malformed-email",
     ),
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": 7, "password": ["a", "list"]}
         ),
         422,
         id="login-wrong-types",
     ),
     pytest.param(
-        lambda client, creator: client.post("/auth/login", json=["not", "an", "object"]),
+        lambda client, auth_client, creator: client.post(
+            "/auth/login", json=["not", "an", "object"]
+        ),
         422,
         id="login-body-is-an-array",
     ),
     pytest.param(
-        lambda client, creator: client.post(
+        lambda client, auth_client, creator: client.post(
             "/auth/login",
             content=b"{this is not json",
             headers={"Content-Type": "application/json"},
@@ -124,17 +184,17 @@ REACHABLE_4XX = [
         id="login-unparseable-json",
     ),
     pytest.param(
-        lambda client, creator: client.get("/no/such/path"),
+        lambda client, auth_client, creator: client.get("/no/such/path"),
         404,
         id="starlette-not-found",
     ),
     pytest.param(
-        lambda client, creator: client.get("/auth/login"),
+        lambda client, auth_client, creator: client.get("/auth/login"),
         405,
         id="starlette-method-not-allowed",
     ),
     pytest.param(
-        lambda client, creator: client.delete("/health"),
+        lambda client, auth_client, creator: client.delete("/health"),
         405,
         id="starlette-method-not-allowed-on-health",
     ),
@@ -143,15 +203,24 @@ REACHABLE_4XX = [
 
 @pytest.mark.parametrize(("send", "expected_status"), REACHABLE_4XX)
 def test_every_reachable_4xx_matches_the_contracted_shape(
-    client: TestClient, creator: Creator, send: Any, expected_status: int
+    client: TestClient,
+    auth_client: TestClient,
+    creator: Creator,
+    send: Any,
+    expected_status: int,
 ) -> None:
     """The uniformity claim, case by case.
 
     The status code is asserted alongside the shape because a case that silently stopped producing
     the error it was written for would still pass the shape check — a 200 would not, but a 401 where
     a 422 was intended would, and the two are not interchangeable to a client.
+
+    Both clients are handed to every case since T030. The content-item routes are the first that can
+    fail *after* authenticating, so a 422 and a 409 there are only reachable with a token — while
+    the 401 cases are only reachable without one, and a case that quietly used the wrong client
+    would assert the shape of a response it was not written about.
     """
-    response = send(client, creator)
+    response = send(client, auth_client, creator)
 
     assert response.status_code == expected_status
     assert_matches_the_contracted_error_shape(response)
@@ -237,23 +306,54 @@ def test_the_generated_document_declares_a_body_for_every_4xx(generated_document
     assert not undeclared, f"4xx responses with no body schema: {undeclared}"
 
 
-def test_every_declared_4xx_uses_the_one_error_schema(generated_document: Any) -> None:
-    """Uniformity in the document, not just in the bodies.
+def test_every_declared_4xx_uses_the_error_schema_its_status_code_calls_for(
+    generated_document: Any,
+) -> None:
+    """Uniformity in the document, not just in the bodies — now with exactly one exception.
 
     Two endpoints returning two differently-shaped errors would each be individually valid and
     together make the contract's "uniformly" false. Asserting the `$ref` rather than the resolved
-    shape is deliberate: it fails if a second error model is introduced, which is the thing being
-    prevented.
+    shape is deliberate: it fails if an *undeclared* error model is introduced, which is the thing
+    being prevented.
+
+    The 409 carrying `InvariantErrorResponse` is the contract's own exception (see
+    `CONTRACTED_INVARIANT_ERROR_KEYS`), and it is pinned here by status code rather than waived. A
+    409 that reverted to `ErrorResponse` fails, and so does a 401 that grew the invariant shape —
+    which is the pair of mistakes a blanket "allow two schemas" assertion would let through.
     """
-    refs = {
-        response["content"]["application/json"]["schema"].get("$ref")
-        for operations in generated_document["paths"].values()
-        for operation in operations.values()
-        for code, response in operation["responses"].items()
-        if code.startswith("4")
+    refs_by_status: dict[str, set[str | None]] = {}
+    for operations in generated_document["paths"].values():
+        for operation in operations.values():
+            for code, response in operation["responses"].items():
+                if not code.startswith("4"):
+                    continue
+                ref = response["content"]["application/json"]["schema"].get("$ref")
+                refs_by_status.setdefault(code, set()).add(ref)
+
+    expected = {
+        code: {
+            "#/components/schemas/InvariantErrorResponse"
+            if code == "409"
+            else "#/components/schemas/ErrorResponse"
+        }
+        for code in refs_by_status
     }
 
-    assert refs == {"#/components/schemas/ErrorResponse"}
+    assert refs_by_status == expected
+
+
+def test_the_invariant_error_schema_pins_the_two_contracted_codes(generated_document: Any) -> None:
+    """`code` is an enum in the contract, and it has to stay one in the generated document.
+
+    A `code` typed as a bare string tells the frontend nothing: it could not exhaustively switch on
+    the two cases, which is the entire reason this field exists rather than a parsed `detail`. This
+    is also what makes adding a third invariant a contract change rather than a quiet one.
+    """
+    schema = generated_document["components"]["schemas"]["InvariantErrorResponse"]
+    code = schema["properties"]["code"]
+
+    assert set(code["enum"]) == {"platform_required", "platform_locked"}
+    assert sorted(schema["required"]) == ["code", "detail"]
 
 
 def test_the_error_schema_types_detail_as_a_required_string(generated_document: Any) -> None:

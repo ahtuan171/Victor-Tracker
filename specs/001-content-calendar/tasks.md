@@ -333,12 +333,12 @@ three appear in the backlog drawer. Delivers a usable capture inbox with no cale
 
 ### Tests for User Story 1
 
-- [ ] T029 [P] [US1] Write create-and-list tests in `backend/tests/test_content_items.py` covering title-only creation, empty and whitespace-only title rejection, default status `idea`, the `scheduled=none` backlog filter, and a 409 when create is submitted with a non-`idea` status and no platform (FR-005, FR-011, INV-1, INV-2)
+- [x] T029 [P] [US1] Write create-and-list tests in `backend/tests/test_content_items.py` covering title-only creation, empty and whitespace-only title rejection, default status `idea`, the `scheduled=none` backlog filter, and a 409 when create is submitted with a non-`idea` status and no platform (FR-005, FR-011, INV-1, INV-2)
 
 ### Implementation for User Story 1
 
-- [ ] T030 [US1] Implement `POST /content-items` in `backend/app/api/content_items.py` with title as the only required field, validating INV-1 at the API boundary so a bad create returns 409 rather than letting the `CHECK` constraint surface as a 500 (FR-005)
-- [ ] T031 [US1] Implement `GET /content-items` in `backend/app/api/content_items.py` supporting the `scheduled` parameter and ordering by `created_at DESC` (FR-011, backlog ordering assumption)
+- [x] T030 [US1] Implement `POST /content-items` in `backend/app/api/content_items.py` with title as the only required field, validating INV-1 at the API boundary so a bad create returns 409 rather than letting the `CHECK` constraint surface as a 500 (FR-005)
+- [x] T031 [US1] Implement `GET /content-items` in `backend/app/api/content_items.py` supporting the `scheduled` parameter and ordering by `created_at DESC` (FR-011, backlog ordering assumption)
 - [ ] T032 [US1] Implement client-side item state and optimistic updates in `frontend/lib/items.ts` — the shared hook every surface reads from, per research.md R-007
 - [ ] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads the visible period once and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007). **Also carries T027's deferred half**: re-assert the session guard in this page's own data load, because App Router layouts are not re-executed on soft navigations
 - [ ] T034 [US1] Build the bottom-anchored capture sheet in `frontend/components/capture/CaptureSheet.tsx` with a single title field, reachable in at most 3 interactions from the landing screen (FR-005, FR-022, SC-001)
