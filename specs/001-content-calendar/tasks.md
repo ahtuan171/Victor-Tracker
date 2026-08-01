@@ -346,6 +346,44 @@ three appear in the backlog drawer. Delivers a usable capture inbox with no cale
 
 **Checkpoint**: US1 fully functional. Run quickstart V1 and V2 — this is a deployable MVP.
 
+**Checkpoint result (2026-08-01): met.** Three gates, run in the order `.claude/memory.md` prescribes,
+because each catches a class the others do not.
+
+**1. Quickstart V1 and V2, walked at 375px against the real stack** — `docker compose up -d db backend`
+plus `next dev`, a real Chromium at 375×667 with `timezoneId` pinned, and **nothing stubbed**: browser
+→ Next proxy → FastAPI → Postgres, on the seeded account. 24 checks, 24 passing.
+
+| Scenario | Result |
+|---|---|
+| V1 — `/`, `/calendar`, `/calendar?item=1` unauthenticated | 307 → `/login` on all three; **zero content data in any body**, re-verified with three items in the database. The `__next_error__` envelope is the framework's, and V1's "Expected" is amended in [quickstart.md](./quickstart.md) to say so |
+| V1 — expired session mid-navigation | forged-`exp` cookie → the guard passes it as a routing hint, the list read 401s, `lib/api.ts` redirects to `/login`, no stale content on screen. The cookie is `httpOnly` |
+| V1 — sign-out holding an expired token | `204`, cookie gone. No deadlock — T014's lenient `presented_token` doing its job over HTTP |
+| V2 — capture ×3, title only | **3 interactions each; 360ms, 594ms, 570ms** against SC-001's 15s and 3-interaction budget |
+| V2 — empty title | save disabled, nothing created; server-side count stays at 3 |
+| V2 — what was stored | all three `idea`, no platform, no date — US1 scenario 1 exactly |
+| US1 independent test | reload → all three in the drawer, count reads 3 |
+| V6 (free, so taken) | `documentElement.scrollWidth === innerWidth === 375`; no horizontal body scroll |
+
+Screenshotted at 375px in all four states. **This is the gate the suite cannot stand in for**: every
+frontend test stubs the proxy because CI has no FastAPI behind it, so 143 green tests say nothing
+about this seam.
+
+**2. `reviewer` agent over T029–T035: clean.** No correctness defects, no spec drift against spec.md /
+data-model.md / the contract, no work belonging to a later task, no weak assertions. One **latent**
+item recorded rather than fixed: `itemsLoaded` re-prepends only rows that are still pending, so a list
+read overlapping a create that has *already* reconciled would drop the reconciled row. Unreachable
+today — nothing calls `reload()` and the fetch effect runs once on mount — but **T044 is the first task
+that plausibly wires `reload()` to a UI action**, and it must handle it there.
+
+**3. `/speckit-analyze`: no constitution conflicts, 44/46 requirements cited (96%).** It found the
+`date_from`/`date_to`-versus-backlog conflict recorded under Phase 4 below — the one finding that would
+have cost real work, and one that coverage counting alone did not produce; it came from reading the
+contract against R-007. Two low-severity gaps left open deliberately: FR-012a is cited by no task (cite
+it at T052) and SC-010 by none (implemented at T013/T022, unverifiable except by forced expiry).
+
+Suites re-run at the checkpoint: **142 backend, 143 frontend, nothing skipped**; `ruff`, `mypy
+--strict`, `tsc --noEmit`, `eslint` all clean.
+
 ---
 
 ## Phase 4: User Story 2 — See the plan at a glance (Priority: P2)
@@ -367,12 +405,42 @@ readable without opening it — in the grid *and* in the backlog drawer.
 - [ ] T039 [US2] Build the cue components in `frontend/components/item/StatusCue.tsx` and `frontend/components/item/PlatformCue.tsx`, consuming `lib/status.ts` (FR-017, FR-018, SC-004)
 - [ ] T040 [US2] Build the item chip in `frontend/components/item/ItemChip.tsx` combining title, status cue, and platform cue at a size that fits a 375px day cell
 - [ ] T041 [US2] Use `ItemChip` in the backlog drawer as well as the grid, so status and platform are legible in both — FR-017 covers the backlog explicitly, and a `posted` item with no date legitimately lives there
-- [ ] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, querying the full six-week span the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004)
+- [ ] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, **spanning** the full six weeks the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004). **Amended 2026-08-01 — this task no longer "queries" that span**; see the note below
 - [ ] T043 [US2] Build the week view in `frontend/components/calendar/WeekList.tsx` as a vertical list of seven day sections — not seven columns, which cannot hold readable chips at 375px (FR-021, research.md R-004)
 - [ ] T044 [US2] Build period navigation in `frontend/components/calendar/PeriodNav.tsx` with a month/week toggle and adjacent-period controls in thumb reach (FR-013, FR-022)
 - [ ] T045 [US2] Add the derived overdue treatment to `ItemChip`: a left border when `scheduled_date` has passed and status is not `posted`, computed client-side from `dates.today()` and never during server rendering (spec Edge Cases, research.md R-006 addendum)
 
+**Amendment 2026-08-01 (Phase 3 checkpoint `/speckit-analyze`) — the calendar's read stays
+unparameterised, and T042 does not send `date_from`/`date_to`.**
+
+As written, T042 said the grid "queries the full six-week span". The contract defines `date_from` and
+`date_to` as inclusive bounds **on `scheduled_date`**, so a ranged read returns no undated rows — and
+research.md R-007 plus `frontend/AGENTS.md` both fix that the backlog drawer *narrows the already-
+loaded state* and never issues a read of its own. Building T042 literally would therefore have emptied
+the backlog drawer the moment the month grid arrived: a US1 regression caused by a US2 task, and one
+the frontend suite would **not** have caught, because every test there stubs the proxy and a stub
+returns its fixture whatever query parameters it is given.
+
+Two artifacts disagreed and one had to be wrong. **T042 was wrong**, and it is amended above:
+
+- The calendar surface keeps **one unparameterised `GET /content-items`** and narrows client-side —
+  the grid takes the dated items falling inside its six-week span, the drawer takes the undated ones.
+  That is what R-007 means by "the period is loaded once and every surface reads it", and the spec's
+  Volume assumption (hundreds of items for one creator) is what makes it affordable.
+- **T036 and T037 are unchanged and still required.** `date_from`/`date_to` are declared in
+  `contracts/openapi.yaml`, which is stage-1 output on `main`; an endpoint that ignores its own
+  contract is the drift this project exists to avoid. They ship tested, with the calendar as a caller
+  that does not yet need them.
+- Rejected: two reads per load (doubles the round trips and lets the two disagree — R-007 refuses it),
+  and making a `scheduled_date` range include null-dated rows (which would make `scheduled=none`
+  meaningless and contradict the contract's plain wording).
+
 **Checkpoint**: US1 and US2 both work independently. Run quickstart V3 and V6.
+
+**Note for whoever runs that checkpoint**: V3 asks for three dated items, one per status — and no
+surface can set a date or a status until T052 and T054, which are Phase 5. Create the fixtures with
+`POST /content-items`, which accepts every field including `status`, `platform` and `scheduled_date`.
+This is a property of the phase order, not a blocker.
 
 ---
 

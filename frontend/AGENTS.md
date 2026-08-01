@@ -29,6 +29,7 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | A pending item is a **real `ContentItem` with a negative id** | Postgres identity starts at 1 and never goes negative, so it cannot collide — a stronger guarantee than a `_pending` flag, which a spread or a reconciliation can drop while leaving the row looking saved. Surfaces then render one list and key on `item.id`, which is the point of an optimistic update. **`isPending` is load-bearing beyond rendering**: T049's `PATCH` and T050's `DELETE` name an id that does not exist yet, so every surface offering them must skip pending rows. |
 | `useContentItems` takes `params` but depends on a **JSON key** of it | The idiomatic call site `useContentItems({ scheduled: "none" })` builds a new object every render, and an effect depending on it refetches forever. Doing this inside means callers never need `useMemo` — a requirement nobody remembers and nothing enforces. |
 | The backlog is a **drawer on `/calendar`**, never a route — do not "tidy" it into a page | R-003a, and the reason is structural: **a DOM node cannot be dragged between routes.** With `/backlog` as its own page, US3 scenario 1 has no surface on which to happen and SC-008 is unreachable rather than untested. One DOM tree makes T054's drag a native `@dnd-kit` interaction. The peek strip costs ~64px the month grid would otherwise have — accepted in R-003a, so do not reclaim it at T042. |
+| The calendar's `GET /content-items` stays **unparameterised**, and T042 must not add a date range | Amended into `tasks.md` at the Phase 3 checkpoint, and the reason is a regression waiting to happen: `date_from`/`date_to` bound `scheduled_date`, so a ranged read returns **no undated rows** — and the drawer reads the same state. Send a range and the backlog empties the day the month grid lands. The suite would not catch it: every frontend test stubs the proxy, and a stub returns its fixture whatever parameters it is handed. The grid takes the dated items inside its six-week span client-side; the spec's Volume assumption (hundreds of items) is what makes one whole-list read affordable. T037 still ships the parameters — the contract declares them. |
 | The drawer **narrows loaded state**; it never issues `scheduled=none` | R-007: the period is loaded once and every surface reads it. A second fetch alongside the calendar's own doubles the round trips and lets the two disagree. The endpoint's parameter exists for a caller that wants only the backlog — this surface is not one. `selectBacklog` is called inside `BacklogDrawer`, so "what the backlog is" has one definition. |
 | `CalendarShell`'s outer div is `relative`, and that is load-bearing | The expanded drawer positions against it. Without it the drawer escapes to the viewport and reads as a second screen, which is precisely what R-003a exists to prevent — the period header staying visible above the scrim is what makes it one surface. |
 | The expanded drawer carries **its own `+ CAPTURE`** | It covers the action band, so FR-022 would be broken by omission otherwise — and a creator browsing their backlog is exactly the person about to think of the next idea. It is deliberately **not** a modal dialog (no focus trap): capture must stay reachable, and a trap would fight the capture sheet that opens over it. |
@@ -101,6 +102,14 @@ leaves the browser at the address it asked for**. T033 created that route behind
 which would have bounced a correct sign-in back to `/login` and failed on a shortcoming of the stub
 rather than of the page. A stub of the proxy has to do everything the proxy does that the test's
 assertions depend on; when a route becomes guarded, re-check every stub that navigates to it.
+
+**`itemsLoaded` protects a *pending* row, not a *just-reconciled* one — and the first caller of
+`reload()` inherits that.** It re-prepends rows that are still `isPending`, so a list read overlapping
+a create that has **already** reconciled to a real id drops that row from the list until the next load.
+Unreachable while nothing calls `reload()` and the fetch effect runs once on mount (`stableParams`
+never changes for `CalendarShell`'s no-arg call), which is why the Phase 3 `reviewer` pass recorded it
+rather than fixing it. **T044's period navigation is the first task likely to wire `reload()` to a
+control** — handle it there, by merging on id rather than widening the pending check.
 
 **A list read that lands mid-save deletes the row being saved, unless something stops it.** The
 creator taps save and then the already-in-flight list response arrives; replacing `items` wholesale
@@ -204,11 +213,15 @@ ran, and the failure looked like a broken guard. Worse, the "reaches the page" t
 — a 404 leaves the browser at the address it asked for, so a path-only assertion cannot tell "rendered"
 from "not found". **Assert the response status too**, not just `page.url()`.
 
-**Next's dev server answers a redirect with an HTML body; `next start` answers with an empty one.**
-So `expect(body).not.toContain("<html")` on a 3xx is green in CI — which runs the production bundle —
-and red on every developer machine. That is this repo's usual trap running backwards, and it is why
-`tests/e2e/root-redirect.spec.ts` asserts status and `Location` instead. Anything about response
-*bodies* on redirects belongs in a manual quickstart step, not the suite.
+**A server-component `redirect()` answers with an HTML body, in dev *and* in production.** Next
+16.2.12 returns a 307 carrying a ~6–7 KB `__next_error__` document: the route's static metadata
+(`<title>`, description) plus script preloads. The page component never runs, so no content data is in
+it — but `expect(body).not.toContain("<html")` on a 3xx fails everywhere, which is why
+`tests/e2e/root-redirect.spec.ts` asserts status and `Location` instead. **This entry previously said
+`next start` answers with an empty body and that the assertion was green in CI only** — measured false
+at the Phase 3 checkpoint against the real production bundle. Assert on *content data* (no item title
+in the body), never on the absence of markup: the second is stricter than FR-002/SC-006 and describes
+the framework, not this app.
 
 **`pnpm typecheck` reads generated route types out of `.next/`, so it fails after a branch switch.**
 `.next/types/validator.ts` still references pages the new branch does not have, and the error looks
