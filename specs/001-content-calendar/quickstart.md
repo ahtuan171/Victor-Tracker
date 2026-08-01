@@ -70,9 +70,23 @@ viewport width** — that is the design baseline and a hard floor, not a stress 
 3. Sign in, then force the session to expire and navigate between month and week.
 4. Sign out while holding an already-expired token.
 
-**Expected**: no content data in any response body, including server-rendered markup — the redirect
-happens before markup is generated (research.md R-001). An expired session during navigation returns
-to sign-in rather than leaving stale content on screen. Sign-out succeeds rather than deadlocking.
+**Expected**: **no content data in any response body** — no item title, no backlog, no grid. An expired
+session during navigation returns to sign-in rather than leaving stale content on screen. Sign-out
+succeeds rather than deadlocking.
+
+**What the response actually looks like, measured 2026-08-01 at the Phase 3 checkpoint.** This step
+previously expected an empty body, on the reasoning that "the redirect happens before markup is
+generated". That reasoning is right about *content* and wrong about the envelope: Next 16.2.12 answers
+a server-component `redirect()` with a 307 carrying a ~6–7 KB `__next_error__` document — the route's
+static metadata (`<title>Calendar · CreatorHub</title>`, the layout's description) and its script
+preloads, and nothing else. **Both `next dev` and `next start` do this**; the production bundle is not
+the empty-bodied case an earlier note in `frontend/AGENTS.md` claimed. The page component never runs,
+so nothing derived from the creator's data is in it.
+
+Assert on **content data**, which is what FR-002 and SC-006 require, not on the absence of markup —
+the second is stricter than the requirement and is a property of the framework's redirect envelope
+rather than of this application. Verified with three items in the database: none of their titles
+appears in any of the three responses.
 
 ### V2 — Capture an idea in under 15 seconds
 

@@ -25,12 +25,25 @@ the data-shape audit ran **clean**, and its tokens are installed in `frontend/ap
 `/login`, the calendar shell and the capture sheet are built from it. The remaining surfaces were
 **not** built — each is built from that export at its own task.
 
-**The next thing is the Phase 3 checkpoint, not T036.** Every task through T035 is built and green,
-so what remains before Phase 4 is verification the suite cannot do: **walk quickstart V1 and V2 by
-hand** against a real backend, run the **`reviewer` agent** over T029–T035, then `/speckit-analyze`.
-`.claude/memory.md` records that those two catch different classes of defect, and that a green
-frontend suite is evidence about the frontend in isolation — every test stubs the proxy, because CI
-has no FastAPI behind it. **This is a deployable MVP; do not just tick it.**
+**The Phase 3 checkpoint is done (2026-08-01) and the next task is T036.** All three gates ran: V1 and
+V2 were walked at 375px against a live stack with **nothing stubbed** — 24 checks, capture at 3
+interactions and under 600ms — the **`reviewer` agent** over T029–T035 came back **clean**, and
+`/speckit-analyze` found **no constitution conflicts and one real gap**. Results are in `tasks.md`
+under Phase 3; the narrative is in the build log.
+
+**Two things that gap changed, and a third to carry:**
+
+- **T042 is amended: the calendar's read stays unparameterised.** `date_from`/`date_to` bound
+  `scheduled_date`, so a ranged read returns no undated rows — and the drawer narrows that same state.
+  Built as originally written, the first month grid would have **emptied the backlog**, and no
+  frontend test could have caught it (they all stub the proxy). T036/T037 still ship the parameters;
+  the calendar just does not send them. See `frontend/AGENTS.md`.
+- **quickstart V1 asserted the wrong thing** and now asserts the right one. A Next 16 `redirect()`
+  answers with an `__next_error__` document in dev *and* production — metadata only, zero content
+  data. FR-002 and SC-006 hold; the reasoning under them did not.
+- **`itemsLoaded` has a latent hole the reviewer found**: it re-prepends pending rows only, so a list
+  read overlapping an already-reconciled create drops that row. Unreachable until something calls
+  `reload()` — and **T044 is the first task likely to.**
 
 **The merge gate is real, and T025 is where it became real.** `only_allow_merge_if_pipeline_succeeds`
 is `true` and `main`'s allowed-to-push is **no one** — both read back from the GitLab API rather than
@@ -138,12 +151,11 @@ and neither is duplicated here.
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
    The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Run the Phase 3 checkpoint before writing any T036 code.** Implementation through T035 is done
-   and green; what is left is the part the suite cannot do. In order: **walk quickstart V1 and V2 by
-   hand** in a browser against `docker compose up -d db backend` plus `pnpm dev` — every automated
-   frontend test stubs the proxy, so the suite proves nothing about the seam; then the **`reviewer`
-   agent** over T029–T035; then `/speckit-analyze`. `.claude/memory.md` records that the last two
-   catch different classes of defect, so run both. Then continue at **T036** (Phase 4, US2).
+2. ~~**Run the Phase 3 checkpoint**~~ — **done 2026-08-01, all three gates.** Continue at **T036**
+   (Phase 4, US2). Read the T042 amendment in `tasks.md` before starting the frontend half; it is the
+   one finding that would otherwise cost real work. Keep running all three gates at each later
+   checkpoint: the walk found what the suite structurally cannot, and analyze found what a clean
+   review did not.
 3. **Every task from here goes through a merge request.** `main` refuses direct pushes and the
    pipeline gates the merge. The flow used for every task since T025:
 

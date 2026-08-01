@@ -1068,3 +1068,64 @@ Screenshotted at 375px in both states, on port 3311 rather than 3100 — see the
 T034. The peek strip clips its chips horizontally without moving the body; the expanded panel leaves
 the period header visible above the scrim, which is what keeps R-003a's "one surface" true rather than
 merely asserted.
+
+## The Phase 3 checkpoint — three gates, and the one that found something
+
+Implementation through T035 was already green when this ran. The checkpoint is the part the suite
+cannot do, and it was run in the order `.claude/memory.md` prescribes: hand-walk first, then the
+`reviewer` agent, then `/speckit-analyze`.
+
+### The walk
+
+`docker compose up -d db backend` plus `next dev`, and a real Chromium at 375×667 with `timezoneId`
+pinned to `Asia/Bangkok`, driving the actual product with **no route stubbing at all** — browser to
+Next proxy to FastAPI to Postgres, against the one seeded account. 24 checks, all passing, and the
+`content_item` table was truncated first so "exactly three items exist" meant something.
+
+The numbers worth keeping: capture took **3 interactions and 360–594ms** against SC-001's budget of 3
+and 15 seconds, and the whole of V2 — including the reload — held. Sign-out from a forged, expired
+token returned 204 with the cookie gone, which is T014's lenient `presented_token` proving itself over
+HTTP rather than in a unit test.
+
+### What the walk corrected
+
+V1's "Expected" claimed the redirect carries no markup because "the redirect happens before markup is
+generated". Measured, that is wrong about the envelope in both `next dev` **and** `next start`: Next
+16.2.12 answers a server-component `redirect()` with a 307 carrying a ~6–7 KB `__next_error__`
+document holding the route's static metadata and its script preloads. What it does *not* hold is any
+content data — re-checked with three items in the database, none of their titles appears. So the
+requirement (FR-002, SC-006) holds and the quickstart's reasoning did not; quickstart.md now asserts
+on content data, and `frontend/AGENTS.md`'s claim that `next start` returns an empty body is corrected
+there, because it was a trap note pointing the wrong way.
+
+Two ordinary environment notes, both costing minutes: Docker Desktop does not survive a reboot, and
+**port 3100 was still held by a server from a previous session**, which is exactly the collision that
+file warns about — `playwright test` refused to start with `EADDRINUSE` until it was killed. The
+screenshots for this checkpoint were taken on 3000, and the production check on 3200.
+
+### The reviewer pass
+
+Clean. No correctness defects, no drift against spec.md, data-model.md or the contract, nothing built
+that belongs to a later task, and no assertion weaker than the requirement it cites — the agent
+re-derived the AGENTS.md decisions from the code rather than trusting the prose.
+
+It left one **latent** item, which is the useful output of a clean review: `itemsLoaded` re-prepends
+only rows that are still `isPending`, so a list read that overlaps a create which has *already*
+reconciled would drop the reconciled row. It is unreachable today — nothing calls `reload()`, and the
+fetch effect runs once on mount because `stableParams` never changes for `CalendarShell`'s no-arg call
+— so it was recorded, not fixed. **T044 is the first task likely to wire `reload()` to a control.**
+
+### The analyze pass, and the finding that paid for it
+
+No constitution conflicts; 44 of 46 requirements cited by at least one task. The finding that mattered
+came from reading `contracts/openapi.yaml` against research.md R-007, not from counting citations:
+**T042 said the month grid "queries the full six-week span"**, `date_from`/`date_to` are bounds on
+`scheduled_date`, and the backlog drawer is specified to narrow already-loaded state rather than fetch
+for itself. Built literally, the first month grid would have emptied the backlog drawer — a US1
+regression shipped by a US2 task, invisible to the frontend suite because every test there stubs the
+proxy and a stub ignores query parameters.
+
+T042 was the artifact that was wrong and it is amended in `tasks.md`: one unparameterised read,
+narrowed client-side, with T036/T037 still building the parameters because the contract declares them.
+That is the second time in this project a coverage number and a real gap have disagreed, and the same
+lesson as the stage-1 reviewer pass: the two checks find different things, so both get run.
