@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 
+import { BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { today, type DateOnly } from "@/lib/dates";
 import { useContentItems } from "@/lib/items";
@@ -14,10 +15,11 @@ import { useContentItems } from "@/lib/items";
  * bands, top to bottom: a **header** carrying the eyebrow, the period title and the derived counts;
  * a **content region**; and a **bottom action band** holding the primary actions in thumb reach.
  *
- * What this task builds is the frame and the data load — deliberately not what goes inside it. The
- * month grid is T042, the week list T043, period navigation T044, the backlog drawer T035, and the
- * platform filter row T061. Each has a place reserved below and a task that fills it. Building any
- * of them here because the export draws them would be letting a picture reorder the task board.
+ * What T033 built was the frame and the data load — deliberately not what goes inside it. The capture
+ * sheet arrived at T034 and the backlog drawer at T035. Still absent, each with a place reserved
+ * below and a task that fills it: the month grid (T042), the week list (T043), period navigation
+ * (T044) and the platform filter row (T061). Building any of them here because the export draws them
+ * would be letting a picture reorder the task board.
  *
  * ## Why the period is not resolved during render
  *
@@ -55,7 +57,10 @@ export function CalendarShell() {
   const [capturing, setCapturing] = useState(false);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-surface-0 text-ink">
+    // `relative` is load-bearing rather than defensive: the expanded backlog drawer positions itself
+    // against this element, which is what keeps it *on* the calendar surface (R-003a) instead of
+    // becoming a full-screen overlay that reads as a second screen.
+    <div className="bg-surface-0 text-ink relative flex min-h-dvh flex-col overflow-hidden">
       <CalendarHeader period={period} itemCount={items.length} loading={status === "loading"} />
 
       {/*
@@ -76,16 +81,22 @@ export function CalendarShell() {
         ) : null}
 
         {/*
-         * The month grid (T042), the week list (T043) and the backlog drawer (T035) render here.
-         * Until then the shell states what it is holding, which is what makes the data load visible
-         * to a person walking quickstart V2 rather than only to a test.
+         * The month grid (T042) and the week list (T043) render here. The backlog drawer is *not*
+         * in this region — it is anchored to the bottom of the surface, below.
          */}
         <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
           {status === "loading"
             ? "Loading your items…"
-            : "The month grid arrives at T042. Captured items are loaded and counted above."}
+            : "The month grid arrives at T042. Undated ideas are in the backlog below."}
         </p>
       </main>
+
+      {/*
+       * Between the content region and the action band, which is where the export puts it and where
+       * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
+       * at T054.
+       */}
+      <BacklogDrawer items={items} onCapture={() => setCapturing(true)} />
 
       <CalendarActionBar onCapture={() => setCapturing(true)} />
 
