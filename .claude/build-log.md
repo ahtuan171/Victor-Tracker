@@ -1011,3 +1011,60 @@ on a different port.
 Sheet bottom-anchored with the notched corner, grip bar, `CAPTURE IDEA` in letterspaced Oswald, the
 52px field with the brand focus ring, the helper line, and `CANCEL` / `SAVE TO BACKLOG` with the
 notch on the primary. Every token resolved against panel `1f`.
+
+## T035 — the backlog drawer, and Phase 3's implementation closes
+
+**2026-08-01.** `components/backlog/BacklogDrawer.tsx`. Frontend suite **131 → 143 passing**, none
+skipped. **This is the task that makes User Story 1 demonstrable**: its goal is "capture an idea with
+only a title and *find it in the backlog later*", and until now nothing on any surface displayed a
+captured item — the header count was the entire feedback loop.
+
+Built from the export's `Backlog expanded 375` panel (`1h`) plus the peek strip drawn along the bottom
+of `Month grid 375` (`1c`), with the empty copy from `First run 375` (`1k`).
+
+### It reads state; it does not fetch
+
+`selectBacklog` narrows what the calendar already loaded, and the call lives *inside* the drawer so
+"what the backlog is" has one definition. The endpoint's `scheduled=none` parameter — built at T031
+and tested — is deliberately **not** used by this surface: R-007 says the period is loaded once and
+every surface reads the same state, and a second request alongside the calendar's own would double the
+round trips and let the two disagree. The parameter exists for a caller that wants only the backlog.
+This is not one.
+
+### Two pieces of copy were changed from the export, both deliberately
+
+The expanded header's line in the export is *"Undated ideas, newest first. Drag one onto a day to
+schedule it."* **Only the first half is true today** — there is no month grid until T042 and no drag
+until T054 — so the second half would instruct the creator to do something the product cannot do.
+Phase 3 is a deployable checkpoint, so that is a defect and not a nicety. **T054 restores the full
+sentence.**
+
+The empty state names the capture action rather than saying "Empty" alone, because T035 asks it to
+point somewhere and because a bare "empty" reads as something being broken.
+
+### The finding: a pending row is only visible if the drawer is *already* open
+
+A test that captured an item and then clicked the drawer toggle timed out, and the cause is a decision
+from T034 rather than a bug. **The capture sheet stays open until the save resolves** — that is what
+keeps a creator's typing when a save is refused — so with a create left hanging the sheet's scrim
+covers the toggle and the drawer cannot be opened at all. Expanding first is not a workaround; it is
+the only state in which an optimistic row is on screen.
+
+That also bounds where `isPending` is load-bearing, which had been vague since T032. It is not
+decoration on this surface: it is the guard **T052's tap-to-open and T054's drag** must read, because
+both name an id the server has not issued. The row exposes it as `aria-busy`, and there are now two
+tests — one that a pending row is marked, one that a reconciled row is not, since a row stuck
+`aria-busy` would leave every id-bearing control permanently disabled.
+
+### What was left out
+
+Rows show a title and nothing else. The status cue and platform monogram the export draws are
+**T038–T040**, and **T041 is the task that puts `ItemChip` in this drawer** — it has its own line in
+`tasks.md` because FR-017 covers the backlog explicitly, and because a `posted` item with no date
+legitimately lives here, so "the drawer only holds ideas" is not a shortcut available to it. Drag is
+T054; opening an item is T052. Each has a seam marked in the source rather than a partial build.
+
+Screenshotted at 375px in both states, on port 3311 rather than 3100 — see the collision recorded at
+T034. The peek strip clips its chips horizontally without moving the body; the expanded panel leaves
+the period header visible above the scrim, which is what keeps R-003a's "one surface" true rather than
+merely asserted.
