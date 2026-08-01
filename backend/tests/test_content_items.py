@@ -5,8 +5,8 @@ later story extends — T036 adds date-range filtering, T048 partial-update sema
 platform filter, T063 published links. Keep the sections below in the order the endpoints were built
 so a later task appends rather than interleaves.
 
-Three things here are decided by `contracts/openapi.yaml` rather than by taste, and each is the kind
-of thing a later reader would otherwise "simplify" into a defect:
+Four things here are decided by `contracts/openapi.yaml` — or by a silence in it — rather than by
+taste, and each is the kind of thing a later reader would otherwise "simplify" into a defect:
 
 * **A blank title is 422, not 409.** INV-2 is as real an invariant as INV-1, but the contract's
   `InvariantError.code` enum has exactly two members — `platform_required` and `platform_locked` —
@@ -23,6 +23,13 @@ of thing a later reader would otherwise "simplify" into a defect:
   assertions therefore come in two halves: distinct timestamps written directly through the session,
   which test the documented order, and same-timestamp rows created over HTTP, which test that the
   result is deterministic rather than arbitrary.
+* **A date bound never matches an undated item, and the contract does not say so.** It declares
+  `date_from` and `date_to` as inclusive bounds on `scheduled_date` and stops there; SQL's
+  three-valued logic decides the rest, because `NULL >= '2026-09-01'` is `NULL` and not `TRUE`. That
+  is the behaviour the calendar needs — an item with no date is not on any day of the grid (FR-012)
+  — but it falls out of the database rather than being stated anywhere, so the date-range section
+  below asserts it explicitly in both directions. Without those assertions, a well-meaning rewrite
+  that filtered in Python (`item.scheduled_date is None or ...`) would pass every other test here.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -472,5 +479,317 @@ def test_every_listed_item_carries_the_full_contracted_shape(auth_client: TestCl
     create_item(auth_client, title="Ring light comparison", platform=Platform.TIKTOK)
 
     (item,) = auth_client.get(ITEMS_PATH).json()
+
+    assert set(item) == CONTRACTED_ITEM_KEYS
+
+
+# ---------------------------------------------------------------------------
+# List — FR-012 and FR-013, the date-range read the calendar grid is built on
+# ---------------------------------------------------------------------------
+
+DAY_BEFORE = "2026-08-31"
+RANGE_FROM = "2026-09-01"
+RANGE_MIDDLE = "2026-09-15"
+RANGE_TO = "2026-09-30"
+DAY_AFTER = "2026-10-01"
+"""Five days spanning one month and one day either side of it.
+
+Chosen so every boundary case is a distinct calendar day *and* crosses a month boundary in both
+directions. A range wholly inside one month would pass against an implementation that compared only
+the day-of-month, and September 2026 has 30 days, so `2026-09-31` cannot be written by mistake.
+"""
+
+FULL_SPAN = {"date_from": RANGE_FROM, "date_to": RANGE_TO}
+
+MONTH_TITLES = {
+    DAY_BEFORE: "Day before",
+    RANGE_FROM: "First day",
+    RANGE_MIDDLE: "Middle day",
+    RANGE_TO: "Last day",
+    DAY_AFTER: "Day after",
+}
+
+
+def seed_the_span(client: TestClient) -> None:
+    """Create one dated item on each of the five days, plus one with no date at all.
+
+    Every date-range assertion below reads from the same fixture set, so a filter that is too wide
+    fails by naming exactly which extra day it let through. The undated item is part of the fixture
+    rather than a separate one because "the undated item is missing" is the single easiest thing for
+    a date filter to get wrong, and it should be in scope for every case rather than just its own.
+    """
+    for day, title in MONTH_TITLES.items():
+        create_item(client, title=title, scheduled_date=day)
+    create_item(client, title="Undated")
+
+
+def titles_in(client: TestClient, **params: str) -> set[str]:
+    """List with the given query parameters and return the titles as a set.
+
+    A set, not a list: every item in `seed_the_span` is created over HTTP inside one transaction, so
+    they share a `created_at` and their order is decided entirely by the `id` tiebreaker. Ordering
+    under a date filter is asserted once, on its own, against distinct timestamps —
+    `test_the_date_range_read_is_ordered_too`.
+    """
+    response = client.get(ITEMS_PATH, params=params)
+    assert response.status_code == 200
+    return {item["title"] for item in response.json()}
+
+
+def test_date_from_is_inclusive_of_its_own_day(auth_client: TestClient) -> None:
+    """FR-013, and the half of it a `>` instead of a `>=` silently breaks.
+
+    The contract says "inclusive lower bound". An off-by-one here hides the first day of every month
+    the creator opens — one item in thirty, on the day they are most likely to be looking at.
+    """
+    seed_the_span(auth_client)
+
+    assert "First day" in titles_in(auth_client, date_from=RANGE_FROM)
+
+
+def test_date_to_is_inclusive_of_its_own_day(auth_client: TestClient) -> None:
+    """The same boundary from the other side. Both bounds are inclusive; neither is assumed."""
+    seed_the_span(auth_client)
+
+    assert "Last day" in titles_in(auth_client, date_to=RANGE_TO)
+
+
+def test_a_range_returns_its_endpoints_and_everything_between(auth_client: TestClient) -> None:
+    """Both bounds at once — the query the month grid actually issues.
+
+    Asserted as an exact set rather than three `in` checks, so a filter that is too *wide* fails
+    here rather than passing three inclusivity tests and shipping.
+    """
+    seed_the_span(auth_client)
+
+    assert titles_in(auth_client, **FULL_SPAN) == {"First day", "Middle day", "Last day"}
+
+
+def test_a_range_excludes_the_day_on_either_side(auth_client: TestClient) -> None:
+    """The exclusivity half, named separately because it is the one an over-wide filter breaks.
+
+    `2026-08-31` and `2026-10-01` are one day outside the bounds and in adjacent months, so a
+    comparison that accidentally truncated to the month would fail here and nowhere else.
+    """
+    seed_the_span(auth_client)
+
+    seen = titles_in(auth_client, **FULL_SPAN)
+
+    assert "Day before" not in seen
+    assert "Day after" not in seen
+
+
+def test_date_from_alone_is_an_open_ended_lower_bound(auth_client: TestClient) -> None:
+    """One bound must not imply the other: `date_from` alone is "this day and everything after"."""
+    seed_the_span(auth_client)
+
+    assert titles_in(auth_client, date_from=RANGE_FROM) == {
+        "First day",
+        "Middle day",
+        "Last day",
+        "Day after",
+    }
+
+
+def test_date_to_alone_is_an_open_ended_upper_bound(auth_client: TestClient) -> None:
+    """And the mirror image: everything up to and including that day."""
+    seed_the_span(auth_client)
+
+    assert titles_in(auth_client, date_to=RANGE_TO) == {
+        "Day before",
+        "First day",
+        "Middle day",
+        "Last day",
+    }
+
+
+def test_a_single_day_range_returns_only_that_day(auth_client: TestClient) -> None:
+    """`date_from == date_to`, which is a day view and also the degenerate case of a week view.
+
+    A range implemented with two strict comparisons is empty here while passing anything that only
+    checks a multi-day span.
+    """
+    seed_the_span(auth_client)
+
+    assert titles_in(auth_client, date_from=RANGE_MIDDLE, date_to=RANGE_MIDDLE) == {"Middle day"}
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"date_from": RANGE_FROM},
+        {"date_to": RANGE_TO},
+        FULL_SPAN,
+    ],
+    ids=["from-only", "to-only", "both"],
+)
+def test_a_date_bound_never_matches_an_undated_item(
+    auth_client: TestClient, params: dict[str, str]
+) -> None:
+    """The dated/undated split, asserted rather than left to SQL to imply.
+
+    FR-012 puts an item on the grid *on its date*; an item with no date is on no day of it, and
+    FR-011 gives it a home in the backlog drawer instead. In SQL this is free — `NULL >= date` is
+    `NULL`, not `TRUE` — which is exactly why it needs a test: nothing in the endpoint will look
+    like the line that implements it, so nothing signals when a rewrite drops it. All three bound
+    combinations, because an implementation could plausibly special-case `NULL` in one branch only.
+    """
+    seed_the_span(auth_client)
+
+    assert "Undated" not in titles_in(auth_client, **params)
+
+
+def test_undated_items_still_come_back_when_no_date_bound_is_given(auth_client: TestClient) -> None:
+    """The control for the test above: the undated item exists and the fixture is not lying.
+
+    Without this, `"Undated" not in ...` would pass just as happily against a `seed_the_span` that
+    silently failed to create it.
+    """
+    seed_the_span(auth_client)
+
+    assert "Undated" in titles_in(auth_client)
+
+
+def test_a_date_bound_with_scheduled_none_returns_nothing(auth_client: TestClient) -> None:
+    """The two filters compose with `AND`, and the result of asking for both is empty.
+
+    `scheduled=none` demands `scheduled_date IS NULL`; a date bound cannot be satisfied by a NULL.
+    The combination is therefore always empty, and that is deliberate rather than a case worth
+    special-handling: the contract declares both parameters on one operation and says nothing about
+    them being exclusive, so refusing the pair with a 422 would be inventing behaviour, and quietly
+    dropping one of them would make the response a lie about the question asked. No surface issues
+    this query — the drawer sends `scheduled=none`, the grid sends dates — so an empty array is the
+    honest answer to a question nothing asks.
+    """
+    seed_the_span(auth_client)
+
+    response = auth_client.get(ITEMS_PATH, params={"scheduled": "none", **FULL_SPAN})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_an_inverted_range_returns_nothing(auth_client: TestClient) -> None:
+    """`date_from > date_to` is an empty range, not an error.
+
+    Same reasoning as the case above: the contract declares two independent inclusive bounds and no
+    ordering rule between them, so the pair composes to a `WHERE` clause nothing satisfies. A 422
+    would be a response the contract does not declare, and it would need `REACHABLE_4XX` to carry a
+    case for a request no surface can produce — period navigation always builds `from <= to`.
+    """
+    seed_the_span(auth_client)
+
+    response = auth_client.get(ITEMS_PATH, params={"date_from": RANGE_TO, "date_to": RANGE_FROM})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_a_range_matching_nothing_is_an_empty_array(auth_client: TestClient) -> None:
+    """A month the creator has not planned yet. The grid renders from this, so 200 and `[]`."""
+    seed_the_span(auth_client)
+
+    response = auth_client.get(
+        ITEMS_PATH, params={"date_from": "2027-01-01", "date_to": "2027-01-31"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_the_bounds_filter_on_scheduled_date_and_not_on_created_at(auth_client: TestClient) -> None:
+    """The two dates on this row are different things, and only one of them is FR-013's.
+
+    Every item in this harness is created *now*, so a filter accidentally written against
+    `created_at` — the column the default ordering already uses — would still return plausible
+    results for a range around today. Pinning a far-future `scheduled_date` is what separates them:
+    the item must appear for its scheduled month and be absent from the month it was created in.
+    """
+    create_item(auth_client, title="Next spring", scheduled_date="2027-04-10")
+
+    assert titles_in(auth_client, date_from="2027-04-01", date_to="2027-04-30") == {"Next spring"}
+    assert titles_in(auth_client, date_from="2026-08-01", date_to="2026-08-31") == set()
+
+
+def test_the_date_range_read_is_ordered_too(auth_client: TestClient, session: Session) -> None:
+    """`created_at DESC, id DESC` survives the new `WHERE` clauses.
+
+    The same failure `test_the_backlog_is_ordered_too` guards against, on the other filtered path:
+    an `.order_by()` applied inside the unfiltered branch works everywhere except here. Written
+    through the session because distinct `created_at` values cannot be produced over HTTP inside one
+    transaction — see this module's docstring — and dated in an order that deliberately disagrees
+    with the creation order, so a result accidentally sorted by `scheduled_date` fails.
+    """
+    now = datetime.now(UTC)
+    insert_item(
+        session,
+        title="Older",
+        created_at=now - timedelta(hours=1),
+        scheduled_date=date(2026, 9, 30),
+    )
+    insert_item(session, title="Newer", created_at=now, scheduled_date=date(2026, 9, 1))
+    insert_item(session, title="Outside", created_at=now, scheduled_date=date(2026, 10, 1))
+
+    listed = auth_client.get(ITEMS_PATH, params=FULL_SPAN).json()
+
+    assert [item["title"] for item in listed] == ["Newer", "Older"]
+
+
+@pytest.mark.parametrize("bound", ["date_from", "date_to"], ids=["from", "to"])
+@pytest.mark.parametrize(
+    "value",
+    ["not-a-date", "2026-09-31", "2026-09-01T12:00:00Z", "09/01/2026", ""],
+    ids=["nonsense", "impossible-day", "timestamp-with-a-time", "wrong-order", "empty"],
+)
+def test_a_malformed_date_bound_is_refused(auth_client: TestClient, bound: str, value: str) -> None:
+    """`format: date` is a closed shape, and a bound the API cannot parse must not be ignored.
+
+    A parameter silently dropped on a parse failure returns *every* item, which on a calendar reads
+    as the grid working rather than as the filter failing — the grid appears to work while showing
+    the wrong month. Two of these cases are the ones a lenient parser would wave through:
+    `2026-09-31` is a real-looking date that does not exist, and `2026-09-01T12:00:00Z` is FR-012a's
+    boundary. A bound carrying a real time of day must be refused rather than truncated, because a
+    truncated bound answers a question the caller did not ask and there is no way to see that in the
+    response body. The exact-midnight spelling is a separate case — see the test below.
+    """
+    response = auth_client.get(ITEMS_PATH, params={bound: value})
+
+    assert response.status_code == 422
+
+
+def test_a_bound_spelled_as_exact_midnight_is_read_as_that_plain_day(
+    auth_client: TestClient,
+) -> None:
+    """Pydantic accepts `2026-09-01T00:00:00Z` for a `date`, and this pins what that means.
+
+    Not the behaviour this test was first written to expect — the assumption was that anything but
+    `YYYY-MM-DD` is a 422, and it is not: pydantic coerces an RFC 3339 datetime whose time is
+    exactly zero, while refusing one with any real time (asserted above). That is a safe pair, which
+    is why it is characterised here rather than tightened away. Nothing can be silently truncated,
+    because the only extra spelling accepted already names the whole day, and tightening it would
+    cost a bespoke validator for an input no client sends — `frontend/lib/dates.ts` formats
+    `YYYY-MM-DD` and nothing else.
+
+    The value of the test is the direction it fails in. If either bound were ever retyped as a
+    `datetime`, `2026-09-01T12:00:00Z` would start being accepted and the range would quietly begin
+    filtering by time of day — which FR-012a says this iteration does not have. This test and the
+    `timestamp-with-a-time` case above are the pair that notices.
+    """
+    seed_the_span(auth_client)
+
+    midnight = titles_in(auth_client, date_from=f"{RANGE_FROM}T00:00:00Z", date_to=RANGE_TO)
+
+    assert midnight == titles_in(auth_client, **FULL_SPAN)
+
+
+def test_a_date_range_read_carries_the_full_contracted_shape(auth_client: TestClient) -> None:
+    """FR-017 and FR-018 again, on the response the month grid renders from directly.
+
+    The unfiltered list already asserts this, but the calendar's real read is the filtered one, and
+    a response model applied per-branch is a thing that can drift.
+    """
+    create_item(auth_client, title="Filming day", scheduled_date=RANGE_MIDDLE)
+
+    (item,) = auth_client.get(ITEMS_PATH, params=FULL_SPAN).json()
 
     assert set(item) == CONTRACTED_ITEM_KEYS

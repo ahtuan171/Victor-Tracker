@@ -396,11 +396,11 @@ readable without opening it — in the grid *and* in the backlog drawer.
 
 ### Tests for User Story 2
 
-- [ ] T036 [P] [US2] Extend `backend/tests/test_content_items.py` with date-range filter tests, including boundary inclusivity and the dated/undated split (FR-012, FR-013)
+- [x] T036 [P] [US2] Extend `backend/tests/test_content_items.py` with date-range filter tests, including boundary inclusivity and the dated/undated split (FR-012, FR-013)
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] Add `date_from` and `date_to` filtering to `GET /content-items` in `backend/app/api/content_items.py` (FR-013)
+- [x] T037 [US2] Add `date_from` and `date_to` filtering to `GET /content-items` in `backend/app/api/content_items.py` (FR-013)
 - [ ] T038 [P] [US2] Implement the status and platform cue mapping in `frontend/lib/status.ts` per research.md R-005 — outline, half-filled, and solid-with-check for the three statuses, and T/I/Y monogram badges for platforms, against placeholder tokens pending the stage-2 design export
 - [ ] T039 [US2] Build the cue components in `frontend/components/item/StatusCue.tsx` and `frontend/components/item/PlatformCue.tsx`, consuming `lib/status.ts` (FR-017, FR-018, SC-004)
 - [ ] T040 [US2] Build the item chip in `frontend/components/item/ItemChip.tsx` combining title, status cue, and platform cue at a size that fits a 375px day cell
@@ -434,6 +434,35 @@ Two artifacts disagreed and one had to be wrong. **T042 was wrong**, and it is a
 - Rejected: two reads per load (doubles the round trips and lets the two disagree — R-007 refuses it),
   and making a `scheduled_date` range include null-dated rows (which would make `scheduled=none`
   meaningless and contradict the contract's plain wording).
+
+**T036–T037 result (2026-08-01)**: done, in **one merge request**, and that is the same stated
+deviation as T029–T031 rather than a new one. `tasks.md` asks for "tests must fail first" and for one
+MR per task; T036's entire subject is T037, so an MR carrying the tests alone would be red and the
+merge gate refuses a red pipeline. Fail-first was satisfied in the doing: **27 tests written, 23 of
+them failing against a `list_content_items` with no date parameters**, every failure because FastAPI
+ignores an undeclared query parameter and returned the unfiltered list. One of the 27 was then
+revised and one added once the implementation exposed what `date` actually accepts — see the third
+note. Backend suite **142 → 170 passing**, nothing skipped; `ruff`, `ruff format --check`, `mypy` and
+`alembic check` all clean.
+
+Three things the task lines do not imply:
+
+- **Four of the new tests passed before the implementation existed, and that is the point of the
+  other 23.** An inclusivity assertion written as `"First day" in titles` is green against an
+  endpoint with no filter at all, because an unfiltered list contains everything. Boundary
+  inclusivity is therefore pinned twice — once with `in`, and once as an **exact set** that also
+  fails when the filter is too wide. A suite of `in` checks alone would have shipped a no-op.
+- **Two parameter combinations always return an empty array, deliberately.** `scheduled=none` with a
+  date bound, and `date_from > date_to`. Both compose to a `WHERE` clause nothing satisfies, and both
+  are left that way rather than refused with a 422: the contract declares these as independent
+  filters with no stated interaction, so a 422 would be a response it does not carry, and no surface
+  produces either query. Asserted so the choice is visible rather than incidental.
+- **A date bound excludes undated items by way of SQL, not by way of a clause.** `NULL >= date` is
+  `NULL`, so nothing in the endpoint looks like the line implementing FR-012's dated/undated split —
+  which is exactly why it is asserted in all three bound combinations, with a control proving the
+  undated item exists. Related: `date` accepts `2026-09-01T00:00:00Z` and refuses
+  `2026-09-01T12:00:00Z`, a safe pair characterised rather than tightened away, and the pair of tests
+  that would notice if either bound were ever retyped as a `datetime` (FR-012a).
 
 **Checkpoint**: US1 and US2 both work independently. Run quickstart V3 and V6.
 

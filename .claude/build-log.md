@@ -1129,3 +1129,72 @@ T042 was the artifact that was wrong and it is amended in `tasks.md`: one unpara
 narrowed client-side, with T036/T037 still building the parameters because the contract declares them.
 That is the second time in this project a coverage number and a real gap have disagreed, and the same
 lesson as the stage-1 reviewer pass: the two checks find different things, so both get run.
+
+## T036–T037 — the date-range filter, and what a green filter test can be green about
+
+**2026-08-01.** `GET /content-items` grows `date_from` and `date_to`. Backend suite **142 → 170
+passing**, none skipped. **One merge request for both tasks**, the same stated deviation as T029–T031:
+T036's whole subject is T037, so an MR carrying the tests alone would be red and the gate refuses a
+red pipeline. Fail-first therefore happened in the doing rather than in the history — **27 tests
+written, 23 red** against a `list_content_items` that had never heard of a date parameter.
+
+### The fail-first run is where the interesting part was
+
+All 23 failed the same way, and it is worth naming because it is not "the feature is missing": FastAPI
+**ignores an undeclared query parameter**, so every request returned the unfiltered list with a 200.
+That is the shape of every parameter failure from here — a filter that silently does nothing, which on
+a calendar looks like the grid working while showing the wrong month.
+
+Which makes the four tests that were **green before any implementation existed** the finding. Three
+were controls and known to be trivial. The fourth was not: an inclusivity check written as
+`assert "First day" in titles_in(client, date_from=RANGE_FROM)` passes against an endpoint with no
+filter at all, because an unfiltered list contains everything. It is a perfectly good test of "the
+lower bound is inclusive, not exclusive" and it is *worthless* as a test of "the lower bound exists".
+Both bounds are now pinned twice — once with `in`, once as an exact set — and the exact set is the one
+that fails when the filter is too wide. Written up in `backend/AGENTS.md`, because T060's `platform`
+parameter has exactly the same shape.
+
+### One assumption the implementation refuted
+
+The malformed-bound parametrisation was written with `2026-09-01T00:00:00Z` in it, on the assumption
+that `format: date` means `YYYY-MM-DD` and everything else is a 422. It is not. Pydantic coerces an
+RFC 3339 datetime whose time is exactly zero and refuses one with any real time — probed directly
+rather than inferred, because the first run only showed that the ignored parameter returned a 200.
+
+Kept as a characterisation test rather than tightened away with a bespoke validator, for two reasons:
+the only extra spellings accepted already name the whole day, so nothing can be silently truncated;
+and `frontend/lib/dates.ts` emits `YYYY-MM-DD` and nothing else, so there is no caller to protect. The
+half that is load-bearing is the *pair* — midnight accepted, `T12:00:00Z` refused — which is what
+would notice if either bound were ever retyped `datetime` and FR-012a's "no time of day" quietly
+stopped being true.
+
+### Two empty arrays that are decisions, not gaps
+
+`scheduled=none` with a date bound, and `date_from > date_to`. Both compose to a `WHERE` clause
+nothing satisfies, and both are left that way. The contract declares these as independent filters and
+says nothing about them interacting, so a 422 would be a response it does not carry — and it would
+need a `REACHABLE_4XX` case for a request no surface can produce, since the drawer sends
+`scheduled=none` and period navigation always builds `from <= to`. Asserted, so the choice is visible
+in the suite rather than inferred from an absence.
+
+The dated/undated split is the same class of thing from the other direction: nothing in the endpoint
+implements it. `NULL >= '2026-09-01'` is `NULL`, so SQL excludes undated items from any bounded query
+for free — which is precisely why it is asserted across all three bound combinations with a control
+proving the undated row exists. A rewrite that filtered in Python would pass everything else in the
+file.
+
+### What was left out
+
+`platform` is **T060** and `GET`/`PATCH`/`DELETE` by id are **T049–T050**; the module docstring
+already said so and still does. `ix_content_item_scheduled_date` exists from T011 and needed nothing —
+`alembic check` clean, no migration in this MR. The generated `openapi.json` was read back to confirm
+both parameters land as optional `format: date` in query, rather than trusting the annotation.
+
+And left out on the other side of the wire: **nothing calls these parameters yet, on purpose.** The
+Phase 3 checkpoint's `/speckit-analyze` pass amended T042 the day before — the calendar keeps one
+unparameterised read and narrows client-side, because a ranged read returns no undated rows and would
+have emptied the backlog drawer. That amendment is the reason the second bullet above can say no
+surface produces the empty-array combinations: it is a fact about the frontend as it will be built,
+not an accident of it being unbuilt. `contracts/openapi.yaml` declares both parameters, so they ship
+tested with a caller that does not yet need them — an endpoint ignoring its own contract is the drift
+this project exists to avoid.
