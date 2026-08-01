@@ -95,25 +95,44 @@ test("the capture action sits in the bottom half, within thumb reach", async ({ 
   expect(box!.height).toBeGreaterThanOrEqual(44);
 });
 
-test("the visible period comes from the browser clock, not the server", async ({
-  page,
-  baseURL,
-}) => {
-  await signedIn(page, baseURL);
-  await stubItems(page, []);
+/**
+ * One instant, two browser timezones, two different months — which is the only way to prove *whose*
+ * clock produced the answer.
+ *
+ * `2026-04-30T18:00:00Z` is already 1 May in UTC+7 and still 30 April in UTC-7. A period read during
+ * server rendering would come from the *server's* zone and be identical in both contexts, so one of
+ * these two would have to fail. R-006's addendum exists because that mismatch is otherwise a silent
+ * hydration flip.
+ *
+ * **`timezoneId` is pinned rather than inherited, and the first version of this test did not pin
+ * it.** It asserted "May 2026" against whatever zone the machine happened to be in: green on a
+ * developer machine in UTC+7, red on GitLab's UTC runner. A test that fixes a clock must fix a zone
+ * too, or it encodes its author's location — see `frontend/AGENTS.md`.
+ */
+for (const { timezoneId, expected } of [
+  { timezoneId: "Asia/Ho_Chi_Minh", expected: "May 2026" },
+  { timezoneId: "America/Los_Angeles", expected: "April 2026" },
+] as const) {
+  test.describe(`in ${timezoneId}`, () => {
+    test.use({ timezoneId });
 
-  // Fixed so the assertion is about *which* clock was read rather than about today's date. The
-  // runner is UTC and this instant is the 4th there and the 5th in UTC+7 — if the period were read
-  // during server rendering it would say March, and R-006's addendum exists because that mismatch
-  // is otherwise a silent hydration flip.
-  // `Date.UTC` rather than `new Date(...)`: eslint bans the constructor outside `lib/dates.ts`, and
-  // the ban is right — this is a millisecond timestamp, which is what `setFixedTime` wants anyway.
-  await page.clock.setFixedTime(Date.UTC(2026, 3, 30, 18, 0, 0));
+    test("the visible period comes from the browser clock, not the server", async ({
+      page,
+      baseURL,
+    }) => {
+      await signedIn(page, baseURL);
+      await stubItems(page, []);
 
-  await page.goto("/calendar");
+      // `Date.UTC` rather than `new Date(...)`: eslint bans the constructor outside `lib/dates.ts`,
+      // and the ban is right — this is a millisecond timestamp, which is what `setFixedTime` wants.
+      await page.clock.setFixedTime(Date.UTC(2026, 3, 30, 18, 0, 0));
 
-  await expect(page.getByTestId("calendar-period")).toHaveText("May 2026");
-});
+      await page.goto("/calendar");
+
+      await expect(page.getByTestId("calendar-period")).toHaveText(expected);
+    });
+  });
+}
 
 test("the item list is fetched once, not once per render", async ({ page, baseURL }) => {
   await signedIn(page, baseURL);

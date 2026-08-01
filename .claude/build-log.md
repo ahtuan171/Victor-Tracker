@@ -936,3 +936,21 @@ check. `/calendar` was built, served from the production bundle, and captured at
 list — eyebrow in brand red, skewed uppercase Oswald period, hairline borders, the notched capture
 button in the bottom band. Every token resolved. `pnpm typecheck`, `pnpm lint` and 120 green tests
 would all have passed had they not.
+
+**Postscript: the first pipeline for T033 was red, and the test was at fault rather than the code.**
+`the visible period comes from the browser clock, not the server` asserted `"May 2026"` from the
+instant `2026-04-30T18:00:00Z`. That is true in UTC+7, where it was written; GitLab's runner is UTC
+and read April. **Green locally, red in CI — the fourth time in this project**, and the first time
+the cause was a test rather than a config file.
+
+`page.clock.setFixedTime` pins the *instant*. The zone that turns an instant into a calendar day
+still comes from the machine, and nothing had pinned that. The fix made the test stronger rather than
+merely correct: `test.use({ timezoneId })` for two zones one either side of Greenwich, asserting the
+*same* timestamp renders `May 2026` in UTC+7 and `April 2026` in UTC-7. Two different answers from one
+instant can only happen if the browser's clock produced them — a period read during server rendering
+would be identical in both. Verified by running the suite under `TZ=UTC` *and* `TZ=Asia/Ho_Chi_Minh`
+before pushing again.
+
+`tests/client/dates.spec.ts` already ran its assertions under two timezones for exactly this reason,
+via `process.env.TZ`. That mechanism does not reach the browser, so the lesson did not transfer on its
+own — which is why it is now in `frontend/AGENTS.md` in browser terms.

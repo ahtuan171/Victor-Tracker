@@ -60,6 +60,16 @@ passed on the login redesign *before* it had ever been looked at. **Screenshot t
 after restyling it** — the suite asserts geometry (tap targets, thumb reach, overflow), which is
 exactly what survives a dropped colour class.
 
+**A browser test that fixes a clock must also fix a timezone, or it encodes the author's location.**
+`page.clock.setFixedTime` pins the *instant*; the zone that turns it into a calendar day still comes
+from the machine running the browser. T033's first period test asserted `"May 2026"` from
+`2026-04-30T18:00:00Z` — true in UTC+7, where it was written, and false on GitLab's UTC runner, which
+read April. **Green locally, red in CI, for the fourth time in this project.** Pin it with
+`test.use({ timezoneId })`, and prefer asserting the *same instant in two zones* one either side of
+Greenwich: two different answers from one timestamp is the only thing that proves the browser's clock
+produced them rather than the server's. `tests/client/dates.spec.ts` does the same for Node via
+`process.env.TZ` — the browser needs its own mechanism, and inheriting is not one.
+
 **A stub that mimics a response body but not its `Set-Cookie` passes until the destination is
 guarded.** `login.spec.ts` stubbed `POST /api/auth/login` with a body alone from T025, and the two
 tests that follow a successful sign-in were green — because `/calendar` did not exist, and **a 404
