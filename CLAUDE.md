@@ -18,6 +18,11 @@ hand"), four operations, one `fetch`, and one 401 handler exempting the two `/au
 top of that sit a **login page**, a **root route that redirects instead of 404ing**, a **session
 guard** on the `(app)` group, and **`lib/dates.ts`**.
 
+**Stage 2 (Design) closed on 2026-08-01.** The Claude Design export is in `design/content-calendar/`,
+the data-shape audit ran **clean**, and its tokens are installed in `frontend/app/globals.css` with
+`/login` rebuilt from them. The other ten surfaces were **not** built — each is built from that export
+at its own task, T033 onward.
+
 **The next task is T029**, the first of Phase 3 (User Story 1). Phase 2 blocked every user story and
 is now closed, so US1 may begin. T029 is a **backend** task — read `backend/AGENTS.md` first; the
 last five tasks were all frontend.
@@ -48,12 +53,12 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. **The `creator` table is still empty** — see the seed blocker below. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020). **96 passing.** Backend coverage for Phase 2 is complete. |
-| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `utils.ts`. `app/api/[...path]/route.ts` is the proxy. **Routes exist now**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027) — the group is otherwise empty until T033. **90 Playwright tests passing across four projects, 4 skipped** — `contract`, `proxy`, `client` (now the browser-side `lib/` modules, not just `api.ts`), `mobile-375`. |
+| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** — surfaces, ink, brand, status ramp, overdue, elevation, focus, plus `.notch-card` / `.notch-sheet` / `.web-grain`; `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes exist now**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027) — the group is otherwise empty until T033. **90 Playwright tests passing across four projects, 4 skipped** — `contract`, `proxy`, `client` (now the browser-side `lib/` modules, not just `api.ts`), `mobile-375`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service now has real pages to serve as of T025–T027, but has not been run. |
 | `.gitlab-ci.yml` | **Green end to end** on pipeline #5: `build → test → review` all pass, both `deploy` jobs `manual` as designed. Three earlier pipelines were red on config that had only ever been syntax-checked. The `test:backend` gap is now **closed by evidence**: the job still runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
-| `design/` | `content-calendar/BRIEF.md` only — the stage-2 brief and the data-shape audit checklist the export must pass. No export yet: the claude.ai design-system project exists but is empty. |
-| Claude Design | Project **`CreatorHub Design System`** created 2026-07-30, id `756a66ad-4f2e-42ff-9513-48b969855d40`. Created through `DesignSync create_project` specifically so the project type is right — see Decisions. **Empty**: the design work itself has not been done. |
+| `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `CreatorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
+| Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `CreatorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
 | `docs/` | Does not exist. Correct — T076 creates it. |
 | GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **MRs !1–!4 merged T025–T028**, each behind a green pipeline. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
@@ -165,13 +170,12 @@ now blocks a *by-hand* check that Phase 2 otherwise passed:
    suite is green and genuinely proves less than a single real sign-in would. **Do this before T033**,
    which builds the first surface assuming a real session. Fix is in `CLAUDE.local.md`; seed **once**
    with the address you intend to keep, because a different email is refused outright afterwards.
-9. **Stage 2 (Design)** needs the **design work itself** in the `CreatorHub Design System` project
-   (already created, id in the table above, currently empty). Read
-   `design/content-calendar/BRIEF.md` first — it carries the surface list, the locked status-cue
-   encoding, and the `DO NOT INVENT` list to paste into the Claude Design prompt. Pull the export with
-   `DesignSync list_files` / `get_file` into `design/content-calendar/`, then **run the data-shape
-   audit before adapting anything**, and write the result into BRIEF.md even if it is clean. The
-   deadline is **T034**, not T038 — see Decisions.
+9. ~~**Stage 2 (Design)**~~ — **done 2026-08-01.** The export is in `design/content-calendar/`, the
+   data-shape audit ran **clean** (no `spec.md` amendment needed), and the token layer is in
+   `frontend/app/globals.css`. Nothing here blocks T034 any more. **Every surface from T033 on is
+   built from that export** — read `BRIEF.md`'s audit findings and open the `.dc.html` before building
+   one, rather than inventing a layout. The ten surfaces beyond `/login` were deliberately **not**
+   built ahead of their tasks.
 10. **Import `tasks.md` as GitLab issues** — T001–T028 created and closed immediately, so later
     `closes #N` references do not skew. `/speckit-taskstoissues` is GitHub-only and will abort; use
     `glab issue create` or the web UI. Do not try to make that command work.

@@ -108,4 +108,69 @@ ran are indistinguishable unless the outcome is recorded. Append findings to the
 
 ## Audit findings
 
-_(empty — the export does not exist yet)_
+**2026-08-01 — export received, audit run, result: CLEAN. No spec amendment required.**
+
+Export: `CreatorHub-Content-Calendar.dc.html` (one Claude Design canvas, two turns — dark at `1a`–`1l`,
+light counterpart at `2a`–`2l`). Pulled with `DesignSync get_file` from project
+`32445b82-32e5-4ac4-86d3-4fcc885a5484` ("Thiết kế v0.1 hoàn thành") — **not** the empty
+`CreatorHub Design System` project recorded in `CLAUDE.md`. `support.js` is the canvas runtime, kept
+so the file renders offline.
+
+### Coverage — all eleven surfaces present, at 375px
+
+`Login` · `Month grid + day cell` · `Week view` · `Item chip` · `Capture sheet` · `Item sheet` ·
+`Backlog drawer` · `Period nav` · `Platform filter` · `Delete confirm` · `First-run empty state`.
+
+### Field mapping — every control maps to one of the six
+
+The item sheet (`1g`) carries exactly: **Title · Hook · Status · Platform · Date · Published link**,
+with the platform control adjacent to the status control as required. No seventh control exists on
+any surface.
+
+Each rejected field was searched for by pattern across the whole export:
+
+| Checked for | Result |
+|---|---|
+| Time of day, clock icon, time picker, timezone | **Absent.** No `HH:MM`, no AM/PM, no clock glyph anywhere. |
+| Tags, categories, labels, series, collections | **Absent.** The three "label" matches are the *type-scale token* `Label 13/600` and the canvas's own `data-screen-label` attribute. |
+| Drag handles, manual reorder, `sort_order` | **Absent.** The drawer states "Undated ideas, newest first" — matches `created_at DESC`. |
+| Two platform badges on one item | **Absent.** Every chip carries exactly one monogram, T/I/Y as text nodes. No platform logos. |
+| Archive, trash, undo, `deleted_at` | **Absent as features.** The two "trash"/"undo" matches are the delete-confirm *copy*: "There is no trash and no undo" — which reinforces FR-004's hard delete rather than implying a soft one. |
+| Priority, assignee, collaborator, avatar, owner | **Absent.** |
+| Version history, "last edited by", conflict banner | **Absent.** Consistent with FR-023a last-write-wins. |
+| Attachments, thumbnails, media upload | **Absent.** |
+| Search | **Absent.** |
+| Performance metrics, streaks, notifications | **Absent.** The single "metric" match is the word "geo**metric**" in the prompt echo. |
+
+**One item examined and cleared rather than assumed:** the month-grid header shows `14 items` /
+`3 overdue`, and the drawer shows `Backlog 6` / `2 of 6` under a filter. These are **derived counts
+over the item list already fetched**, not stored fields and not performance metrics — nothing new to
+persist, so no amendment. Recorded here so a later reader does not re-open the question.
+
+### Locked encodings — preserved exactly
+
+`idea` outline circle · `draft` half-filled circle · `posted` solid circle with check. Overdue is a
+**4px dashed left border** (bone `#DCD3BE` dark / `#5C5240` light), deliberately dashed so it separates
+from the solid brand red in both hue and greyscale, and it stays orthogonal to status rather than
+becoming a fourth state.
+
+### The acceptance test passes
+
+`screenshot-month-grid-375-dark.png` and `screenshot-month-grid-375-greyscale.png` are the two
+screenshots the prompt demanded, rendered from the export with Playwright at 375px. In the greyscale
+one the outline → half → solid progression stays separable and the dashed overdue border still reads,
+which is what SC-004 tests. The export also carries the greyscale panel as a first-class surface
+(`1d`/`2d`), so the check is repeatable rather than a one-off.
+
+Also confirmed structurally: six-week span including adjacent-month days; cell overflow is a
+**`+2 more` remainder count**, not a clipped list; week view is seven **vertical sections**; primary
+actions (`+ CAPTURE`, period nav, month/week toggle) sit in the **bottom band**; the filtered empty
+state **names the filter** ("No YouTube items in March 2026" + "Clear YouTube filter"); delete confirm
+puts **Keep** as the focused default with Delete as the lower, lighter-weight action.
+
+### Consequences for `frontend/`
+
+The token layer landed in `frontend/app/globals.css` at the same time as this audit, replacing the
+provisional shadcn palette that file always described as stage-2 disposable. **The surfaces themselves
+were deliberately not built** — each belongs to a task from T033 onward and is built there, from this
+export. This file plus the `.dc.html` is what those tasks read.

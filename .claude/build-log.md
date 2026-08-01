@@ -642,3 +642,70 @@ the reserved `.local` TLD, `email-validator` rejects it, and the `creator` table
 account exists, so quickstart V1 cannot be walked by a human. Nothing in Phase 2 depended on it —
 every test stubs the proxy, because CI has no FastAPI behind it — but T033 builds the first surface
 that assumes a real session, so the first hand-verified sign-in has to happen before then.
+
+## Stage 2 — the design export lands, and the audit runs
+
+**2026-08-01.** The export arrived as a shared link to a claude.ai *design canvas*, and the first
+useful discovery was that it is **not in the `CreatorHub Design System` project** created at stage 2
+groundwork (`756a66ad-…`, still empty). It lives in a regular project, `32445b82-…`
+("Thiết kế v0.1 hoàn thành"). `DesignSync` read it anyway — `get_file` does not require a
+design-system project type; only pushing a component library back would. Nothing was lost, but the
+project-type decision recorded in `CLAUDE.md`'s Decisions table turned out to protect a workflow this
+export never used.
+
+One file, `CreatorHub-Content-Calendar.dc.html`, 203KB, carrying **both** turns: dark at panels
+`1a`–`1l` and a light counterpart at `2a`–`2l`. All eleven surfaces the brief asked for are present,
+each drawn at 375px.
+
+### The screenshot could not be fetched, so it was regenerated
+
+`get_file` caps at 256 KiB, and the uploaded PNG is 1200×3608. What came back was exactly 262144
+base64 characters — a byte-perfect prefix with **no `IEND` chunk**. It decodes to a file that looks
+plausible in a directory listing and is not a valid PNG. It was deleted rather than committed.
+
+The replacement is better anyway: the `.dc.html` renders offline in Chromium, so the screenshots were
+taken from the export itself with Playwright. Two notes for anyone repeating this — the canvas
+runtime (`support.js`) needs `window.React`, which the file never loads, so it throws on load and the
+`{{ accent }}` placeholders survive in a couple of style attributes; everything else is plain HTML and
+renders correctly. And panel ids start with a digit, so `#1c` is an invalid CSS selector — use
+`[id="1c"]`.
+
+### The audit was mechanical, which was the whole point of writing it first
+
+Result: **clean, no `spec.md` amendment required.** Full findings are in
+`design/content-calendar/BRIEF.md`; the short version is that the item sheet carries exactly the six
+editable fields and no surface invents a seventh.
+
+Three pattern matches had to be read in context before they could be dismissed, and all three are
+false positives worth recording because a future grep will hit them again:
+
+- **"trash" and "undo"** appear in the delete-confirm *copy* — "There is no trash and no undo" — which
+  asserts FR-004's hard delete rather than implying a soft one.
+- **"label"** is the type-scale token `Label 13/600` and the canvas's own `data-screen-label`.
+- **"metric"** is the word *geometric*.
+
+The one genuine judgement call: the month grid header shows `14 items · 3 overdue` and the drawer
+shows `Backlog 6`. Those are **derived counts over the list already fetched** — no new column, no new
+endpoint — so they are not the "performance metrics" the DO NOT INVENT list refuses. Cleared and
+written down, so the question does not get re-opened at T042.
+
+The acceptance test passes on inspection: in
+`screenshot-month-grid-375-greyscale.png` the outline → half → solid+check progression stays separable
+and the dashed overdue border still reads. The export carries that greyscale panel as a first-class
+surface (`1d`/`2d`) rather than as a one-off screenshot, so SC-004 stays checkable.
+
+### What was integrated, and what deliberately was not
+
+**Integrated:** the token layer in `frontend/app/globals.css` — surfaces, ink, brand, the status ramp,
+overdue, elevation, focus — plus the Oswald/Barlow pairing in `app/layout.tsx`, and the one surface
+that already exists, `/login`, rebuilt from panel `1l`.
+
+**Not integrated:** the other ten surfaces. Each belongs to a task from T033 onward and gets built
+there, from this export. Building the month grid now because a picture of it exists is exactly the
+drift `specs/` outranks code exists to prevent — and `/calendar` still cannot be reached, because the
+seed account still does not exist.
+
+The suite is unchanged at **90 passing, 4 skipped**, with build, typecheck, and lint clean. That the
+login tests passed untouched is the useful signal: they assert the 44px tap target, the thumb-reach
+position, and the absence of horizontal overflow at 375px — the three things a visual redesign is most
+likely to break — and the redesign moved every pixel on the screen without moving those.
