@@ -198,15 +198,18 @@ settings were verified against the GitLab API, not assumed. T025–T028 merged a
 behind a green pipeline — the first changes in this project to pass a gate that could have stopped
 them. Everything before that is a knowing constitution VI exception; `T076` records its range.
 
-Two things are still outstanding, and neither blocks implementation:
+**The creator account is seeded, and V1 has been walked by hand (2026-08-01).** The blocker recorded
+here was a `SEED_CREATOR_EMAIL` on the reserved `.local` TLD, which `email-validator` refuses; the
+address in `.env` was changed to a real domain and `uv run python -m app.scripts.seed_user` succeeded.
+V1 was then walked end to end in a browser — sign-in through the Next.js proxy to FastAPI to Postgres
+— so the first real session in this project's history exists. It is the **only** hand-verified path so
+far: every automated frontend test stubs the proxy, because CI has no FastAPI behind it. Do not
+re-seed with a different address; a *different* email is refused outright, and `content_item` has no
+owner column.
 
-1. **The single creator account has never been seeded.** `SEED_CREATOR_EMAIL` in `.env` uses the
-   reserved `.local` TLD, `email-validator` rejects it, and the `creator` table is empty — so
-   `uv run python -m app.scripts.seed_user` has never once succeeded. **V1 below cannot be walked by
-   hand until this is fixed**, and T033 is the first task that builds a surface assuming a real
-   session. Seed once with the address you intend to keep: re-running updates the password, but a
-   *different* email is refused outright, and `content_item` has no owner column.
-2. **`tasks.md` has not been imported as GitLab issues.** T001–T028 should be created and closed
+One thing is still outstanding, and it does not block implementation:
+
+1. **`tasks.md` has not been imported as GitLab issues.** T001–T028 should be created and closed
    immediately so later `closes #N` references do not skew. `/speckit-taskstoissues` is GitHub-only
    and aborts on a GitLab remote — use `glab issue create` or the web UI. Do not try to make that
    command work; `.claude/rules/workflow.md` says so explicitly.

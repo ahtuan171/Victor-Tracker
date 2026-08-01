@@ -79,6 +79,17 @@ a picture reorder the task board.
   justify merging T023 and T024 locally. The very next push ran all 10 jobs. Push again before
   concluding anything about a runner.
 
+**2026-08-01 — the seed blocker is closed, and the durable half is not "an account exists".** The
+account exists (one row, a real domain — `.local` is a reserved TLD that `email-validator` refuses),
+and quickstart V1 has been walked in a browser. That part is now history and belongs in the build log.
+What stays here is what the walk *revealed about the suite*: **every automated frontend test stubs the
+proxy**, because CI has no FastAPI behind it, so a fully green frontend run says nothing about whether
+the browser → proxy → FastAPI → Postgres path works. One hand-walk proved more than 90 tests did.
+The rule that follows: **hand-walk the quickstart at every phase checkpoint**, and treat "the suite is
+green" as evidence about the frontend in isolation, never about the seam. Re-seeding is not available
+as a fix — a *different* email is refused outright, because `content_item` has no owner column (INV-4)
+and two creators would silently share every item.
+
 ## Traps
 
 Only the ones that bite outside a single tree. **Backend traps live in

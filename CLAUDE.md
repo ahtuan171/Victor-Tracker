@@ -50,7 +50,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T028 ticked — Phase 2 closed**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2 — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. |
-| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. **The `creator` table is still empty** — see the seed blocker below. |
+| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `scripts/seed_user.py`. Complete for Phase 2; `api/content_items.py` arrives at T030. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020). **96 passing.** Backend coverage for Phase 2 is complete. |
 | `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** — surfaces, ink, brand, status ramp, overdue, elevation, focus, plus `.notch-card` / `.notch-sheet` / `.web-grain`; `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes exist now**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027) — the group is otherwise empty until T033. **90 Playwright tests passing across four projects, 4 skipped** — `contract`, `proxy`, `client` (now the browser-side `lib/` modules, not just `api.ts`), `mobile-375`. |
@@ -159,17 +159,17 @@ and neither is duplicated here.
    reissue. `research.md` R-002 defers it to Reflect on purpose, so the rule is inherited by later
    modules rather than re-derived from an argument buried in a research file.
 
-**Three things are waiting on the human, not on code.** None of them blocked Phase 2, but the first
-now blocks a *by-hand* check that Phase 2 otherwise passed:
+**One thing is still waiting on the human, and it blocks nothing.** The other two closed on
+2026-08-01:
 
-8. **The single creator account has never been seeded, and this is now the oldest open item.**
-   `SEED_CREATOR_EMAIL` is rejected by `email-validator` — `.local` is a reserved TLD — so
-   `app.scripts.seed_user` has never succeeded and the `creator` table is empty. Found at T022.
-   Consequence: **quickstart V1 has never been walked by a human**, because there is no account to
-   sign in with. Every Phase 2 test stubs the proxy (CI has no FastAPI behind it), so the automated
-   suite is green and genuinely proves less than a single real sign-in would. **Do this before T033**,
-   which builds the first surface assuming a real session. Fix is in `CLAUDE.local.md`; seed **once**
-   with the address you intend to keep, because a different email is refused outright afterwards.
+8. ~~**Seed the single creator account**~~ — **done 2026-08-01, and it was the oldest open item in the
+   project.** The cause was `SEED_CREATOR_EMAIL` on the reserved `.local` TLD, which `email-validator`
+   refuses; a real domain fixed it and `app.scripts.seed_user` ran. **Quickstart V1 has now been walked
+   by a human** — browser to proxy to FastAPI to Postgres — so T033 builds on a session proven outside
+   the suite as well as inside it. One row exists: **do not seed a second address**, it is refused
+   outright and `content_item` has no owner column. Note what this does *not* change: every automated
+   frontend test still stubs the proxy, because CI has no FastAPI behind it, so the green suite still
+   proves less than that one sign-in did. Prefer a hand-walk at each checkpoint over trusting it.
 9. ~~**Stage 2 (Design)**~~ — **done 2026-08-01.** The export is in `design/content-calendar/`, the
    data-shape audit ran **clean** (no `spec.md` amendment needed), and the token layer is in
    `frontend/app/globals.css`. Nothing here blocks T034 any more. **Every surface from T033 on is

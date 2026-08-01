@@ -709,3 +709,32 @@ The suite is unchanged at **90 passing, 4 skipped**, with build, typecheck, and 
 login tests passed untouched is the useful signal: they assert the 44px tap target, the thumb-reach
 position, and the absence of horizontal overflow at 375px — the three things a visual redesign is most
 likely to break — and the redesign moved every pixel on the screen without moving those.
+
+## The seed blocker closes, and quickstart V1 is walked
+
+**2026-08-01.** The oldest open item in the project — open since T022, referenced by five separate
+documents as blocking — was one character class in an email address. `SEED_CREATOR_EMAIL` used
+`creator@creatorhub.local`, and `email-validator` refuses `.local` because it is a reserved
+special-use TLD rather than a deliverable domain. `app.scripts.seed_user` had therefore never once
+succeeded and the `creator` table was empty.
+
+Changing the address to a real domain fixed it in one run. `creator` now holds exactly one row.
+
+**The part worth recording is not the fix.** It is what the hand-walk demonstrated afterwards. V1 was
+walked in a real browser — sign-in through the Next.js proxy to FastAPI to Postgres — and it was the
+**first time in this project's history** that path had executed end to end outside a test. Up to that
+point Phase 2 was 90 green frontend tests, and every one of them stubs the proxy, because CI has no
+FastAPI behind it. The suite could not have distinguished a working seam from a broken one.
+
+So the rule that came out of this is not "seed earlier". It is: **a green frontend suite is evidence
+about the frontend in isolation and about nothing else**, and each phase checkpoint gets a hand-walk
+of its quickstart section regardless of what the suite says. That is now in `.claude/memory.md`; the
+diagnosis itself is in `CLAUDE.local.md`, where a fresh machine would look.
+
+Re-seeding is not a recovery path: `seed_user` updates the password of the existing account, but a
+*different* email is refused outright, because `content_item` has no owner column (INV-4) and two
+creator rows would silently share every item.
+
+Five documents claimed this was outstanding — `CLAUDE.md`, `CLAUDE.local.md`, `.claude/memory.md`,
+`quickstart.md`, and `tasks.md` in two places. All were corrected before T029 began, in their own
+merge request, so the Phase 3 branches carry code and nothing else.
