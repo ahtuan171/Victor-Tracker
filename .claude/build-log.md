@@ -817,3 +817,64 @@ because this value is rendered as an `href`.
 The two query parameters this endpoint does *not* implement — `date_from`/`date_to` at T037,
 `platform` at T060 — were left out on purpose. The contract describes the finished module; a parameter
 appearing before its task is the speculative build principle VII forbids.
+
+## T032 — the data-fetching pattern, established once
+
+**2026-08-01.** `lib/items.ts`, the module R-007 exists to make necessary. Frontend suite **90 → 110
+passing**, 4 still skipped.
+
+The task is small in code and load-bearing in shape: T033's calendar, T034's capture sheet, T035's
+drawer, and T061's filter all read from here, and the post-review pass in `tasks.md` recorded that
+without it T038 and T061 would each have invented a data-fetching strategy in separate merge requests.
+
+### The module is split in two because this project has no renderer
+
+`tech-defaults.md` rules out Jest and React Testing Library at v0.1, so a hook cannot be exercised in
+isolation — there is nothing to render it into. Left as one `useContentItems`, the branches that
+matter most would have been the least reachable: the rollback path only runs when the server refuses
+a write, and the overlap path only when a reload lands mid-save. Through a browser both need a request
+failed or delayed deliberately, and neither would ever be asserted at the level of *which rows end up
+in which order*.
+
+So every decision about what the state becomes is an exported pure function, and the hook is a shell
+holding the effect, the fetch, and the temporary-id counter. Twenty unit tests cover the transitions;
+the hook's wiring is covered by the browser tests at T033 and T034. **This is a testing constraint
+producing a better design, not a workaround** — and it is the pattern to follow when the module grows
+`PATCH` at T049.
+
+### A pending row is a real item with a negative id
+
+Postgres identity columns start at 1 and never go negative, so a negative id cannot collide with a
+real one — a stronger guarantee than a `_pending` flag, which a spread or a reconciliation can drop
+while leaving the row looking saved. Surfaces therefore render one list and key on `item.id`, which is
+what an optimistic update is for.
+
+`isPending` matters beyond rendering, and this is the part a later task will trip over: **a pending
+row cannot be the target of a `PATCH` or a `DELETE`**, because the id it names does not exist. T049
+and T050 have to skip those rows rather than let a control appear that produces a 404.
+
+### Two failure modes that are invisible when you read the code
+
+**A read that lands mid-save deletes the row being saved.** The creator taps save; the list request
+that was already in flight returns; replacing `items` wholesale makes the new row vanish and reappear
+seconds later. `itemsLoaded` re-prepends pending rows to prevent it. In the same breath it is a
+*replacement* for saved rows rather than a merge-by-id — a merge would leave a deleted item on screen
+forever. Both are asserted, because neither is visible in the function's five lines.
+
+**A failed write must not blank the calendar.** A refused save rethrows to the capture sheet, which
+renders it beside its own field with the creator's text intact; only a failed *read* sets
+`state.error`. Collapsing the two is the obvious simplification and it loses the whole list because
+one item was refused.
+
+### One addition to `lib/dates.ts`
+
+`nowInstant()`. An optimistic row needs `created_at` and `updated_at` shaped like the server's, and
+eslint forbids `new Date` outside that module — correctly, since that ban is what keeps R-006's
+off-by-one out of the codebase. It sits beside `today()` because both are `Date` access, not because
+they are interchangeable: one is an instant on the UTC timeline, the other a calendar date, and
+`parseDateOnly` rejects the former by design.
+
+Unlike `today()` it does **not** refuse to run outside the browser. It is called from an event
+handler on a user action, never during render, so there is no hydration flip to prevent — and the
+reducer that consumes it takes the timestamp as an argument, which is what keeps that reducer testable
+in a Node runner.
