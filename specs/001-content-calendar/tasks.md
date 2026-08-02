@@ -829,7 +829,34 @@ Also settled here: `CalendarShell` now holds **two lists**, and the rule is writ
 file — *anything that displays a set takes `visible`; anything that acts on a row takes `items`*.
 Looking `editing` up in the filtered list would close the item sheet the moment the creator gave that
 item a platform the filter excludes, which is a normal edit that would read as a crash.
-- [ ] T062 [US4] Add the filtered empty state to both the grid and the drawer, naming the active filter rather than showing a blank screen (spec Edge Cases)
+- [x] T062 [US4] Add the filtered empty state to both the grid and the drawer, naming the active filter rather than showing a blank screen (spec Edge Cases)
+
+**T062 result (2026-08-02)**: done. `components/item/FilteredEmpty.tsx` replaces the grid, and the
+drawer's two empty states gained a filtered spelling in both the peek strip and the expanded list.
+Frontend suite **343 → 349 passing**, nothing skipped. Screenshotted at 375px on a production build
+against the live stack.
+
+**The condition is "the filter hid everything", not "this period is empty"**, and that distinction is
+the substance of the task. The spec's edge case is worded *"All items filtered out"* — the state a
+creator cannot get out of unaided, where every cell is empty, the backlog is empty, and nothing
+explains why. An empty *month* is a different thing: the items exist, the period arrows answer it,
+and a month with nothing planned is a normal thing for a calendar to show. Drawing this over an empty
+March while TikTok items sit in April would blame the filter for the creator's own navigation.
+`platform-filter.spec.ts` asserts both directions.
+
+**A third state had to be separated out during the task, and a test caught it rather than review.**
+An account with *no items at all* keeps the first-run copy however the filter is set — a filter is not
+why that calendar is empty, and pointing at one would be misdirection on a creator's very first
+screen. The grid had this guard from the start (`items.length > 0`); the drawer did not, because it
+was being handed only the filtered list and so could not tell "you have captured nothing" from "the
+filter is hiding your backlog". **`BacklogDrawer` therefore takes the unfiltered list plus the
+filter and applies both narrowings itself** — the one consumer on the surface that does not take the
+shell's `visible`, and the exception is documented at both ends.
+
+One line of export copy was changed on purpose, the second time this has happened (T035 was the
+first). The export writes *"No YouTube items in March 2026"*; the period clause is dropped, because
+under the condition above there are no items on that platform in **any** period, so naming one month
+would suggest another might have some.
 
 **Checkpoint**: all of US1–US4 work independently.
 

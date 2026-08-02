@@ -285,6 +285,103 @@ test("the row is in thumb reach and meets the 44px tap floor", async ({ page, ba
   }
 });
 
+test.describe("the filtered empty state (T062)", () => {
+  test("names the filter instead of showing a blank calendar", async ({ page, baseURL }) => {
+    await openCalendar(page, baseURL, [
+      item(2, { title: "TikTok item", platform: "tiktok", scheduled_date: "2026-03-10" }),
+      item(1, { title: "Undecided idea" }),
+    ]);
+
+    await page.getByTestId("platform-filter-youtube").click();
+
+    // The spec's edge case: "the view shows an explicit empty state naming the active filter, not a
+    // blank screen". Asserting the platform *name* appears is the whole point — a generic "nothing
+    // here" would satisfy a count assertion and fail the requirement.
+    const empty = page.getByTestId("filtered-empty");
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("No YouTube items");
+    await expect(empty).toContainText("The YouTube filter is on");
+
+    // It replaces the grid rather than sitting above it — an empty six-week grid under an
+    // explanation is still a blank screen.
+    await expect(page.getByTestId("month-grid")).toHaveCount(0);
+  });
+
+  test("its button clears the filter and brings the calendar back", async ({ page, baseURL }) => {
+    await openCalendar(page, baseURL);
+
+    await page.getByTestId("platform-filter-youtube").click();
+    await expect(gridChips(page)).toHaveCount(1);
+
+    // With items on every platform the empty state does not appear — the guard against it showing up
+    // whenever a filter is merely *active*.
+    await expect(page.getByTestId("filtered-empty")).toHaveCount(0);
+
+    await openCalendar(page, baseURL, [item(1, { title: "Only TikTok", platform: "tiktok" })]);
+    await page.getByTestId("platform-filter-youtube").click();
+    await page.getByTestId("filtered-empty-clear").click();
+
+    await expect(page.getByTestId("filtered-empty")).toHaveCount(0);
+    await expect(page.getByTestId("month-grid")).toBeVisible();
+    await expect(page.getByTestId("platform-filter-all")).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("an empty period is not treated as an emptied filter", async ({ page, baseURL }) => {
+    await openCalendar(page, baseURL, [
+      item(1, { title: "TikTok in April", platform: "tiktok", scheduled_date: "2026-04-20" }),
+    ]);
+
+    await page.getByTestId("platform-filter-tiktok").click();
+    // The item matches the filter, so nothing is filtered *out* — March simply has nothing planned,
+    // which is a normal thing for a calendar to show and which the period arrows already answer.
+    // Drawing the filter's empty state here would blame the filter for the creator's own navigation.
+    await expect(page.getByTestId("filtered-empty")).toHaveCount(0);
+    await expect(page.getByTestId("month-grid")).toBeVisible();
+
+    await page.getByTestId("period-next").click();
+    await expect(gridChips(page)).toHaveCount(1);
+  });
+
+  test("an account with no items at all still gets the first-run copy", async ({
+    page,
+    baseURL,
+  }) => {
+    await openCalendar(page, baseURL, []);
+
+    await page.getByTestId("platform-filter-tiktok").click();
+
+    // A creator with nothing captured should meet the drawer's "tap + Capture", not a message about
+    // a filter that is not the reason their calendar is empty.
+    await expect(page.getByTestId("filtered-empty")).toHaveCount(0);
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Everything you capture");
+  });
+
+  test("the backlog names the filter too, in both drawer states", async ({ page, baseURL }) => {
+    await openCalendar(page, baseURL);
+
+    await page.getByTestId("platform-filter-youtube").click();
+
+    // T062 asks for this on the drawer as well as the grid, and the peek strip is the backlog view a
+    // creator sees most. Without it the strip reads "Everything you capture starts here" to someone
+    // whose backlog is full — telling them to capture something they already have.
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("No undated YouTube ideas");
+    await expect(page.getByTestId("backlog-empty-peek")).not.toContainText("Everything you capture");
+
+    await page.getByTestId("backlog-toggle").click();
+    await expect(page.getByTestId("backlog-empty")).toContainText("No undated YouTube ideas");
+  });
+
+  test("and the unfiltered backlog keeps its first-run copy", async ({ page, baseURL }) => {
+    // The control. Without it, "names the filter" would pass just as well against a drawer that had
+    // lost the first-run copy entirely.
+    await openCalendar(page, baseURL, [
+      item(1, { title: "Dated", platform: "tiktok", scheduled_date: "2026-03-10" }),
+    ]);
+
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Everything you capture");
+  });
+});
+
 test("the filter row does not push the body sideways at 375px", async ({ page, baseURL }) => {
   await openCalendar(page, baseURL);
 
