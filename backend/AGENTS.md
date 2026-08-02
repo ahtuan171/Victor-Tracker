@@ -199,7 +199,11 @@ unfiltered list contains everything. Four of that task's tests were green before
 existed. Every filter test needs at least one **exact-set** assertion — `== {…}` — which is the only
 form that fails when the filter is too wide, and the only form that distinguishes "the filter works"
 from "the parameter was ignored". FastAPI ignores undeclared query parameters silently, so this is
-the default failure mode for every parameter added from here: `platform` at T060 has the same shape.
+the default failure mode for every parameter added from here. **`platform` at T059 was written this
+way and the prediction held**: 14 of its 16 tests were red before T060 existed, and the two that were
+not are the ones naming no parameter — the unfiltered control, which is green by design. A test that
+stays green across the implementation of the thing it is about is either a control or a defect, and
+which one it is has to be decidable from its docstring.
 
 **A forbidden-name pattern list does not know this project's nouns.** T019 was specified as
 `%user%`, `%owner%`, `%tenant%`, `%version%` — generic multi-tenancy vocabulary, none of which

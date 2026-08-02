@@ -762,11 +762,37 @@ then clear and confirm all return.
 
 ### Tests for User Story 4
 
-- [ ] T059 [P] [US4] Extend `backend/tests/test_content_items.py` with platform-filter tests, including that items with a null platform are excluded when the filter is set (FR-016, US4 scenario 4)
+- [x] T059 [P] [US4] Extend `backend/tests/test_content_items.py` with platform-filter tests, including that items with a null platform are excluded when the filter is set (FR-016, US4 scenario 4)
 
 ### Implementation for User Story 4
 
-- [ ] T060 [US4] Add the `platform` query parameter to `GET /content-items` in `backend/app/api/content_items.py` (FR-016)
+- [x] T060 [US4] Add the `platform` query parameter to `GET /content-items` in `backend/app/api/content_items.py` (FR-016)
+
+**T059–T060 result (2026-08-02)**: done, in **one merge request**, and that is the same stated
+deviation as T029–T031, T036–T037 and T043–T044 rather than a new one — T059's entire subject is
+T060, so an MR carrying the tests alone would be red and the merge gate refuses a red pipeline.
+
+Fail-first was satisfied in the doing: **16 tests written, 14 failing** against a `list_content_items`
+with no `platform` parameter, every failure for the same reason as T036's — FastAPI ignores an
+undeclared query parameter and returns the unfiltered list. The two that were green are the two that
+name no parameter: the unfiltered control (US4 scenario 2) and the empty-array case's 200. Backend
+suite **238 → 254 passing**, nothing skipped; `ruff`, `ruff format --check` and `mypy` clean.
+
+Three things worth recording, none of which the task line implies:
+
+- **Every test naming the parameter asserts an exact set.** `backend/AGENTS.md` records this trap
+  biting at T036, and `platform` was flagged there by name as the next parameter with the same shape.
+  A membership check (`"Ring light" in titles`) is green against an endpoint that has never heard of
+  the filter, so it proves nothing until the filter can be too *wide*.
+- **The unplatformed item is in the fixture, not in its own test.** US4 scenario 4 makes its
+  exclusion a stated behaviour, and the endpoint gets it free from SQL — `NULL = 'tiktok'` is `NULL`.
+  Same shape as the undated item in the date-range fixture: behaviour with no line implementing it,
+  so nothing signals when a rewrite drops it.
+- **An unknown platform is 422, including the empty string.** `platform=` is what a frontend produces
+  by putting an unset filter into a query string unchecked, and it must not mean "all" — a caller
+  wanting everything omits the parameter. The generated schema renders `anyOf: [Platform, null]`,
+  which is what `date_from` and `date_to` already do, so this follows the established convention
+  rather than introducing a second one.
 - [ ] T061 [US4] Build the platform filter in `frontend/components/item/PlatformFilter.tsx` as local state narrowing the already-loaded period, applied to the grid and the backlog drawer alike, within thumb reach (FR-016, FR-022, SC-005, research.md R-007)
 - [ ] T062 [US4] Add the filtered empty state to both the grid and the drawer, naming the active filter rather than showing a blank screen (spec Edge Cases)
 
