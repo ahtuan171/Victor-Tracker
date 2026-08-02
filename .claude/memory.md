@@ -90,6 +90,23 @@ green" as evidence about the frontend in isolation, never about the seam. Re-see
 as a fix — a *different* email is refused outright, because `content_item` has no owner column (INV-4)
 and two creators would silently share every item.
 
+**2026-08-02 — parallel tracks are worth it exactly when the trees are disjoint, and not otherwise.**
+Phase 4 was split in two: the backend pair (T036–T037) ran in a `general-purpose` subagent in its own
+git worktree while the frontend chain (T038–T042) ran here. They never touched the same file, both
+merged behind their own green pipelines, and the only coordination needed was a rebase when `main`
+moved underneath the slower one.
+
+**The frontend chain was deliberately *not* split**, and that is the reusable half of this note: T038
+to T042 is linear because each task is the previous one's only consumer — the mapping has no shape
+until the cues render it, the cues have no home until the chip composes them, the chip has no surface
+until the drawer and the grid draw it. Two agents on that chain would spend more time rebasing than
+building, and each MR would gate on a pipeline that runs in serial anyway. Split by **tree**, not by
+task count; if two tasks would edit one file, they are one track.
+
+One thing the split cost: the worktree has no `.env` of its own and `app/config.py` refuses to import
+without one, so an agent working in `backend/` there has to copy the root file in. Worth saying in the
+prompt rather than letting it discover this.
+
 ## Traps
 
 Only the ones that bite outside a single tree. **Backend traps live in
