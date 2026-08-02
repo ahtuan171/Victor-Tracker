@@ -1265,3 +1265,119 @@ One environment note, twice in one session: **Docker Desktop's daemon does not s
 stopped it**, and the symptom mid-task is a screenshot script timing out on a login page that cannot
 reach FastAPI. Starting Docker Desktop and re-running `docker compose up -d db backend` is the fix; it
 costs about ninety seconds and is the first thing to check when a real-stack script hangs.
+
+---
+
+## Phase 4 closing: T043–T045, and the checkpoint that found a live spec violation
+
+### T043 and T044 shared a merge request, and the reason is structural
+
+The week view is seven **vertical sections**, not seven columns. Seven columns at 375px is about 53px
+each — the width at which `DayCell` already drops its title — and the week is precisely the view a
+creator opens to *read* what is planned rather than to scan density. So it trades the horizontal axis
+away and spends the full width per row, which is what makes `full` chips with titles possible. It also
+has no chip cap, and that is not an oversight: `DayCell` caps at two because 42 cells share one
+screen's height, whereas seven sections scroll inside `<main>` and have no height budget to protect.
+Hiding an item behind `+N more` there would be a cost with nothing bought.
+
+`WeekList` shipped with `PeriodNav` in **!22** because a week view with no way to reach another week
+is half a feature — the same "the task's subject is the next task" deviation as T029–T031 and
+T036–T037, and `tasks.md` records it as one rather than leaving it to look like a slip.
+
+The durable decision from T044 is `lib/period.ts`. Three questions a surface must not answer for
+itself: which days this period covers, what the adjacent one is, and what it is called. Left in the
+components, `MonthGrid` and `WeekList` would each derive a span — which is how a grid's first column
+and a week list's first section come to disagree about where a week begins — and `PeriodNav` and the
+header would each derive a title. The testing reason is the same one that split `lib/items.ts`: **this
+project has no renderer**, so anything inside a component is reachable only through a browser.
+`tests/client/period.spec.ts` enumerates a dozen calendar boundaries — a month opening on a Sunday, a
+week straddling New Year, a DST weekend — under two timezones, in the time one browser test takes.
+
+### The prediction about `reload()` was wrong, and being wrong was informative
+
+The Phase 3 `reviewer` pass recorded a latent hole in `itemsLoaded` and predicted **T044** would be
+the first task to expose it, by wiring `reload()` to the period arrows. T044 does not call `reload()`
+at all. Navigating a period issues **no request**: the calendar holds one unparameterised read and
+every surface narrows it client-side, so stepping to another month is pure client-side re-narrowing.
+Putting a round trip behind an arrow tap is exactly what R-007 rejects for the filter, and Render's
+free-tier spin-down makes the first one of the day tens of seconds. `tests/e2e/period-nav.spec.ts`
+asserts the request count stays at **one** across three navigations — the prediction's real value was
+turning into a test of the opposite claim.
+
+The hole itself was closed anyway, by `savedSince`: a **narrow allowance**, not a merge-by-id. It
+keeps only ids this browser saved during this read, and only while they are missing from the response.
+A general merge would be wrong in the other direction — absence from a response is exactly how a
+deletion arrives at T050, so an upsert would leave a deleted item on screen forever.
+
+### `h-dvh`, and a test that was green against a band hanging off the screen
+
+T044's screenshot caught what two tasks of assertions had not. `CalendarShell` was `min-h-dvh`, so the
+column's height was its content's height and `flex-1` on `<main>` had nothing to shrink against: six
+grid rows plus the drawer pushed the action band below the fold and the page scrolled vertically to
+reach it. `calendar.spec.ts` asserted the band sat in the bottom **half** of the screen — which a band
+hanging off the bottom edge satisfies perfectly. A fixed height gives `<main>` something to be
+`min-h-0` against, so the grid scrolls inside its own container and the band stays under the thumb.
+Do not change it back.
+
+### T045: overdue is a condition, not a fourth status
+
+FR-007 fixes the pipeline at three states, and overdue is **orthogonal** to status rather than a
+fourth value of it — an `idea` and a `draft` can both be overdue and the creator still has to tell
+them apart. Hence a dashed **left** border: a condition on a chip that already has a border, and a
+dash pattern is a shape, so it survives greyscale the way R-005's cues do. `border-l-dashed` is not a
+Tailwind utility — border style has no per-side variant — so `ItemChip` carries the project's one
+arbitrary property, `[border-left-style:dashed]`, and the test asserts the **computed** style. It also
+asserts the top border is still solid, because dashing all four sides is how the export draws T054's
+drag ghost and the two treatments must not collapse into each other.
+
+`today` reaches the chip as a **prop**, which makes "never during server rendering" true by
+construction rather than by discipline: `isOverdue(item, null)` is false, and `null` is what every
+server render has. The pair of tests at the bottom of `overdue.spec.ts` proves the value came from the
+browser — the same instant and the same fixture in UTC+7 and UTC-7 give two different answers, which
+only a client-side clock can produce.
+
+`countOverdue` counts **every loaded item**, not the visible period's. An overdue item two months back
+is precisely the one the creator has lost track of, so a count that emptied itself as they navigated
+away from the problem would invert what the treatment is for. Zero prints nothing rather than
+`0 overdue` — a standing line that usually reads zero is one that stops being seen.
+
+### The checkpoint: three gates, and the one that mattered was the cheapest
+
+V3 and V6 were walked at 375px against a live stack, 21 checks, 21 passing. The greyscale pass is
+V3's whole point and it held at both chip sizes. But the walk's finding was about **how** it had to be
+run: Next's dev overlay — the "N" button, bottom-left — sits over the `MONTH` toggle at 375px and
+swallows the click. The toggle is untappable under `next dev` and *only* under `next dev`. CI runs the
+production bundle, so no suite was ever going to show this; the walk had to move to `pnpm build` plus
+`pnpm start`, which needs `API_BASE_URL` and `SESSION_COOKIE_SECURE=false` (without the second, the
+Secure cookie is not stored over http and a correct sign-in bounces straight back to `/login`).
+
+The `reviewer` pass over T036–T045 came back clean, with one coverage gap.
+
+**`/speckit-analyze` found a live constitution IV violation, and it is the entry worth remembering.**
+`contracts/openapi.yaml` still carried the sentence *"Calendar reads pass a date range; the backlog
+read passes scheduled=none"* — the exact claim the Phase 3 amendment overturned. The code was right;
+the contract was wrong. Three things about it:
+
+- **The resolution had been applied to `tasks.md` only.** One artifact was corrected and the other two
+  carrying the same claim — the contract and `research.md` R-007 — were left. An amendment recorded in
+  one place is a fix; recorded in one place while two others still assert the opposite is a trap with
+  a paper trail.
+- **The contract contradicted itself four lines apart.** The `scheduled` parameter's own description
+  already said "Omitted returns both dated and undated, which is what the calendar surface loads". A
+  document that disagrees with itself will be believed at whichever line the next reader opens.
+- **It had a named victim.** T061's platform filter reads that same paragraph. The amendment would
+  have been undone by a task doing exactly as it was told, and `specs/` outranks code — so the next
+  agent would have been *right* to send a date range, and the backlog would have emptied.
+
+That is the class of defect a coverage count cannot produce: analyze did not find it by counting
+citations, it found it by reading the contract against R-007. The same pass counted 46 requirements
+and 76 tasks and reported 8 requirements uncited by id — all 8 already built, which is why they were
+fixed as **citation** work and each placed at the requirement's real home rather than swept into T052.
+A citation added where the requirement is not implemented makes the next coverage count lie.
+
+The reviewer's gap was `REACHABLE_4XX` missing the `date_from`/`date_to` 422. `backend/AGENTS.md`
+requires every 4xx in **both** the route's own test and that registry, and only the first existed —
+so the status was asserted and the `{detail}` shape never was. These are the first 4xx reachable
+through a **query parameter** rather than a body, which matters because they go through the same
+`RequestValidationError` handler that flattens `detail` from an array to a string. Backend suite
+170 → 172.

@@ -126,6 +126,24 @@ schema itself with no `alembic upgrade head` in the job. The rule it protects is
 load-bearing: **do not add a migration step to `.gitlab-ci.yml`** — two of them racing is worse than
 neither, and the compensation is now proven rather than assumed.
 
+**2026-08-02 — an amendment applied to one artifact is not applied, and the Phase 4 checkpoint caught
+one nine tasks late.** The Phase 3 checkpoint overturned "the calendar passes a date range" and wrote
+the resolution into `tasks.md`. The same claim was also in `contracts/openapi.yaml` and in
+`research.md` R-007, and both were left asserting the opposite of the built code for the whole of
+Phase 4. The contract had even come to **contradict itself four lines apart** — one paragraph stale,
+the next correct — and a document that disagrees with itself is believed at whichever line the next
+reader opens.
+
+This was live rather than cosmetic, because **`specs/` outranks code**: T061's platform filter reads
+that exact paragraph, so the next agent would have been *right* to send a date range, and the backlog
+would have emptied. A stale spec is the dangerous direction of drift — stale code gets caught by a
+test, a stale spec gets **obeyed**.
+
+The rule: when a checkpoint amends a decision, **grep the claim across `specs/` and both
+`AGENTS.md`**, and fix every artifact in the same merge request. Do not fix the file you happened to
+have open. Related: this is also why `/speckit-analyze` earns its place beside `reviewer` — a clean
+`reviewer` pass missed it, because reviewing code against specs cannot see two specs disagreeing.
+
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the
 `postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the

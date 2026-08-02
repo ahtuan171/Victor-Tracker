@@ -94,12 +94,12 @@ wait for the story that needs it has been moved there.
 
 - [x] T008 [P] Implement environment-backed settings in `backend/app/config.py`, including database URL, JWT secret, and token lifetime
 - [x] T009 [P] Implement the engine and request-scoped session dependency in `backend/app/db.py`
-- [x] T010 Define `Creator`, `ContentItem`, and the `Status` and `Platform` enums in `backend/app/models.py`, exactly matching the column table in [data-model.md](./data-model.md) — no owner column, no version column
+- [x] T010 Define `Creator`, `ContentItem`, and the `Status` and `Platform` enums in `backend/app/models.py`, exactly matching the column table in [data-model.md](./data-model.md) — no owner column, no version column. The `Platform` enum is the fixed three-member set the creator cannot edit, and the column is single-valued (FR-010, FR-010a); `Status` is the three-member pipeline defaulting to `idea` (FR-007)
 - [x] T011 Initialise Alembic and generate the first migration under `backend/alembic/versions/`, adding the INV-1 and INV-2 `CHECK` constraints and the three indexes from data-model.md by hand, and writing the enum `CREATE TYPE`/`DROP TYPE` explicitly since autogenerate handles them asymmetrically on downgrade
 - [x] T012 Implement password verification and token issue/decode in `backend/app/auth.py`, with a 30-day lifetime
 - [x] T013 Implement the `current_creator` dependency in `backend/app/auth.py`, attaching an `X-Access-Token` response header when the presented token is past half-life (research.md R-002 — without this header sliding reissue has no transport)
 - [x] T014 Implement `POST /auth/login` and `POST /auth/logout` in `backend/app/api/auth.py`, with logout succeeding even when the presented token is already expired so sign-out cannot deadlock
-- [x] T015 [P] Write the single-account seed script in `backend/app/scripts/seed_user.py`, reading credentials from the environment
+- [x] T015 [P] Write the single-account seed script in `backend/app/scripts/seed_user.py`, reading credentials from the environment — this script is the whole of "exactly one creator account, no roles, no invitations" (FR-003), since it refuses a second address
 - [x] T016 Install a `RequestValidationError` handler in `backend/app/main.py` that flattens FastAPI's array-shaped `detail` into the single string the contract declares, then assemble the app — router registration, CORS restricted to the frontend origin, and a public `GET /health`
 
 **Backend foundation result (2026-07-30)**: complete. Verified against `creatorhub_test` with a
@@ -125,7 +125,7 @@ Two decisions taken here that the task text does not imply:
 
 - [x] T017 Build the pytest harness in `backend/tests/conftest.py` with a dedicated test database, a transactional-rollback fixture, an anonymous client, and an authenticated client — the harness creates the schema itself by running `alembic upgrade head`, not `metadata.create_all`, because the CI `test:backend` service container starts empty and no other pipeline step migrates it, and because `create_all` would build the enum types and CHECK constraints from model metadata instead of from the migration that actually runs in production
 - [x] T018 [P] Write `backend/tests/test_auth.py` covering login success, wrong password, absent token, malformed token, expired token, logout with an expired token, and the presence of `X-Access-Token` past half-life (FR-001, FR-002, FR-002a)
-- [x] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (INV-4, constitution VII)
+- [x] T019 [P] Write `backend/tests/test_schema.py` asserting `content_item` has no column matching `%user%`, `%owner%`, `%tenant%`, or `%version%` (FR-003, INV-4, constitution VII) — the schema's *absence* of an ownership concept is the other half of FR-003, and the half a seed script cannot enforce
 - [x] T020 [P] Write `backend/tests/test_errors.py` asserting every 4xx response body matches the contract's `{"detail": "<string>"}` shape, including a validation failure that would otherwise return an array
 
 **T020 result (2026-07-31)**: done. 21 new tests, suite at **96 passing**; `ruff`, `ruff format`,
@@ -561,6 +561,56 @@ surface can set a date or a status until T052 and T054, which are Phase 5. Creat
 `POST /content-items`, which accepts every field including `status`, `platform` and `scheduled_date`.
 This is a property of the phase order, not a blocker.
 
+**T043–T045 result (2026-08-02)**: done. T043 and T044 landed in **one merge request, !22** — the same
+stated deviation as T029–T031 and T036–T037, and for the same reason: a week list with no way to reach
+another week is half a feature, and `PeriodNav` is what makes `WeekList` reachable at all. T045 landed
+alone in **!23**. Frontend suite **167 → 234**, nothing skipped. `lib/period.ts` is new, with
+`tests/client/period.spec.ts` enumerating calendar boundaries under two timezones.
+
+**Checkpoint result (2026-08-02): met.** All three gates, same order as Phase 3.
+
+**1. Quickstart V3 and V6, walked at 375px against the real stack** — 21 checks, 21 passing, nothing
+stubbed: browser → Next **production** proxy → FastAPI → Postgres, on the seeded account, with 16
+fixture items created through `POST /content-items` per the note above.
+
+| Scenario | Result |
+|---|---|
+| V3 — three statuses in a month cell, **greyscale** | all three distinguishable at `micro`: outline, half-filled, solid-with-check. Colour removed entirely — SC-004 holds on shape and fill alone |
+| V3 — three statuses in the week list, greyscale | all three distinguishable at `full`, where the chip also carries its title |
+| V3 — overdue against each status | dashed **left** border reads as a condition on the chip, not as a fourth status; an overdue `idea` and an overdue `draft` still tell apart |
+| V6 — `/calendar`, month view | `documentElement.scrollWidth === innerWidth === 375` |
+| V6 — week view, drawer peek, drawer expanded, capture sheet open | 375 in every state; the grid scrolls inside `<main>`, the body does not |
+| V6 — action band reachable | band within the bottom half in all states — the `h-dvh` fix at T044 is what makes this true |
+
+**The walk had to use a production build, and that is a finding rather than a preference.** Next's dev
+overlay (the "N" button, bottom-left) sits over the `MONTH` toggle at 375px and swallows the click, so
+the month/week toggle is untappable under `next dev` and only under `next dev`. CI runs the production
+bundle, so this was never going to appear in the suite. Recorded in `frontend/AGENTS.md`; the walk
+needs `API_BASE_URL` and `SESSION_COOKIE_SECURE=false` alongside `pnpm build && pnpm start`.
+
+**2. `reviewer` agent over T036–T045: clean.** No correctness defects, no spec drift, no work
+belonging to a later task, no weak assertions. The `itemsLoaded` hole the Phase 3 pass recorded is
+**closed** — `savedSince` — though not by the task that was predicted to close it: T044 turned out not
+to call `reload()` at all, because navigating a period issues no request. One coverage gap recorded
+and fixed here (see F6 below).
+
+**3. `/speckit-analyze`: 46 requirements, 76 tasks, one CRITICAL.** The critical finding was a **live
+constitution IV violation**, and it is the reason this checkpoint carries a merge request of its own.
+
+**Findings, all fixed in this merge request:**
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| F1 | **CRITICAL** | `contracts/openapi.yaml` still said *"Calendar reads pass a date range; the backlog read passes scheduled=none"* — the exact sentence the Phase 3 amendment overturned. The contract also **contradicted itself** four lines below, where the `scheduled` parameter already described the calendar's read correctly | Sentence replaced with what is actually true and why. **`specs/` outranks code, so a stale spec is the dangerous direction**: T061's platform filter reads that same paragraph, which is how the amendment would have been undone by a task doing as it was told |
+| F2 | HIGH | `research.md` R-007 said the list *"for the visible period"* is fetched once — reads as one request per period | Reworded to "once, unparameterised", with an amendment note carrying the reason (a ranged read returns no undated rows and empties the backlog) |
+| F3 | MEDIUM | `plan.md` named `CalendarSurface`; the component is `CalendarShell`. The last occurrence of the old name anywhere in the repo | Renamed. `plan.md` is what a later module's plan derives from |
+| F4 | MEDIUM | `plan.md` listed 5 of the 8 `lib/` modules — `session.ts` missing since T022, plus `period.ts` and `utils.ts` | All three added; the listing now matches `frontend/lib/` exactly |
+| F5 | LOW | 8 of 46 requirements cited by no task **by id** — FR-003, FR-006, FR-007, FR-008, FR-010, FR-010a, FR-014, FR-015. All eight are **built**; each was covered through a sub-requirement, an invariant, or an artifact | Cited at their real homes rather than all at T052: FR-003 at T015 and T019, FR-007/FR-010/FR-010a at T010, and FR-006/007/008/014/015 at T052 with FR-014 also at T054. **A citation added where the requirement is not actually implemented would make the next coverage count lie** |
+| F6 | LOW | `tests/test_errors.py` `REACHABLE_4XX` had no entry for the `date_from`/`date_to` 422. `backend/AGENTS.md` requires every 4xx in **both** places; the route test asserted the status alone, never the `{detail}` shape | Two entries added, one per bound. They are the first 4xx reachable through a **query parameter**, which goes through the same `RequestValidationError` handler that flattens `detail` from array to string |
+
+Suites re-run at the checkpoint: **172 backend** (170 + F6's two), **234 frontend**, nothing skipped;
+`ruff`, `ruff format --check`, `mypy`, `tsc --noEmit`, `eslint` all clean.
+
 ---
 
 ## Phase 5: User Story 3 — Advance an item without leaving the calendar (Priority: P3)
@@ -582,9 +632,9 @@ dragging, and confirm zero route changes throughout.
 - [ ] T049 [US3] Implement `GET /content-items/{id}` and `PATCH /content-items/{id}` in `backend/app/api/content_items.py` with partial-update semantics and the 409 invariant responses from the contract
 - [ ] T050 [US3] Implement `DELETE /content-items/{id}` in `backend/app/api/content_items.py` as a hard delete (FR-004)
 - [ ] T051 [US3] Extend `frontend/lib/api.ts` with the fetch-one, update, and delete operations, wiring update through the optimistic path in `lib/items.ts` with rollback on failure (research.md R-007)
-- [ ] T052 [US3] Build the item sheet in `frontend/components/item/ItemSheet.tsx` as the single editing surface, carrying controls for **title, hook, platform, date, and status** — this is what FR-006a requires and what the first draft of this plan omitted entirely, leaving every item stuck in `idea` forever
+- [ ] T052 [US3] Build the item sheet in `frontend/components/item/ItemSheet.tsx` as the single editing surface, carrying controls for **title, hook, platform, date, and status** — this is what FR-006a requires and what the first draft of this plan omitted entirely, leaving every item stuck in `idea` forever. This sheet is also where the parent requirements land: it is the only surface carrying all six fields (FR-006), the only one offering the three statuses in both directions (FR-007, FR-008), the only single-select platform control (FR-010, FR-010a), and the **tap** half of changing a date and a status without a separate detail page (FR-014, FR-015). Skip rows with `isPending` — the id does not exist yet
 - [ ] T053 [US3] Surface the 409 invariant errors in `ItemSheet` as the contract's `detail` message, with the platform control adjacent so a refusal is resolvable without leaving the sheet (FR-009, FR-009a, SC-012)
-- [ ] T054 [US3] Build the drag path for scheduling with `@dnd-kit/core` in `frontend/components/calendar/`, registering `PointerSensor` and `KeyboardSensor`, with day cells and the backlog drawer as the only drop targets, all calling the same `updateItem` (FR-014a, research.md R-003)
+- [ ] T054 [US3] Build the drag path for scheduling with `@dnd-kit/core` in `frontend/components/calendar/`, registering `PointerSensor` and `KeyboardSensor`, with day cells and the backlog drawer as the only drop targets, all calling the same `updateItem` (FR-014, FR-014a, research.md R-003) — the **drag** half of FR-014, whose tap half is T052; "both produce an identical result" is only assertable because both call `updateItem`. Skip rows with `isPending`. Restore the full drawer copy — "Undated ideas, newest first. Drag one onto a day to schedule it." — which T035 trimmed because the drag did not exist yet. The drag ghost is a dashed border on **all four sides**; overdue is dashed on the **left only**, and `overdue.spec.ts` asserts `borderTopStyle === "solid"` to keep the two treatments apart
 - [ ] T055 [US3] Configure the `PointerSensor` activation constraint and `touch-action` on chips so a vertical scroll of the month grid cannot be captured as a drag and silently reschedule an item (research.md R-003)
 - [ ] T056 [US3] Build the delete confirmation in `frontend/components/item/DeleteConfirm.tsx`, placed so no single tap and no common navigation gesture can trigger deletion, and recovering cleanly when the item is already gone (FR-020, SC-007, spec Edge Cases)
 - [ ] T057 [US3] Write the one Playwright E2E flow in `frontend/tests/e2e/pipeline.spec.ts`: capture an idea, assign a platform, set a date, advance to `posted`, and verify it on the calendar — driven through the tap path for determinism (research.md R-003)

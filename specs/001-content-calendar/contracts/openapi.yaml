@@ -128,7 +128,11 @@ paths:
         Returns every field needed to render a status cue and a platform cue, so the calendar never
         makes a follow-up request per item (FR-017, FR-018).
 
-        Calendar reads pass a date range; the backlog read passes scheduled=none.
+        Every parameter below is optional and every one of them narrows. The calendar surface sends
+        **none** of them: it reads the whole list once and narrows client-side, because each of these
+        bounds `scheduled_date` and so excludes undated items — and the backlog drawer reads the same
+        loaded state (research.md R-007). A caller that wants only the backlog sends `scheduled=none`;
+        a caller that wants a date window sends `date_from`/`date_to`. The calendar is neither.
       parameters:
         - name: scheduled
           in: query
