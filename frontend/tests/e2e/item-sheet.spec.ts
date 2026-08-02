@@ -340,6 +340,121 @@ test("a refused save keeps the sheet open with the edit intact", async ({ page, 
   await expect(save(page)).toBeVisible();
 });
 
+/**
+ * T053 — a 409 is not just an error, it is an instruction.
+ *
+ * One invariant, two codes, because the creator's **next step** differs: `platform_required` is fixed
+ * in the platform column, `platform_locked` is fixed in the status column. SC-012 asks that neither
+ * refusal require leaving the surface, so the sheet has to say *which control resolves it* rather than
+ * printing a sentence and leaving the creator to read carefully.
+ */
+test.describe("the 409 invariant errors (T053, FR-009, FR-009a, SC-012)", () => {
+  test("platform_required points at the platform control and focuses it", async ({
+    page,
+    baseURL,
+  }) => {
+    await stubApi(page, {
+      patchStatus: 409,
+      patchBody: {
+        code: "platform_required",
+        detail: "Pick a platform before moving this item out of ideas.",
+      },
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await page.getByTestId("status-option-draft").click();
+    await save(page).click();
+
+    // The contract's `detail`, verbatim — the backend owns the wording, so the two cannot drift.
+    await expect(page.getByTestId("item-sheet-message")).toHaveText(
+      "Pick a platform before moving this item out of ideas.",
+    );
+
+    // And the group that resolves it is marked, not merely adjacent.
+    await expect(page.getByTestId("platform-group")).toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("status-group")).not.toHaveAttribute("data-invalid", "");
+
+    // Focus moves to the fix. On a sheet whose body scrolls, "adjacent" is not the same as
+    // "reachable" — this is what makes SC-012 true when the creator has scrolled to the date.
+    await expect(page.getByTestId("platform-option-tiktok")).toBeFocused();
+  });
+
+  test("platform_locked points at the status control, because that is where the fix is", async ({
+    page,
+    baseURL,
+  }) => {
+    await stubApi(page, {
+      items: [anItem({ platform: "tiktok", status: "posted" })],
+      patchStatus: 409,
+      patchBody: {
+        code: "platform_locked",
+        detail: "Move this item back to ideas before removing its platform.",
+      },
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    // Clearing the platform of an advanced item — the only way to reach this code at all.
+    await page.getByTestId("platform-option-tiktok").click();
+    await save(page).click();
+
+    await expect(page.getByTestId("item-sheet-message")).toHaveText(/Move this item back to ideas/);
+
+    // The other direction of one rule, and the instruction is the opposite control: the creator has
+    // to move the item back to `idea` first, which is the status column.
+    await expect(page.getByTestId("status-group")).toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("platform-group")).not.toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("status-option-idea")).toBeFocused();
+  });
+
+  test("resolving the refusal on the spot clears it, without leaving the sheet (SC-012)", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page, {
+      patchStatus: 409,
+      patchBody: { code: "platform_required", detail: "Pick a platform before moving this item out of ideas." },
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await page.getByTestId("status-option-draft").click();
+    await save(page).click();
+    await expect(page.getByTestId("platform-group")).toHaveAttribute("data-invalid", "");
+
+    // The refusal described a save attempt that no longer matches the draft, so it stops shouting the
+    // moment the creator changes anything.
+    await page.getByTestId("platform-option-tiktok").click();
+    await expect(page.getByTestId("platform-group")).not.toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("item-sheet-message")).not.toHaveText(/Pick a platform/);
+
+    // And the retry carries both fields, which is the request that was always going to succeed.
+    expect(stub.patched).toEqual([{ status: "draft" }]);
+    await save(page).click();
+    expect(stub.patched[1]).toEqual({ platform: "tiktok", status: "draft" });
+  });
+
+  test("an error that is not an invariant marks no control", async ({ page, baseURL }) => {
+    await stubApi(page, {
+      patchStatus: 502,
+      patchBody: { detail: "The API could not be reached." },
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await page.getByTestId("status-option-draft").click();
+    await save(page).click();
+
+    await expect(page.getByTestId("item-sheet-message")).toHaveText("The API could not be reached.");
+
+    // A 502 is not an instruction. Marking a control would tell the creator to change something that
+    // was never the problem.
+    await expect(page.getByTestId("platform-group")).not.toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("status-group")).not.toHaveAttribute("data-invalid", "");
+  });
+});
+
 test("a refused save rolls the optimistic change back off the calendar", async ({
   page,
   baseURL,
