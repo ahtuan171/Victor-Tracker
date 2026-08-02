@@ -1105,3 +1105,133 @@ def test_a_scheduled_date_set_by_update_round_trips_as_a_plain_date(
     updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"scheduled_date": "2026-11-03"})
 
     assert updated.json()["scheduled_date"] == "2026-11-03"
+
+
+# ---------------------------------------------------------------------------
+# Delete — T050 (FR-004, FR-020)
+#
+# A hard delete, which the contract states outright and the schema makes the only option: there is
+# no `deleted_at`, no `archived` flag, and `data-model.md`'s "Not present" table lists none. That
+# absence is the reason this section asserts the row is gone from the *database* and not only from
+# the list response — a soft delete implemented as a filter on the list read would pass every
+# assertion written against HTTP alone, and would then leak the "deleted" item back through
+# `GET /content-items/{id}`, which has no filter to add.
+#
+# The confirmation FR-020 requires is a frontend concern (T056). The API does not second-guess a
+# caller that has already confirmed, so there is no `?confirm=true` and no two-step delete here.
+# ---------------------------------------------------------------------------
+
+
+def test_delete_requires_authentication(client: TestClient) -> None:
+    """FR-002 on the one route that destroys data.
+
+    Asserted against an id that does not exist on purpose: 401 must win over 404, or an
+    unauthenticated caller could enumerate which ids are real by reading the status code.
+    """
+    assert client.delete(f"{ITEMS_PATH}/1").status_code == 401
+
+
+def test_delete_returns_204_with_no_body(auth_client: TestClient) -> None:
+    """The contract declares `204: Deleted` and no response schema.
+
+    The empty-body half is asserted because FastAPI will happily serialise `null` into a 204 if the
+    route is written with a `response_model`, and a 204 carrying `null` is a body where the contract
+    promises none — some HTTP clients treat that as a protocol error rather than as a value.
+    """
+    item = a_full_item(auth_client)
+
+    response = auth_client.delete(f"{ITEMS_PATH}/{item['id']}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_delete_removes_the_row_from_the_database(
+    auth_client: TestClient, session: Session
+) -> None:
+    """Hard delete, asserted below the API rather than through it.
+
+    This is the assertion a soft delete cannot pass. Reading the row directly through the session
+    means an implementation that set a flag and filtered the list read would fail here even though
+    every HTTP-level assertion in this section stayed green.
+    """
+    item = a_full_item(auth_client)
+
+    auth_client.delete(f"{ITEMS_PATH}/{item['id']}")
+
+    assert session.get(ContentItem, item["id"]) is None
+
+
+def test_a_deleted_item_is_gone_from_both_reads(auth_client: TestClient) -> None:
+    """The by-id read and the list read, because the calendar renders from the second one.
+
+    R-007 loads the list once and narrows it client-side, so an item still present in that response
+    is still on the grid however thoroughly the by-id read denies it.
+    """
+    item = a_full_item(auth_client)
+
+    auth_client.delete(f"{ITEMS_PATH}/{item['id']}")
+
+    assert auth_client.get(f"{ITEMS_PATH}/{item['id']}").status_code == 404
+    assert auth_client.get(ITEMS_PATH).json() == []
+
+
+def test_delete_of_a_missing_item_is_404(auth_client: TestClient) -> None:
+    """The third caller of `get_or_404`, and the response T056 has to survive.
+
+    "The item is already gone" is a real state for the confirmation dialog — a second window, or a
+    dialog left open — so the 404 is the contracted answer rather than a 204 pretending the delete
+    happened.
+    """
+    response = auth_client.delete(f"{ITEMS_PATH}/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No such item."
+
+
+def test_deleting_twice_returns_404_the_second_time(auth_client: TestClient) -> None:
+    """Delete is not idempotent at the status-code level, and that is the contract's choice.
+
+    204 on both calls would be defensible HTTP, but it would tell T056 that a delete succeeded when
+    the row it named had already been destroyed by something else. The contract declares a 404 for a
+    missing id with no exception for this verb, and the frontend's recovery path is the better place
+    to decide that a 404 here is benign.
+    """
+    item = a_full_item(auth_client)
+
+    assert auth_client.delete(f"{ITEMS_PATH}/{item['id']}").status_code == 204
+    assert auth_client.delete(f"{ITEMS_PATH}/{item['id']}").status_code == 404
+
+
+def test_delete_leaves_every_other_item_untouched(auth_client: TestClient) -> None:
+    """A `DELETE` with a `WHERE` clause that matched too much would be unrecoverable.
+
+    Three items, one deleted, an **exact set** assertion on what remains — the same rule the filter
+    tests follow, and for the same reason: a membership check passes against a route that deleted
+    everything but the one it was asked about, and against one that deleted nothing at all.
+    """
+    keep_one = create_item(auth_client, title="Keep one").json()
+    doomed = create_item(auth_client, title="Delete this").json()
+    keep_two = create_item(auth_client, title="Keep two").json()
+
+    auth_client.delete(f"{ITEMS_PATH}/{doomed['id']}")
+
+    remaining = auth_client.get(ITEMS_PATH).json()
+
+    assert {row["id"] for row in remaining} == {keep_one["id"], keep_two["id"]}
+
+
+def test_delete_does_not_reuse_the_deleted_id(auth_client: TestClient) -> None:
+    """An identity column never reissues an id, and the frontend depends on it.
+
+    `lib/items.ts` keys every row by id and T054's drag names one in a request. If Postgres reused
+    the id of a deleted item, an optimistic update still holding the old id would silently retarget
+    the next item created. `Identity()` does not reuse — this pins that the delete path did not
+    reset a sequence to make it look tidy.
+    """
+    deleted = a_full_item(auth_client)
+
+    assert auth_client.delete(f"{ITEMS_PATH}/{deleted['id']}").status_code == 204
+    replacement = create_item(auth_client, title="Created after the delete").json()
+
+    assert replacement["id"] != deleted["id"]

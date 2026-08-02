@@ -86,8 +86,8 @@ def assert_matches_the_contracted_error_shape(response: Any) -> None:
     assert body["detail"].strip(), "detail is present but empty, which tells the creator nothing"
 
 
-# Every 4xx this API can currently produce. T049 and T050 add the 404s when the by-id routes exist;
-# each new 4xx must be registered here as well as in the test file for its own route.
+# Every 4xx this API can currently produce. Each new 4xx must be registered here as well as in the
+# test file for its own route — the by-id 404s arrived that way at T049 and T050.
 REACHABLE_4XX = [
     pytest.param(
         lambda client, auth_client, creator: client.post("/content-items", json={"title": "x"}),
@@ -113,10 +113,12 @@ REACHABLE_4XX = [
         409,
         id="create-item-invariant-violation",
     ),
-    # The by-id 404s (T049). Distinct from `starlette-not-found` below, which is the framework's own
-    # 404 for an unrouted path — these are the application's, for a routed path and a missing row,
-    # and nothing else proves the two carry the same shape. Reachable in production rather than
-    # hypothetical: T054's drag names an id and T056 has to survive the item being already gone.
+    # The by-id 404s (T049, T050). Distinct from `starlette-not-found` below, which is the
+    # framework's own 404 for an unrouted path — these are the application's, for a routed path
+    # and a missing row, and nothing else proves the two carry the same shape. Reachable in
+    # production rather than hypothetical: T054's drag names an id and T056 has to survive the item
+    # being already gone. All three verbs are listed because all three declare the 404 separately,
+    # so a route raising a bare `HTTPException` with a dict detail would only fail its own entry.
     pytest.param(
         lambda client, auth_client, creator: auth_client.get("/content-items/999999"),
         404,
@@ -128,6 +130,16 @@ REACHABLE_4XX = [
         ),
         404,
         id="update-item-not-found",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.delete("/content-items/999999"),
+        404,
+        id="delete-item-not-found",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.delete("/content-items/999999"),
+        401,
+        id="delete-item-no-credential",
     ),
     pytest.param(
         lambda client, auth_client, creator: auth_client.patch("/content-items/999999", json={}),
