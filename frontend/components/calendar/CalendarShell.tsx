@@ -8,7 +8,7 @@ import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { today, type DateOnly } from "@/lib/dates";
-import { useContentItems } from "@/lib/items";
+import { countOverdue, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +105,7 @@ export function CalendarShell() {
         period={period}
         view={view}
         itemCount={items.length}
+        overdueCount={countOverdue(items, today)}
         loading={status === "loading"}
       />
 
@@ -139,7 +140,7 @@ export function CalendarShell() {
             {status === "loading" ? "Loading your items…" : ""}
           </p>
         ) : view === "month" ? (
-          <MonthGrid period={period} items={items} />
+          <MonthGrid period={period} today={today} items={items} />
         ) : (
           <WeekList period={period} today={today} items={items} />
         )}
@@ -202,19 +203,24 @@ function readNoToday(): DateOnly | null {
  *
  * The counts are **derived from the item list already fetched**, never stored — the stage-2 audit in
  * `design/content-calendar/BRIEF.md` examined exactly this and cleared it, so no `spec.md` amendment
- * was needed. The export's second count, `3 overdue`, is deliberately absent here: overdue is derived
- * from `scheduled_date < today AND status != posted`, and that derivation arrives with the treatment
- * that uses it at **T045**. One definition, introduced once.
+ * was needed. The export's second count, `3 overdue`, arrived at **T045** with the treatment that
+ * uses it: `countOverdue` in `lib/items.ts` is the one definition, shared with every chip.
+ *
+ * It counts **every loaded item, not the visible period's**. An overdue item two months back is
+ * exactly the one the creator has lost track of, and a count that emptied itself as they navigated
+ * away from the problem would be the opposite of what the treatment is for.
  */
 function CalendarHeader({
   period,
   view,
   itemCount,
+  overdueCount,
   loading,
 }: {
   period: DateOnly | null;
   view: CalendarView;
   itemCount: number;
+  overdueCount: number;
   loading: boolean;
 }) {
   return (
@@ -252,7 +258,26 @@ function CalendarHeader({
       </div>
 
       <p className="text-ink-mid text-right text-xs leading-snug" data-testid="calendar-counts">
-        {loading ? "…" : `${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+        {loading ? (
+          "…"
+        ) : (
+          <>
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+            {/*
+              * Zero overdue prints nothing rather than "0 overdue". A standing line that usually
+              * reads zero is one the creator stops seeing, which is the whole failure mode this
+              * count exists to catch.
+              */}
+            {overdueCount > 0 ? (
+              <>
+                <br />
+                <span className="text-overdue" data-testid="calendar-overdue-count">
+                  {overdueCount} overdue
+                </span>
+              </>
+            ) : null}
+          </>
+        )}
       </p>
     </header>
   );

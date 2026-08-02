@@ -5,6 +5,8 @@ import {
   INITIAL_ITEMS_STATE,
   isPending,
   itemsFailed,
+  countOverdue,
+  isOverdue,
   itemsLoaded,
   makePendingItem,
   pendingItemInserted,
@@ -175,6 +177,72 @@ test.describe("itemsLoaded", () => {
     const state = itemsLoaded(ready([item(7), item(1)]), [item(1)], new Set([3]));
 
     expect(ids(state)).toEqual([1]);
+  });
+});
+
+test.describe("isOverdue", () => {
+  const TODAY = "2026-08-02";
+
+  test("a passed day with the item still unpublished is overdue", () => {
+    // The spec's edge case: "a scheduled date that has passed while the item is still idea or draft".
+    expect(isOverdue(item(1, { scheduled_date: "2026-08-01", status: "idea" }), TODAY)).toBe(true);
+    expect(isOverdue(item(1, { scheduled_date: "2026-08-01", status: "draft" }), TODAY)).toBe(true);
+  });
+
+  test("today is not overdue, and neither is tomorrow", () => {
+    // Strictly before, so the day itself is still the creator's to use. An item due today reading as
+    // overdue at 00:01 would be a nag rather than a signal.
+    expect(isOverdue(item(1, { scheduled_date: TODAY, status: "idea" }), TODAY)).toBe(false);
+    expect(isOverdue(item(1, { scheduled_date: "2026-08-03", status: "idea" }), TODAY)).toBe(false);
+  });
+
+  test("a posted item is never overdue, however old", () => {
+    // `posted` ends the pipeline. Written as `!== "posted"` rather than as a list of the other two,
+    // so a fourth status could not silently become non-overdue by omission.
+    expect(isOverdue(item(1, { scheduled_date: "2020-01-01", status: "posted" }), TODAY)).toBe(
+      false,
+    );
+  });
+
+  test("an undated item is never overdue", () => {
+    // The whole backlog. This is why `BacklogDrawer` can omit `today` entirely — the data decides,
+    // not the surface.
+    expect(isOverdue(item(1, { scheduled_date: null, status: "idea" }), TODAY)).toBe(false);
+  });
+
+  test("nothing is overdue before the browser's clock has been read", () => {
+    // `null` is the honest "not known yet", not a missing value to work around. `dates.today()`
+    // throws outside the browser on purpose, so this is the state every server render is in — and
+    // rendering no treatment is what keeps the hydration flip in R-006's addendum impossible.
+    expect(isOverdue(item(1, { scheduled_date: "2020-01-01", status: "idea" }), null)).toBe(false);
+  });
+
+  test("the comparison is lexicographic and crosses year and month boundaries", () => {
+    // `YYYY-MM-DD` is fixed-width and big-endian, so string order is chronological order — no Date,
+    // no timezone, no DST. The cases a naive numeric compare would get wrong.
+    expect(isOverdue(item(1, { scheduled_date: "2025-12-31" }), "2026-01-01")).toBe(true);
+    expect(isOverdue(item(1, { scheduled_date: "2026-01-09" }), "2026-01-10")).toBe(true);
+    expect(isOverdue(item(1, { scheduled_date: "2026-01-10" }), "2026-01-09")).toBe(false);
+  });
+});
+
+test.describe("countOverdue", () => {
+  test("counts every loaded item, whatever period is on screen", () => {
+    const state = [
+      item(1, { scheduled_date: "2026-05-01", status: "idea" }),
+      item(2, { scheduled_date: "2026-08-01", status: "draft" }),
+      item(3, { scheduled_date: "2026-08-01", status: "posted" }),
+      item(4, { scheduled_date: null }),
+      item(5, { scheduled_date: "2026-09-01", status: "idea" }),
+    ];
+
+    // Two: the May idea and the August draft. An overdue item three months back is exactly the one
+    // the creator has lost track of, so the count must not narrow with the period.
+    expect(countOverdue(state, "2026-08-02")).toBe(2);
+  });
+
+  test("is zero before the clock is known", () => {
+    expect(countOverdue([item(1, { scheduled_date: "2020-01-01" })], null)).toBe(0);
   });
 });
 

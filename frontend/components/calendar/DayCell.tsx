@@ -30,6 +30,7 @@ export function DayCell({
   date,
   dayNumber,
   inPeriod,
+  today,
   items,
 }: {
   readonly date: DateOnly;
@@ -37,6 +38,8 @@ export function DayCell({
   readonly dayNumber: number;
   /** False for the adjacent-month days the six-week span pulls in at either end. */
   readonly inPeriod: boolean;
+  /** The creator's own calendar day, or null before it is known. Only the chips read it (T045). */
+  readonly today: DateOnly | null;
   readonly items: readonly ContentItem[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -70,7 +73,7 @@ export function DayCell({
       </span>
 
       {visible.map((item) => (
-        <ItemChip key={item.id} item={item} size="micro" />
+        <ItemChip key={item.id} item={item} size="micro" today={today} />
       ))}
 
       {hidden > 0 ? (

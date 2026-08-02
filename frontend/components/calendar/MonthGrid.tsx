@@ -45,10 +45,17 @@ import { periodDays, WEEKDAY_INITIALS } from "@/lib/period";
  */
 export function MonthGrid({
   period,
+  today,
   items,
 }: {
   /** Any day in the month to display. The grid derives its own span from it. */
   readonly period: DateOnly;
+  /**
+   * The creator's own calendar day, or null before the browser's clock has been read. Passed
+   * straight through to the chips, which is where T045's overdue treatment derives from it — never
+   * from a clock read during render (research.md R-006 addendum).
+   */
+  readonly today: DateOnly | null;
   /** Every loaded item. Narrowing to days is this component's job, not its caller's. */
   readonly items: readonly ContentItem[];
 }) {
@@ -84,6 +91,7 @@ export function MonthGrid({
             date={day.date}
             dayNumber={day.dayOfMonth}
             inPeriod={day.inPeriod}
+            today={today}
             items={byDay.get(day.date) ?? EMPTY}
           />
         ))}

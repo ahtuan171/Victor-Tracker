@@ -66,7 +66,7 @@ export function WeekList({
         <DaySection
           key={day.date}
           day={day}
-          isToday={day.date === today}
+          today={today}
           items={byDay.get(day.date) ?? EMPTY}
         />
       ))}
@@ -85,13 +85,16 @@ export function WeekList({
  */
 function DaySection({
   day,
-  isToday,
+  today,
   items,
 }: {
   readonly day: PeriodDay;
-  readonly isToday: boolean;
+  /** The creator's own calendar day: this section's marker, and the chips' overdue derivation. */
+  readonly today: DateOnly | null;
   readonly items: readonly ContentItem[];
 }) {
+  const isToday = day.date === today;
+
   return (
     <section
       className="border-hairline/60 border-b py-3.5 last:border-b-0"
@@ -132,7 +135,7 @@ function DaySection({
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
-              <ItemChip item={item} size="full" />
+              <ItemChip item={item} size="full" today={today} />
             </li>
           ))}
         </ul>
