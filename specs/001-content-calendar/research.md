@@ -314,13 +314,14 @@ Left open, T038 and T053 would each have invented an answer in separate merge re
 
 - `app/page.tsx` and the authenticated layout are server components. They read the session cookie and
   redirect before any content markup exists — that is what makes SC-006 hold for every address.
-- The calendar surface and the backlog drawer are client components. The item list for the visible
-  period is fetched once through the proxy and held in React state.
+- The calendar surface and the backlog drawer are client components. The item list is fetched **once,
+  unparameterised**, through the proxy and held in React state; every surface narrows that one list
+  client-side. **Not once per visible period** — see the amendment below.
 - A `PATCH` applies optimistically to local state, then reconciles against the response. On failure the
   optimistic change is rolled back and the error surfaced — which is the path a 409 `platform_required`
   takes.
-- The platform filter is **local state**, not a server round trip. The visible period's items are
-  already in memory, so filtering is a client-side narrowing.
+- The platform filter is **local state**, not a server round trip. Every loaded item is already in
+  memory, so filtering is a client-side narrowing. So is period navigation, for the same reason.
 
 **Rationale**: SC-005 gives filtering a one-second budget and US3 scenario 3 requires a status cue to
 update "immediately". Both are trivially satisfied by local state and both are at risk through a
@@ -332,6 +333,26 @@ failure to discover at stage 7.
 FR-023a helps here: last-write-wins with no live sync means a view is explicitly permitted to show
 what it loaded. There is nothing to reconcile against a second device, so local state is not a
 correctness compromise.
+
+**Amendment 2026-08-02 (Phase 4 checkpoint `/speckit-analyze`) — "the visible period" was the wrong
+unit, and one read is unparameterised.** This section originally said the item list *for the visible
+period* is fetched once, which reads as one request per period and a new one behind every arrow tap.
+That is not what is built and must not be: `date_from`/`date_to` bound `scheduled_date`, so a ranged
+read returns **no undated rows** — and the backlog drawer narrows the very same state (FR-011). A
+per-period read would empty the backlog the moment the month grid landed, and no frontend test could
+catch it, because every one of them stubs the proxy and a stub returns its fixture whatever query it
+is handed.
+
+So the unit is **the whole list, read once on mount**. Period navigation (T044) issues no request at
+all — it re-narrows what is already in memory, which is also what keeps Render's spin-down out of the
+path of an arrow tap, exactly as the Rationale above demands for the filter. The spec's Volume
+assumption (hundreds of items for one creator) is what makes one whole-list read affordable. The
+endpoint keeps its parameters — they are contract, and T036/T037 ship them tested — but the calendar
+is not one of their callers. `tests/e2e/period-nav.spec.ts` asserts the request count stays at one
+across three navigations; `tests/e2e/month-grid.spec.ts` asserts the URL carries no bounds.
+
+The same amendment was applied to `tasks.md` (T042) at the Phase 3 checkpoint and to
+`contracts/openapi.yaml` here — this file was the third artifact still carrying the old unit.
 
 **No query library.** One resource, two surfaces, a few hundred items. `tech-defaults.md` does not list
 TanStack Query, and `workflow.md` forbids abstraction before a second caller. Plain `useState` plus a

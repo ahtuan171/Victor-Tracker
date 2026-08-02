@@ -160,16 +160,19 @@ frontend/
 │   └── api/[...path]/route.ts   # allowlisted proxy to FastAPI — research.md R-001, R-008
 ├── components/
 │   ├── ui/                     # shadcn primitives
-│   ├── calendar/               # CalendarSurface (client), MonthGrid, WeekList, DayCell, PeriodNav
+│   ├── calendar/               # CalendarShell (client), MonthGrid, WeekList, DayCell, PeriodNav
 │   ├── backlog/                # BacklogDrawer — peek and expanded states (research.md R-003a)
 │   ├── item/                   # ItemChip, StatusCue, PlatformCue, ItemSheet, DeleteConfirm, PlatformFilter
 │   └── capture/                # CaptureSheet — the bottom-anchored, title-only form
 ├── lib/
 │   ├── api.ts                  # typed client over the proxied routes
 │   ├── proxy-allowlist.ts      # path and method allowlist, asserted against the contract (R-008)
+│   ├── session.ts              # server-only: session cookie read + Max-Age from the token (R-001)
 │   ├── items.ts                # client-side item state and optimistic updates (research.md R-007)
 │   ├── dates.ts                # date-fns wrappers, date-only handling
-│   └── status.ts               # status and platform → visual cue mapping (FR-017, FR-018)
+│   ├── period.ts               # period span, step, and title — month and week (R-004)
+│   ├── status.ts               # status and platform → visual cue mapping (FR-017, FR-018)
+│   └── utils.ts                # shadcn's `cn` class merger
 ├── tests/
 │   └── e2e/pipeline.spec.ts     # the one E2E flow
 ├── package.json

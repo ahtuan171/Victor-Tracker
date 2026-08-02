@@ -113,6 +113,26 @@ REACHABLE_4XX = [
         409,
         id="create-item-invariant-violation",
     ),
+    # The date bounds are the first 4xx reachable through a *query parameter* rather than a body,
+    # and FastAPI renders those through the same RequestValidationError handler — which is the claim
+    # worth pinning, because that handler is what flattens `detail` from an array to a string. Two
+    # bounds rather than one: they are declared separately, so a bound that lost its `date` type
+    # would start returning 200 and only its own entry here would notice. The parse-coverage cases
+    # live in test_content_items.py; these two are about the response *shape*.
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get(
+            "/content-items", params={"date_from": "not-a-date"}
+        ),
+        422,
+        id="list-items-malformed-date-from",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get(
+            "/content-items", params={"date_to": "2026-09-01T12:00:00Z"}
+        ),
+        422,
+        id="list-items-date-to-carrying-a-time",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.post(
             "/auth/login", json={"email": creator.email, "password": "not the password"}

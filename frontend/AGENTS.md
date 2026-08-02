@@ -40,7 +40,7 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | Overdue is a **dashed left border**, and `today` reaches the chip as a **prop** | FR-007 fixes the pipeline at three statuses, and overdue is *orthogonal* to status rather than a fourth value of it — an `idea` and a `draft` can both be overdue and the creator still has to tell them apart. Dashed rather than solid so it reads as a condition on a chip that already has a border, and so it survives greyscale (a dash pattern is a shape). **`border-l-dashed` is not a Tailwind utility** — border style has no per-side variant — so `ItemChip` carries the project's one arbitrary property, `[border-left-style:dashed]`; `overdue.spec.ts` asserts the *computed* style, because dashing all four sides is how the export draws the drag ghost. The prop is what makes "never during server rendering" true by construction: `isOverdue(item, null)` is false, and null is what every server render has. |
 | `countOverdue` counts **every loaded item**, not the visible period's | The export's second header count. An overdue item two months back is exactly the one the creator has lost track of, so a count that emptied itself as they navigated away from the problem would invert what the treatment is for. Zero prints nothing rather than `0 overdue` — a standing line that usually reads zero is one that stops being seen. |
 | `groupByScheduledDate` and `selectBacklog` are a **partition**, and that is the invariant to protect | US2 scenario 4 says no item appears in both. They are two pure functions over one loaded list, asserted against each other in `tests/client/items.spec.ts` rather than left to agree by coincidence. Anything that narrows what the calendar loads breaks the drawer, which is the whole of the row below. |
-| The drawer **narrows loaded state**; it never issues `scheduled=none` | R-007: the period is loaded once and every surface reads it. A second fetch alongside the calendar's own doubles the round trips and lets the two disagree. The endpoint's parameter exists for a caller that wants only the backlog — this surface is not one. `selectBacklog` is called inside `BacklogDrawer`, so "what the backlog is" has one definition. |
+| The drawer **narrows loaded state**; it never issues `scheduled=none` | R-007: the list is loaded **once, unparameterised**, and every surface narrows it — not once per period, which is the wording the Phase 4 checkpoint corrected in `research.md` and the contract. A second fetch alongside the calendar's own doubles the round trips and lets the two disagree. The endpoint's parameter exists for a caller that wants only the backlog — this surface is not one. `selectBacklog` is called inside `BacklogDrawer`, so "what the backlog is" has one definition. |
 | `CalendarShell`'s outer div is `relative`, and that is load-bearing | The expanded drawer positions against it. Without it the drawer escapes to the viewport and reads as a second screen, which is precisely what R-003a exists to prevent — the period header staying visible above the scrim is what makes it one surface. |
 | The expanded drawer carries **its own `+ CAPTURE`** | It covers the action band, so FR-022 would be broken by omission otherwise — and a creator browsing their backlog is exactly the person about to think of the next idea. It is deliberately **not** a modal dialog (no focus trap): capture must stay reachable, and a trap would fight the capture sheet that opens over it. |
 | The capture sheet has **one field and keeps it**, and the item sheet at T052 is not its bigger sibling | FR-005 plus the reason in `.claude/memory.md`: "ideas arrive mid-task, and any required field is enough friction to send the creator back to a notes app". Platform, date, hook and link are set at T052, on an item that already exists. `tests/e2e/capture.spec.ts` asserts the *request body* rather than counting inputs, because a field that defaulted to something and sent it would still be this surface making a decision that belongs to T052. |
@@ -106,6 +106,20 @@ screenshot on 3400, then kill it, then test.
 **A script run from the scratchpad cannot import `@playwright/test`.** Node resolves from the
 script's own directory, so a screenshot script outside the checkout fails with `ERR_MODULE_NOT_FOUND`
 before it starts a browser. Copy it into `frontend/` to run it, and delete it before committing.
+
+**Next's dev overlay covers the `MONTH` toggle at 375px and eats the click, so a hand-walk must use a
+production build.** The floating "N" button sits bottom-left, which is exactly where `PeriodNav`'s
+month/week toggle lands on a 375-wide screen — the control is untappable under `next dev` and *only*
+under `next dev`. Found at the Phase 4 checkpoint, where it looked like a broken toggle for several
+minutes. Nothing in the suite could ever show it: CI runs the production bundle, which is also the
+argument for walking the quickstart that way. **`pnpm build && pnpm start`.**
+
+**A local production build needs two environment variables, and the second one fails in a way that
+looks like a login bug.** `API_BASE_URL=http://127.0.0.1:8000` and **`SESSION_COOKIE_SECURE=false`**.
+Without the second, the proxy sets a `Secure` cookie, the browser refuses to store it over plain
+http, and the sign-in *succeeds* and then bounces straight back to `/login` — which reads as a broken
+session guard rather than as a cookie that was never saved. `lib/session.ts` defaults `API_BASE_URL`
+outside production, which is why `pnpm dev` needs neither and `pnpm start` needs both.
 
 **A browser test that fixes a clock must also fix a timezone, or it encodes the author's location.**
 `page.clock.setFixedTime` pins the *instant*; the zone that turns it into a calendar day still comes
