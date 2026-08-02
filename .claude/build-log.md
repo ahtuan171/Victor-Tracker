@@ -1529,3 +1529,35 @@ accident — it signals the body scrolls.
 
 One measurement trap recorded in `frontend/AGENTS.md`: the sheet enters on a 200ms `translate-y`, so a
 `boundingBox()` taken the instant `toBeVisible()` resolves is 40px off. `toBeInViewport()` retries.
+
+## T053 — a 409 is an instruction, and the interesting word is "reachable"
+
+Four tests, written red first. **285 → 289 frontend, none skipped.**
+
+T052 already rendered the backend's sentence and already put the platform control one column from the
+status control, which is the layout half of FR-009a. What was missing is smaller than it sounds and
+matters more: **which control resolves this refusal**, said in something other than prose.
+
+The two codes are not decoration. `check_invariant_1` raises one condition under two names precisely
+because the creator's next step differs — `platform_required` is fixed in the platform column,
+`platform_locked` in the status column, because the instruction is literally "move this back to ideas
+first". So the sheet marks the group that resolves it and moves focus there, matching on `code` rather
+than on the message text, which keeps a reworded backend sentence from changing behaviour.
+
+**The word that made this more than a colour change is "reachable".** SC-012 says a refusal must be
+resolvable from the surface the creator is already on, and T052's sheet scrolls its body at 667px —
+so when the refusal arrives while they are on the date field, the platform column is *adjacent* and
+*off screen*. Moving focus scrolls it back and puts the keyboard on the answer, which is also the
+FR-015b path. Adjacency alone would have satisfied a reading of the task and not the requirement.
+
+Two smaller decisions:
+
+- **Any edit clears the refusal.** It described a save attempt that no longer matches the draft;
+  leaving it up has the sheet arguing with a change the creator has already made.
+- **A non-409 marks nothing.** A 502 is not an instruction, and marking a control would tell the
+  creator to change something that was never the problem. Asserted, because "highlight on error" is
+  the natural way to write this and it is wrong.
+
+Colour does carry the label's emphasis, and that is safe here rather than an SC-004 problem: the
+message says which control and why in words, and focus has already moved there. Screenshotted at
+375px — PLATFORM in brand red, the instruction beneath, the fix one column right.

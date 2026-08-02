@@ -1,11 +1,18 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { PlatformCue } from "@/components/item/PlatformCue";
 import { StatusCue } from "@/components/item/StatusCue";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { ApiError, PLATFORMS, STATUSES, type ContentItem, type Platform } from "@/lib/api";
+import {
+  ApiError,
+  PLATFORMS,
+  STATUSES,
+  type ContentItem,
+  type InvariantCode,
+  type Platform,
+} from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
 import { changesBetween, hasChanges, isOverdue } from "@/lib/items";
 import { PLATFORM_CUES, STATUS_CUES } from "@/lib/status";
@@ -50,9 +57,18 @@ import { cn } from "@/lib/utils";
  * - **`DELETE ITEM`** is **T056**. The export draws the button here and it opens a confirmation —
  *   rendering the button now, with nothing behind it, would be either dead UI or a single tap that
  *   deletes, and FR-020 forbids the second. A seam, not half a build.
- * - **409 treatment** is refined at **T053**. A refusal already renders as the backend's sentence and
- *   the platform control is already adjacent to the status control, which is the layout half of
- *   FR-009a; T053 owns making the code itself legible.
+ *
+ * ## A 409 is an instruction, not just an error (T053, FR-009, FR-009a, SC-012)
+ *
+ * One invariant, two codes, and the codes exist because the creator's **next step** differs:
+ * `platform_required` is fixed in the platform column, `platform_locked` in the status column ("move
+ * it back to ideas first"). SC-012 asks that neither refusal require leaving the surface, so the sheet
+ * **marks the control that resolves it and moves focus there** rather than printing a sentence and
+ * trusting the creator to read it carefully. On a sheet whose body scrolls, adjacency alone is not
+ * reachability — the columns can be off screen when the creator is on the date field.
+ *
+ * Matching on `code` rather than on prose is what makes this survive a reworded backend message; the
+ * message itself is still the contract's `detail`, verbatim, so the two cannot drift.
  */
 export function ItemSheet({
   item,
@@ -85,7 +101,12 @@ export function ItemSheet({
   const [draft, setDraft] = useState<ContentItem | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which invariant refused the last save, if it was one. Null for every other kind of failure. */
+  const [errorCode, setErrorCode] = useState<InvariantCode | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const statusGroup = useRef<HTMLDivElement>(null);
+  const platformGroup = useRef<HTMLDivElement>(null);
 
   /**
    * Reset the draft when the sheet opens on an item — React's documented "adjusting state when a prop
@@ -107,6 +128,7 @@ export function ItemSheet({
     setEditingId(item.id);
     setDraft(item);
     setError(null);
+    setErrorCode(null);
   }
 
   const open = item !== null;
@@ -117,6 +139,10 @@ export function ItemSheet({
 
   function edit(patch: Partial<ContentItem>): void {
     setDraft((previous) => (previous === null ? null : { ...previous, ...patch }));
+    // The refusal described a save attempt that no longer matches the draft. Leaving it on screen
+    // would have the sheet arguing with an edit the creator has already made.
+    setError(null);
+    setErrorCode(null);
   }
 
   async function save(): Promise<void> {
@@ -131,6 +157,7 @@ export function ItemSheet({
 
     setSaving(true);
     setError(null);
+    setErrorCode(null);
 
     try {
       await onSave(item, changes);
@@ -144,6 +171,13 @@ export function ItemSheet({
           ? caught.detail
           : "Could not save those changes. They are still here — try again.",
       );
+
+      const code = caught instanceof ApiError ? caught.code : null;
+      setErrorCode(code);
+      // Focus the control that resolves it. This is the difference between the fix being *adjacent*
+      // and being *reached*: the sheet's body scrolls, so the columns may be off screen — and moving
+      // focus scrolls them back and puts the keyboard on the answer (FR-015b).
+      focusFix(code === "platform_locked" ? statusGroup : code === null ? null : platformGroup);
     } finally {
       setSaving(false);
     }
@@ -226,13 +260,23 @@ export function ItemSheet({
            */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <GroupLabel id={statusId}>Status</GroupLabel>
+              <GroupLabel id={statusId} invalid={errorCode === "platform_locked"}>
+                Status
+              </GroupLabel>
               {/*
                * A radio group: exactly one of three, always set (FR-007 — `status` is `NOT NULL` with
                * a default, so there is no "no status"). Both directions are offered at once, which is
                * all FR-008 needs — moving back to `idea` is the same one tap as moving forward.
                */}
-              <div role="radiogroup" aria-labelledby={statusId} className="flex flex-col gap-1.5">
+              <div
+                ref={statusGroup}
+                role="radiogroup"
+                aria-labelledby={statusId}
+                data-invalid={errorCode === "platform_locked" ? "" : undefined}
+                {...(errorCode === "platform_locked" ? { "aria-describedby": errorId } : {})}
+                data-testid="status-group"
+                className="flex flex-col gap-1.5"
+              >
                 {STATUSES.map((status) => (
                   <ChoiceButton
                     key={status}
@@ -249,14 +293,24 @@ export function ItemSheet({
             </div>
 
             <div className="flex-1">
-              <GroupLabel id={platformId}>Platform</GroupLabel>
+              <GroupLabel id={platformId} invalid={errorCode === "platform_required"}>
+                Platform
+              </GroupLabel>
               {/*
                * Toggle buttons rather than radios, and the difference is FR-010a plus FR-009a: at most
                * **one** platform, and `null` is a legal value the creator must be able to return to —
                * a radio group has no "none" once one is picked. Tapping the selected platform clears
                * it, which is the only way to reach the `platform_locked` refusal T053 renders.
                */}
-              <div role="group" aria-labelledby={platformId} className="flex flex-col gap-1.5">
+              <div
+                ref={platformGroup}
+                role="group"
+                aria-labelledby={platformId}
+                data-invalid={errorCode === "platform_required" ? "" : undefined}
+                {...(errorCode === "platform_required" ? { "aria-describedby": errorId } : {})}
+                data-testid="platform-group"
+                className="flex flex-col gap-1.5"
+              >
                 {PLATFORMS.map((platform) => (
                   <ChoiceButton
                     key={platform}
@@ -395,16 +449,44 @@ function Field({
   );
 }
 
-/** The same label treatment for a group of buttons, which has no single control to point `htmlFor` at. */
-function GroupLabel({ id, children }: { readonly id: string; readonly children: React.ReactNode }) {
+/**
+ * The same label treatment for a group of buttons, which has no single control to point `htmlFor` at.
+ *
+ * `invalid` turns the label the brand colour when an invariant refusal names this group. Colour is
+ * carrying emphasis here rather than meaning — the message beside it says which control and why in
+ * words, and focus has already moved there — so SC-004's colour-independence is not at stake.
+ */
+function GroupLabel({
+  id,
+  invalid = false,
+  children,
+}: {
+  readonly id: string;
+  readonly invalid?: boolean;
+  readonly children: React.ReactNode;
+}) {
   return (
     <span
       id={id}
-      className="font-display text-ink-mid mb-1.5 block text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+      className={cn(
+        "font-display mb-1.5 block text-[10px] leading-none font-semibold tracking-[0.2em] uppercase",
+        invalid ? "text-brand-hi" : "text-ink-mid",
+      )}
     >
       {children}
     </span>
   );
+}
+
+/**
+ * Move focus to the first option of the group that resolves a refusal.
+ *
+ * Deliberately the *first* option rather than a remembered one: for `platform_locked` the instruction
+ * is literally "move this back to ideas", and `idea` is the first status; for `platform_required` any
+ * platform will do and the first is where a thumb already is.
+ */
+function focusFix(group: React.RefObject<HTMLDivElement | null> | null): void {
+  group?.current?.querySelector("button")?.focus();
 }
 
 /**
