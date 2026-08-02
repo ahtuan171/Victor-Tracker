@@ -2,14 +2,26 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { BacklogDrawer } from "@/components/backlog/BacklogDrawer";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+
+import { BACKLOG_DROP_ID, BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
+import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import type { ContentItem } from "@/lib/api";
-import { today, type DateOnly } from "@/lib/dates";
+import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
 import { cn } from "@/lib/utils";
@@ -103,6 +115,58 @@ export function CalendarShell() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const editing = items.find((item) => item.id === editingId) ?? null;
 
+  /** The row being dragged, so `DragOverlay` has something to draw following the finger. */
+  const [dragging, setDragging] = useState<ContentItem | null>(null);
+
+  /**
+   * Both sensors, and the `PointerSensor`'s constraint is the whole of T055.
+   *
+   * Without an activation constraint the sensor claims the gesture the instant a finger moves on a
+   * chip, so a creator swiping up to scroll the month grid lifts the chip instead and drops it on
+   * whatever cell they release over — **silently rescheduling an item they were only trying to scroll
+   * past**. 8px of travel is enough that a scroll wins and a deliberate drag still feels immediate.
+   *
+   * A **delay** was the other option and is worse here: long-press collides with the browser's own
+   * context menu, and `.claude/rules/design.md` forbids putting a consequential action next to a
+   * common gesture. `touch-none` on the chip is the other half of the arbitration; neither works
+   * alone.
+   *
+   * **No `KeyboardSensor`, and that is an amendment to research.md R-003 rather than an oversight.**
+   * Its activation codes are `Space` and `Enter`, and T052 made the chip a `<button>` whose own keys
+   * those are — registering it means the item sheet can no longer be opened from a keyboard, trading
+   * the primary path for the secondary one. FR-015b and SC-011 ask that date changes be reachable
+   * *without a drag*, which the sheet's date input satisfies completely. R-003 and `tasks.md` T054 are
+   * amended in the same merge request, because an amendment applied to one artifact is not applied.
+   */
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  /**
+   * A drop is one `PATCH` of one field, and that is the whole handler.
+   *
+   * Day cells use their own date as their droppable id and the backlog uses `BACKLOG_DROP_ID`, so
+   * translating a drop into `{ scheduled_date }` needs no lookup table that could fall out of step
+   * with the grid. Both branches end at `updateItem` — the same function the item sheet calls — which
+   * is what makes FR-014a's "both produce an identical result" true by construction.
+   */
+  function onDragEnd(event: DragEndEvent): void {
+    setDragging(null);
+
+    const item = event.active.data.current?.["item"] as ContentItem | undefined;
+    const target = event.over?.id;
+    if (item === undefined || target === undefined) return;
+
+    const scheduled_date = target === BACKLOG_DROP_ID ? null : String(target);
+    // A droppable id that is neither the backlog nor a date is a wiring bug, not a date to send.
+    if (scheduled_date !== null && !isDateOnly(scheduled_date)) return;
+    // Dropping a chip back where it started is a no-op, not an empty PATCH the backend would 422.
+    if (scheduled_date === item.scheduled_date) return;
+
+    // Rejections are already handled: `updateItem` rolls the optimistic move back. There is no sheet
+    // open to render the message, so a floating error would be the only surface for it — deferred
+    // rather than invented here, and the row visibly returning to its old day is the feedback.
+    void updateItem(item, { scheduled_date }).catch(() => {});
+  }
+
   /**
    * A pending row never reaches here — `ItemChip` refuses to render as a button for one, because the
    * id the sheet would name does not exist on the server yet.
@@ -122,87 +186,118 @@ export function CalendarShell() {
     // page scrolls vertically to reach it. A fixed height is what gives `<main>` a size to be
     // `min-h-0` against, so the grid scrolls inside its own container the way
     // `.claude/rules/design.md` requires and the band stays under the thumb.
-    <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
-      <CalendarHeader
-        period={period}
-        view={view}
-        itemCount={items.length}
-        overdueCount={countOverdue(items, today)}
-        loading={status === "loading"}
-      />
-
-      {/*
-       * `min-h-0` is what keeps the promise in `.claude/rules/design.md` that the page body never
-       * scrolls at 375px: without it a flex child refuses to shrink below its content and pushes the
-       * action band off the bottom of the screen. The grid that lands here at T042 is the wide
-       * content that must scroll inside this container rather than moving the page.
-       */}
-      <main className="min-h-0 flex-1 overflow-y-auto" aria-busy={status === "loading"}>
-        {status === "error" ? (
-          <p
-            id="calendar-error"
-            role="alert"
-            className="border-brand-hi bg-brand-sunk text-ink m-4 border-l-4 px-3 py-2 text-sm"
-          >
-            {error}
-          </p>
-        ) : null}
+    <DndContext
+      sensors={sensors}
+      /*
+       * **Pointer-based, not rectangle-based, and this is a correctness fix rather than a preference.**
+       * dnd-kit's default intersects the *dragged overlay's* rectangle with the droppables. The
+       * overlay is a `full` chip — far wider than a 53px day cell — so it overlaps three or four days
+       * at once and the first intersection wins: aiming at the 12th scheduled the 13th. `pointerWithin`
+       * makes the answer "the cell under the finger", which is the only rule a creator can predict.
+       * It also returns nothing outside every droppable, so a drop into empty space is correctly no
+       * change rather than a nearest-neighbour guess.
+       */
+      collisionDetection={pointerWithin}
+      onDragStart={(event: DragStartEvent) =>
+        setDragging((event.active.data.current?.["item"] as ContentItem | undefined) ?? null)
+      }
+      onDragCancel={() => setDragging(null)}
+      onDragEnd={onDragEnd}
+    >
+      <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
+        <CalendarHeader
+          period={period}
+          view={view}
+          itemCount={items.length}
+          overdueCount={countOverdue(items, today)}
+          loading={status === "loading"}
+        />
 
         {/*
-         * The month grid (T042) or the week list (T043), chosen by the toggle in the action band
-         * (T044). The backlog drawer is *not* in this region — it is anchored to the bottom of the
-         * surface, below.
-         *
-         * `period === null` until the browser's clock has been read, so there is nothing to draw yet
-         * — a grid built from a server-side "today" would be the wrong month for a moment, which is
-         * the whole reason the period is read after mount (research.md R-006 addendum).
+         * `min-h-0` is what keeps the promise in `.claude/rules/design.md` that the page body never
+         * scrolls at 375px: without it a flex child refuses to shrink below its content and pushes the
+         * action band off the bottom of the screen. The grid that lands here at T042 is the wide
+         * content that must scroll inside this container rather than moving the page.
          */}
-        {period === null ? (
-          <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
-            {status === "loading" ? "Loading your items…" : ""}
-          </p>
-        ) : view === "month" ? (
-          <MonthGrid period={period} today={today} items={items} onOpenItem={openItem} />
-        ) : (
-          <WeekList period={period} today={today} items={items} onOpenItem={openItem} />
-        )}
-      </main>
+        <main className="min-h-0 flex-1 overflow-y-auto" aria-busy={status === "loading"}>
+          {status === "error" ? (
+            <p
+              id="calendar-error"
+              role="alert"
+              className="border-brand-hi bg-brand-sunk text-ink m-4 border-l-4 px-3 py-2 text-sm"
+            >
+              {error}
+            </p>
+          ) : null}
 
-      {/*
-       * Between the content region and the action band, which is where the export puts it and where
-       * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
-       * at T054.
-       */}
-      <BacklogDrawer items={items} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
+          {/*
+           * The month grid (T042) or the week list (T043), chosen by the toggle in the action band
+           * (T044). The backlog drawer is *not* in this region — it is anchored to the bottom of the
+           * surface, below.
+           *
+           * `period === null` until the browser's clock has been read, so there is nothing to draw yet
+           * — a grid built from a server-side "today" would be the wrong month for a moment, which is
+           * the whole reason the period is read after mount (research.md R-006 addendum).
+           */}
+          {period === null ? (
+            <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
+              {status === "loading" ? "Loading your items…" : ""}
+            </p>
+          ) : view === "month" ? (
+            <MonthGrid period={period} today={today} items={items} onOpenItem={openItem} />
+          ) : (
+            <WeekList period={period} today={today} items={items} onOpenItem={openItem} />
+          )}
+        </main>
 
-      <CalendarActionBar onCapture={() => setCapturing(true)}>
-        <PeriodNav
-          view={view}
-          onViewChange={setView}
-          // Stepping from `period` rather than from `anchor` is what makes the first tap work: until
-          // the creator has navigated, `anchor` is null and the period on screen is `today`.
-          onShift={(delta) => {
-            if (period !== null) setAnchor(shiftPeriod(period, view, delta));
+        {/*
+         * Between the content region and the action band, which is where the export puts it and where
+         * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
+         * at T054.
+         */}
+        <BacklogDrawer items={items} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
+
+        <CalendarActionBar onCapture={() => setCapturing(true)}>
+          <PeriodNav
+            view={view}
+            onViewChange={setView}
+            // Stepping from `period` rather than from `anchor` is what makes the first tap work: until
+            // the creator has navigated, `anchor` is null and the period on screen is `today`.
+            onShift={(delta) => {
+              if (period !== null) setAnchor(shiftPeriod(period, view, delta));
+            }}
+            disabled={period === null}
+          />
+        </CalendarActionBar>
+
+        <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
+
+        {/*
+         * Mounted always, opened by `editing` being non-null, so the sheet keeps its exit animation and
+         * so the draft it holds survives the optimistic re-render its own save causes.
+         */}
+        <ItemSheet
+          item={editing}
+          today={today}
+          onOpenChange={(open) => {
+            if (!open) setEditingId(null);
           }}
-          disabled={period === null}
+          onSave={updateItem}
         />
-      </CalendarActionBar>
 
-      <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
-
-      {/*
-       * Mounted always, opened by `editing` being non-null, so the sheet keeps its exit animation and
-       * so the draft it holds survives the optimistic re-render its own save causes.
-       */}
-      <ItemSheet
-        item={editing}
-        today={today}
-        onOpenChange={(open) => {
-          if (!open) setEditingId(null);
-        }}
-        onSave={updateItem}
-      />
-    </div>
+        {/*
+         * The thing that follows the finger. A portal-free overlay so it is not clipped by `<main>`'s
+         * `overflow-y-auto` — a chip dragged out of a scrolling grid would otherwise disappear at the
+         * container's edge. Sized `full` whatever the source chip was: a 50px micro chip under a finger
+         * is smaller than the finger.
+         */}
+        <DragOverlay dropAnimation={null}>
+          {dragging === null ? null : (
+            <ItemChip item={dragging} size="full" today={today} onOpen={openItem} ghost />
+          )}
+        </DragOverlay>
+      </div>
+    </DndContext>
   );
 }
 
@@ -299,10 +394,10 @@ function CalendarHeader({
           <>
             {itemCount} {itemCount === 1 ? "item" : "items"}
             {/*
-              * Zero overdue prints nothing rather than "0 overdue". A standing line that usually
-              * reads zero is one the creator stops seeing, which is the whole failure mode this
-              * count exists to catch.
-              */}
+             * Zero overdue prints nothing rather than "0 overdue". A standing line that usually
+             * reads zero is one the creator stops seeing, which is the whole failure mode this
+             * count exists to catch.
+             */}
             {overdueCount > 0 ? (
               <>
                 <br />

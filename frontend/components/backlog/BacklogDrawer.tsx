@@ -2,9 +2,12 @@
 
 import { useEffect, useId, useState } from "react";
 
+import { useDroppable } from "@dnd-kit/core";
+
 import { ItemChip } from "@/components/item/ItemChip";
 import type { ContentItem } from "@/lib/api";
 import { selectBacklog } from "@/lib/items";
+import { cn } from "@/lib/utils";
 
 /**
  * The backlog, as a drawer on the calendar surface (T035, FR-011, research.md R-003a).
@@ -107,10 +110,21 @@ function PeekStrip({
   onToggle: () => void;
   onOpenItem: (item: ContentItem) => void;
 }) {
+  // The strip is the "back to the backlog" drop target (T054): dropping here sends
+  // `{scheduled_date: null}`, which is the drag counterpart of the sheet's CLEAR button. It is the
+  // peek strip rather than the expanded panel because R-003a put the strip *above the action band*
+  // precisely so a chip has a short distance to travel between a day and the backlog.
+  const { setNodeRef, isOver } = useDroppable({ id: BACKLOG_DROP_ID });
+
   return (
     <section
+      ref={setNodeRef}
       aria-label="Backlog"
-      className="border-hairline bg-surface-1 notch-sheet relative border-t shadow-e2"
+      className={cn(
+        "border-hairline bg-surface-1 notch-sheet relative border-t shadow-e2",
+        isOver && "bg-brand-sunk ring-brand ring-2 ring-inset",
+      )}
+      data-over={isOver ? "" : undefined}
       data-testid="backlog-peek"
     >
       <button
@@ -154,11 +168,7 @@ function PeekStrip({
               {/* T041: the peek strip carries the cues too. FR-017 says status is legible "in both
                   calendar and backlog views" without qualification, and this strip is the backlog
                   view a creator sees most — it is on screen whenever the calendar is. */}
-              <ItemChip
-                item={item}
-                size="peek"
-                onOpen={onOpenItem}
-              />
+              <ItemChip item={item} size="peek" onOpen={onOpenItem} />
             </li>
           ))}
         </ul>
@@ -175,6 +185,15 @@ function PeekStrip({
  * creator is glancing at.
  */
 const PEEK_LIMIT = 4;
+
+/**
+ * The droppable id meaning "no date".
+ *
+ * A string, where every day cell's id is its own `YYYY-MM-DD` — so `onDragEnd` decides between
+ * unscheduling and scheduling by comparing against this one constant rather than by pattern-matching
+ * a date. Exported so `CalendarShell` and this file cannot disagree about the spelling.
+ */
+export const BACKLOG_DROP_ID = "backlog";
 
 /** The expanded state: the whole backlog, browsable, over the calendar. */
 function ExpandedBacklog({
@@ -226,13 +245,12 @@ function ExpandedBacklog({
 
           <p className="text-ink-lo mt-2 text-[11px] leading-snug">
             {/*
-             * The export's line here is "Undated ideas, newest first. Drag one onto a day to schedule
-             * it." Only the first half is true today: there is no month grid until T042 and no drag
-             * until T054, so the second half would instruct the creator to do something the product
-             * cannot do. **T054 restores the full sentence** — it is a promise, not a description,
-             * until then.
+             * The export's full line, restored at T054 now that the drag it describes exists. T035
+             * deliberately shipped only the first half, because the second would have instructed the
+             * creator to do something the product could not do — copy that promises a gesture is a
+             * bug in the same way a dead button is.
              */}
-            Undated ideas, newest first.
+            Undated ideas, newest first. Drag one onto a day to schedule it.
           </p>
         </header>
 
@@ -242,13 +260,7 @@ function ExpandedBacklog({
               Nothing here yet. Capture an idea and it lands in this list.
             </li>
           ) : (
-            backlog.map((item) => (
-              <BacklogRow
-                key={item.id}
-                item={item}
-                onOpenItem={onOpenItem}
-              />
-            ))
+            backlog.map((item) => <BacklogRow key={item.id} item={item} onOpenItem={onOpenItem} />)
           )}
         </ul>
 

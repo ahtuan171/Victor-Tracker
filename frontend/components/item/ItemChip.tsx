@@ -1,3 +1,7 @@
+"use client";
+
+import { useDraggable } from "@dnd-kit/core";
+
 import { PlatformCue } from "@/components/item/PlatformCue";
 import { StatusCue } from "@/components/item/StatusCue";
 import type { ContentItem } from "@/lib/api";
@@ -52,15 +56,39 @@ import { cn } from "@/lib/utils";
  * that 404s. The row keeps `aria-busy` so the reason is announced rather than merely felt, and it
  * stays an `<article>` — a disabled button would still be a tab stop promising something.
  *
- * ## What this deliberately does not do yet
+ * ## Dragging it schedules it (T054, FR-014a)
  *
- * - **It is not draggable.** That is **T054**, with the activation constraint at T055.
+ * The chip is the draggable and day cells and the backlog are the drop targets — the drag half of
+ * FR-014, whose tap half is the same sheet the chip opens. Both end at `updateItem`, which is what
+ * makes "both paths produce an identical result" true by construction rather than by discipline.
+ *
+ * **The same `isPending` guard covers both**, and it has to: a drop names an id the server has not
+ * issued. `useDraggable`'s `disabled` is what expresses that, rather than a conditional hook.
+ *
+ * `touch-none` on every chip is not a nicety (T055). Without it a vertical swipe starting on a chip
+ * is claimed by the pointer sensor, the chip lifts instead of the grid scrolling, and it lands on
+ * whatever cell the finger released over — silently rescheduling an item. The activation constraint
+ * in `CalendarShell` is the other half; neither works alone.
+ *
+ * ## There is no keyboard drag, and that is an amendment rather than an omission
+ *
+ * research.md R-003 asked for a `KeyboardSensor` alongside the pointer one. It collides with a
+ * decision taken later: **the chip is a `<button>`** (T052), and dnd-kit's keyboard activation codes
+ * are `Space` and `Enter` — the button's own. Registering it means the sheet can no longer be opened
+ * from the keyboard, which trades the *primary* path for the secondary one.
+ *
+ * So the activator is stripped and no `KeyboardSensor` is registered. The requirements are unaffected:
+ * FR-015b asks that every date change be reachable **without a pointer-drag gesture**, and SC-011 that
+ * the whole journey be completable without a drag — both are satisfied by the sheet's date input,
+ * which R-003 itself designates the primary path. `research.md` R-003 and `tasks.md` T054 are amended
+ * to match rather than left asserting the opposite.
  */
 export function ItemChip({
   item,
   size = "full",
   today = null,
   onOpen,
+  ghost = false,
   className,
 }: {
   readonly item: ContentItem;
@@ -74,6 +102,15 @@ export function ItemChip({
    * `onOpen` landing where `onOpenItem` was expected compiled cleanly and did nothing.
    */
   readonly onOpen: (item: ContentItem) => void;
+  /**
+   * Draw this as the thing following the finger, rather than as a row in a list.
+   *
+   * A dashed border on **all four sides**, which is the export's drag ghost — and deliberately not
+   * the same treatment as overdue, which is dashed on the **left only**. `overdue.spec.ts` asserts
+   * `borderTopStyle === \"solid\"` on an overdue chip precisely to keep the two apart, because an
+   * overdue item being dragged would otherwise be indistinguishable from an overdue item at rest.
+   */
+  readonly ghost?: boolean;
   /**
    * The creator's own calendar day, or null before the browser's clock has been read.
    *
@@ -89,12 +126,34 @@ export function ItemChip({
   const overdue = isOverdue(item, today);
   const openable = !pending;
 
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: item.id,
+    // A pending row has no server id to name, so it is not draggable for the same reason it is not
+    // openable. `disabled` rather than skipping the hook — hooks cannot be conditional.
+    disabled: pending,
+    data: { item },
+  });
+
+  /**
+   * The pointer listeners, **without** dnd-kit's keyboard activator — see the note above about why
+   * this chip has no keyboard drag.
+   */
+  const { onKeyDown: _dragKeyDown, ...dragListeners } = listeners ?? {};
+
+  // dnd-kit's `attributes` are spread only on a row that can actually be dragged. `disabled: true`
+  // still emits `role="button"`, `tabindex="0"` and `aria-disabled`, which would make a pending row a
+  // tab stop announcing itself as a disabled button — the exact thing the `<article>` fallback exists
+  // to avoid. The row is not disabled; it is not yet a control.
+
   // One element either way. Wrapping the chip in a button instead would put a 44px target around a
   // 44px row and give the month grid's micro chip a second box to lay out inside a 50px cell.
   const Element = openable ? "button" : "article";
 
   return (
     <Element
+      ref={setNodeRef}
+      {...(pending ? {} : attributes)}
+      {...dragListeners}
       {...(openable
         ? {
             type: "button" as const,
@@ -113,11 +172,20 @@ export function ItemChip({
       className={cn(
         "border-hairline flex items-center rounded-sm border",
         FRAME[size],
-        openable && "focus-visible:ring-brand-hi text-left focus-visible:ring-2 focus-visible:outline-none",
+        openable &&
+          "focus-visible:ring-brand-hi text-left focus-visible:ring-2 focus-visible:outline-none",
+        // T055: the gesture arbitration half that lives on the element. Without it a vertical swipe
+        // beginning on a chip is captured as a drag and the grid does not scroll.
+        !pending && "touch-none",
+        // The row the creator has lifted stays in place and dims; `DragOverlay` draws the thing that
+        // follows the finger. Removing it from the flow instead would reflow the grid mid-drag and
+        // move the drop target out from under them.
+        isDragging && "opacity-40",
         // `border-l-dashed` is not a Tailwind utility — border *style* has no per-side variant — so
         // the one arbitrary property in this file. Without it `border-dashed` would dash all four
         // sides and the chip would read as the drag ghost the export draws with exactly that.
         overdue && OVERDUE_FRAME[size],
+        ghost && "border-brand border-dashed shadow-e2",
         // The optimistic row stays legible but visibly not-yet-saved. Dimming the whole chip rather
         // than the title alone keeps the cue from reading as a status the server has agreed to.
         pending && "opacity-60",
