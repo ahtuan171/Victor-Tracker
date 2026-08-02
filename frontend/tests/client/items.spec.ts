@@ -149,6 +149,33 @@ test.describe("itemsLoaded", () => {
     expect(state.status).toBe("ready");
     expect(state.error).toBeNull();
   });
+
+  test("a row saved after the read was issued survives it too", () => {
+    // The hole the Phase 3 `reviewer` pass recorded, closed at T044. The creator's capture has
+    // *already* reconciled — the row has a real id, so `isPending` is false — but the response was
+    // fetched before that id existed, so it is not in the list either. Without `savedSince` the row
+    // is dropped until the next load, which reads as the save having failed.
+    const state = itemsLoaded(ready([item(7), item(1)]), [item(1)], new Set([7]));
+
+    expect(ids(state)).toEqual([7, 1]);
+  });
+
+  test("a row saved after the read and also returned by it is not duplicated", () => {
+    // The overlap resolves the other way just as often: the read was issued before the save but the
+    // server answered after it, so the response already contains the row.
+    const state = itemsLoaded(ready([item(7), item(1)]), [item(7), item(1)], new Set([7]));
+
+    expect(ids(state)).toEqual([7, 1]);
+  });
+
+  test("`savedSince` does not resurrect a row the server has stopped returning", () => {
+    // The reason this is a narrow allowance rather than a merge-by-id. Absence from the response is
+    // how a deletion arrives (T050); only ids this browser saved during *this* read may override it,
+    // and the hook resets that set at the start of every read for exactly this reason.
+    const state = itemsLoaded(ready([item(7), item(1)]), [item(1)], new Set([3]));
+
+    expect(ids(state)).toEqual([1]);
+  });
 });
 
 test.describe("itemsFailed", () => {

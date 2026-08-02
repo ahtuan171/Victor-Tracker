@@ -1,11 +1,10 @@
 "use client";
 
-import { addDays, startOfMonth, startOfWeek } from "date-fns";
-
 import { DayCell } from "@/components/calendar/DayCell";
 import type { ContentItem } from "@/lib/api";
-import { parseDateOnly, toDateOnly, type DateOnly } from "@/lib/dates";
+import type { DateOnly } from "@/lib/dates";
 import { groupByScheduledDate } from "@/lib/items";
+import { periodDays, WEEKDAY_INITIALS } from "@/lib/period";
 
 /**
  * The month grid (T042, FR-012, FR-013, FR-021, research.md R-004).
@@ -17,10 +16,16 @@ import { groupByScheduledDate } from "@/lib/items";
  *
  * The span is fixed at 42 days from the Monday on or before the 1st, so the grid is the same height
  * in every month. A grid that renders five rows in one month and six in the next moves the backlog
- * drawer and the action band up and down as the creator navigates at T044 — on a 375px screen that is
- * the difference between a stable thumb target and a moving one. It also means the first and last
- * rows carry **adjacent-month days**, which are drawn dimmer but hold real items: an item on the 30th
- * of the previous month is genuinely in the week the creator is looking at.
+ * drawer and the action band up and down as the creator navigates — on a 375px screen that is the
+ * difference between a stable thumb target and a moving one. It also means the first and last rows
+ * carry **adjacent-month days**, which are drawn dimmer but hold real items: an item on the 30th of
+ * the previous month is genuinely in the week the creator is looking at.
+ *
+ * The span itself is `periodDays(period, "month")` in `lib/period.ts` as of T043, where the week list
+ * derives its own seven days from the same function and the same Monday. Two components each computing
+ * a span is how the grid's first column and the week list's first section come to disagree about
+ * where a week begins; and a pure function is testable in this project, whereas a component is not
+ * (`tech-defaults.md` rules out a renderer at v0.1).
  *
  * ## It does not query for its span, and that is the amendment
  *
@@ -49,19 +54,6 @@ export function MonthGrid({
 }) {
   const byDay = groupByScheduledDate(items);
 
-  const first = startOfMonth(parseDateOnly(period));
-  const gridStart = startOfWeek(first, { weekStartsOn: WEEK_STARTS_ON });
-  const month = first.getMonth();
-
-  const days = Array.from({ length: SPAN_DAYS }, (_, offset) => {
-    const date = addDays(gridStart, offset);
-    return {
-      key: toDateOnly(date),
-      dayNumber: date.getDate(),
-      inPeriod: date.getMonth() === month,
-    };
-  });
-
   return (
     <section aria-label="Month" data-testid="month-grid">
       {/*
@@ -86,30 +78,19 @@ export function MonthGrid({
       </div>
 
       <div className="grid grid-cols-7">
-        {days.map((day) => (
+        {periodDays(period, "month").map((day) => (
           <DayCell
-            key={day.key}
-            date={day.key}
-            dayNumber={day.dayNumber}
+            key={day.date}
+            date={day.date}
+            dayNumber={day.dayOfMonth}
             inPeriod={day.inPeriod}
-            items={byDay.get(day.key) ?? EMPTY}
+            items={byDay.get(day.date) ?? EMPTY}
           />
         ))}
       </div>
     </section>
   );
 }
-
-/**
- * Monday-first, matching the export's `M T W T F S S`. Hard-coded rather than read from a locale: the
- * product has one creator, and a locale-derived first day would make the grid's shape depend on a
- * browser setting no test pins.
- */
-const WEEK_STARTS_ON = 1;
-const WEEKDAY_INITIALS = ["M", "T", "W", "T", "F", "S", "S"] as const;
-
-/** Six weeks. See the note above on why this is fixed rather than derived from the month's length. */
-const SPAN_DAYS = 42;
 
 /** One shared empty array, so 42 mostly-empty cells do not allocate 42 of them per render. */
 const EMPTY: readonly ContentItem[] = [];

@@ -124,19 +124,40 @@ export const INITIAL_ITEMS_STATE: ItemsState = { items: [], status: "loading", e
 /**
  * A completed read.
  *
- * **Pending rows survive it**, and that is the whole subtlety of this function. A capture and a
- * reload can overlap — the creator taps save, then pulls to refresh, and the list response was
- * already in flight before the new row existed. Replacing `items` wholesale would make the row
- * vanish mid-save and reappear seconds later, which reads as data loss. They are re-prepended
- * instead, and reconciliation later swaps each one for its saved counterpart.
+ * **Rows saved since the read began survive it**, and that is the whole subtlety of this function. A
+ * capture and a reload can overlap — the creator taps save, then something triggers a re-read, and the
+ * list response was already in flight before the new row existed. Replacing `items` wholesale would
+ * make the row vanish mid-save and reappear seconds later, which reads as data loss.
+ *
+ * Two kinds of row need protecting, and only the first was protected until T044:
+ *
+ * 1. **Still pending.** No server id yet, so it cannot be in any response. Re-prepended, and
+ *    reconciliation later swaps it for its saved counterpart.
+ * 2. **Already reconciled, but after the read was issued.** This one is the hole the Phase 3
+ *    `reviewer` pass recorded: the row now has a real id, so `isPending` is false, and the response —
+ *    fetched before the row existed — does not contain it either. It was dropped until the next load.
+ *    `savedSince` names exactly those ids so they are kept.
+ *
+ * **`savedSince` is a narrow allowance, not a merge.** A general merge-by-id would be wrong in the
+ * other direction: it would leave an item deleted on another device on screen forever, because absence
+ * from the response is precisely how a deletion arrives (T050). Only ids the *browser itself* saved
+ * during this read qualify, and only while they are missing from the response.
  */
-export function itemsLoaded(state: ItemsState, items: readonly ContentItem[]): ItemsState {
-  return {
-    items: [...state.items.filter(isPending), ...items],
-    status: "ready",
-    error: null,
-  };
+export function itemsLoaded(
+  state: ItemsState,
+  items: readonly ContentItem[],
+  savedSince: ReadonlySet<number> = NONE,
+): ItemsState {
+  const returned = new Set(items.map((item) => item.id));
+  const kept = state.items.filter(
+    (item) => isPending(item) || (savedSince.has(item.id) && !returned.has(item.id)),
+  );
+
+  return { items: [...kept, ...items], status: "ready", error: null };
 }
+
+/** The default for a read that overlapped no save — the common case, and one shared empty set. */
+const NONE: ReadonlySet<number> = new Set<number>();
 
 /**
  * A failed read.
@@ -282,15 +303,27 @@ export function useContentItems(params: ListContentItemsParams = {}): ContentIte
    */
   const nextTempId = useRef(-1);
 
+  /**
+   * Ids this browser has saved since the in-flight read was issued — see `itemsLoaded`.
+   *
+   * Reset at the start of every read rather than accumulated, because a row saved *before* a read was
+   * issued is already in the database and therefore already in that read's response: keeping it in the
+   * set could only resurrect a row the server has since stopped returning.
+   */
+  const savedSinceRead = useRef<Set<number>>(new Set());
+
   useEffect(() => {
     // Guards the response, not the request. A period change or a reload can land out of order, and
     // an unmounted component receiving one is React's classic warning; more importantly, a slow
     // first response arriving after a fast second one would show the wrong period's items.
     let current = true;
 
+    const savedSince = new Set<number>();
+    savedSinceRead.current = savedSince;
+
     listContentItems(stableParams)
       .then((items) => {
-        if (current) setState((previous) => itemsLoaded(previous, items));
+        if (current) setState((previous) => itemsLoaded(previous, items, savedSince));
       })
       .catch((error: unknown) => {
         if (current) setState((previous) => itemsFailed(previous, messageFor(error)));
@@ -312,6 +345,9 @@ export function useContentItems(params: ListContentItemsParams = {}): ContentIte
 
     try {
       const saved = await createContentItem(draft);
+      // Registered before the state update so a list response that lands in the same tick cannot
+      // find the row reconciled and the id unregistered — the exact interleaving the hole was.
+      savedSinceRead.current.add(saved.id);
       setState((previous) => pendingItemReconciled(previous, tempId, saved));
       return saved;
     } catch (error) {
