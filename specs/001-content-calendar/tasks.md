@@ -793,7 +793,42 @@ Three things worth recording, none of which the task line implies:
   wanting everything omits the parameter. The generated schema renders `anyOf: [Platform, null]`,
   which is what `date_from` and `date_to` already do, so this follows the established convention
   rather than introducing a second one.
-- [ ] T061 [US4] Build the platform filter in `frontend/components/item/PlatformFilter.tsx` as local state narrowing the already-loaded period, applied to the grid and the backlog drawer alike, within thumb reach (FR-016, FR-022, SC-005, research.md R-007)
+- [x] T061 [US4] Build the platform filter in `frontend/components/item/PlatformFilter.tsx` as local state narrowing the already-loaded period, applied to the grid and the backlog drawer alike, within thumb reach (FR-016, FR-022, SC-005, research.md R-007)
+
+**T061 result (2026-08-02)**: done. `selectByPlatform` in `lib/items.ts` (a pure selector beside
+`selectBacklog` and `groupByScheduledDate`), `components/item/PlatformFilter.tsx`, and the wiring in
+`CalendarShell`. Frontend suite **322 → 343 passing**, nothing skipped — 8 unit tests on the selector,
+13 browser tests at 375px. `pnpm build`, `pnpm typecheck` and `pnpm lint` clean, and the surface was
+screenshotted at 375px on a production build against the live stack (the Tailwind trap: a misspelled
+class fails no check in CI).
+
+**The filter sends no request, and `platform-filter.spec.ts` asserts it** — the request count stays at
+one across three toggles and no URL ever carries `platform=`. Same guard as `period-nav.spec.ts`, one
+column over, and it exists because this is precisely the shape of the Phase 4 CRITICAL: `T060` added
+the endpoint's parameter, `specs/` outranks code, and an agent reading the contract's parameter list
+without R-007 beside it would be *right* to send it — and would empty the backlog drawer, which
+narrows the same loaded state.
+
+Two decisions this task had to take, both recorded in `frontend/AGENTS.md` as well:
+
+- **The row is above the backlog drawer, not under the period header where the export draws it.** The
+  export's `1i` places it around y=100; at the 375×667 floor the bottom half starts at y=333, and this
+  task line requires "within thumb reach (FR-022)". `.claude/rules/design.md` calls mobile-first a hard
+  constraint and the export "the starting point, not a drop-in", so the spec wins. **Third knowing
+  departure from the export**, after the sheet's 44px options and `text-base` on inputs — and like both
+  of those it is a tap-reachability constraint rather than taste. The 26px option height in the export
+  is raised to 44px for the same reason. A test asserts the position, so a restyle cannot quietly move
+  it back up.
+- **Both header counts narrow with the filter.** This is deliberately *unlike* period navigation, where
+  `countOverdue` spans every loaded item: moving to another month does not change which items exist to
+  the creator, whereas a filter is the creator asking to see fewer. A header reading `12 items` above a
+  grid drawing three is simply wrong. The two rules are stated beside each other in `CalendarShell` so
+  the difference is not read as an inconsistency.
+
+Also settled here: `CalendarShell` now holds **two lists**, and the rule is written at the top of the
+file — *anything that displays a set takes `visible`; anything that acts on a row takes `items`*.
+Looking `editing` up in the filtered list would close the item sheet the moment the creator gave that
+item a platform the filter excludes, which is a normal edit that would read as a crash.
 - [ ] T062 [US4] Add the filtered empty state to both the grid and the drawer, naming the active filter rather than showing a blank screen (spec Edge Cases)
 
 **Checkpoint**: all of US1–US4 work independently.

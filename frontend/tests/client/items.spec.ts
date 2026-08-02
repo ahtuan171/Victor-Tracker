@@ -20,6 +20,7 @@ import {
   pendingItemRolledBack,
   groupByScheduledDate,
   selectBacklog,
+  selectByPlatform,
   type ItemsState,
 } from "@/lib/items";
 
@@ -632,5 +633,84 @@ test.describe("groupByScheduledDate", () => {
     // empty array for it.
     expect(groupByScheduledDate([item(1)]).get("2026-03-17")).toBeUndefined();
     expect(groupByScheduledDate([]).size).toBe(0);
+  });
+});
+
+test.describe("selectByPlatform", () => {
+  test("null returns every item, and the same array", () => {
+    // Identity rather than a copy: the filter is off almost all of the time, and every surface calls
+    // this on every render. A `[...items]` here would allocate the whole list on each one.
+    const items = [item(1, { platform: "tiktok" }), item(2)];
+
+    expect(selectByPlatform(items, null)).toBe(items);
+  });
+
+  test("one platform returns only that platform's items, in order", () => {
+    const items = [
+      item(3, { platform: "youtube" }),
+      item(2, { platform: "tiktok" }),
+      item(1, { platform: "youtube" }),
+    ];
+
+    expect(selectByPlatform(items, "youtube").map((each) => each.id)).toEqual([3, 1]);
+  });
+
+  test("an item with no platform is excluded by every filter", () => {
+    // US4 scenario 4, and the assertion that would fail if `null` were ever treated as "undecided,
+    // so show it anyway". Tempting reading, and the spec refuses it — an unplatformed idea is
+    // reachable by clearing the filter, which is what T062's empty state exists to offer.
+    const items = [item(1), item(2, { platform: "tiktok" })];
+
+    for (const platform of ["tiktok", "instagram", "youtube"] as const) {
+      expect(selectByPlatform(items, platform).map((each) => each.id)).not.toContain(1);
+    }
+  });
+
+  test("and clearing the filter brings it back", () => {
+    // US4 scenario 2, plus the control for the test above: without it, "not visible under any
+    // filter" would be just as green against a function that returned nothing at all.
+    const items = [item(1), item(2, { platform: "tiktok" })];
+
+    expect(selectByPlatform(items, null).map((each) => each.id)).toEqual([1, 2]);
+  });
+
+  test("a platform nothing targets gives an empty list", () => {
+    // What T062 draws its empty state from. An empty array, never null — a caller that has to
+    // distinguish "no items" from "no answer" is a caller with two empty states to render.
+    expect(selectByPlatform([item(1, { platform: "tiktok" })], "youtube")).toEqual([]);
+  });
+
+  test("a pending row is filtered on its platform like any other", () => {
+    // A pending row is a real `ContentItem` with a negative id, so it needs no case of its own here.
+    // Worth pinning anyway: capture is title-only (T034), so a pending row's platform is always null
+    // and an active filter therefore hides the item the creator has just captured. That is correct —
+    // it matches what a reload would show — and it is exactly the kind of behaviour someone would
+    // later "fix" by special-casing `isPending` into this function.
+    expect(selectByPlatform([item(-1), item(1, { platform: "tiktok" })], "tiktok")).toHaveLength(1);
+  });
+
+  test("it composes with selectBacklog in either order", () => {
+    // The drawer takes items the shell has already filtered, then narrows to the undated ones. Both
+    // are pure filters over one list, so the order cannot matter — asserted rather than assumed,
+    // because `CalendarShell` picks one order and the drawer picks the other.
+    const items = [
+      item(3, { platform: "tiktok" }),
+      item(2, { platform: "tiktok", scheduled_date: "2026-03-01" }),
+      item(1, { platform: "youtube" }),
+    ];
+
+    const filteredThenBacklog = selectBacklog(selectByPlatform(items, "tiktok"));
+    const backlogThenFiltered = selectByPlatform(selectBacklog(items), "tiktok");
+
+    expect(filteredThenBacklog.map((each) => each.id)).toEqual([3]);
+    expect(backlogThenFiltered.map((each) => each.id)).toEqual([3]);
+  });
+
+  test("the input is not mutated", () => {
+    const items = [item(2, { platform: "tiktok" }), item(1)];
+
+    selectByPlatform(items, "tiktok");
+
+    expect(items.map((each) => each.id)).toEqual([2, 1]);
   });
 });

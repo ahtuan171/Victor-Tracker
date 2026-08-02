@@ -21,9 +21,10 @@ import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { DeleteConfirm } from "@/components/item/DeleteConfirm";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
-import type { ContentItem } from "@/lib/api";
+import { PlatformFilter } from "@/components/item/PlatformFilter";
+import type { ContentItem, Platform } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
-import { countOverdue, useContentItems } from "@/lib/items";
+import { countOverdue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +37,18 @@ import { cn } from "@/lib/utils";
  * a **content region**; and a **bottom action band** holding the primary actions in thumb reach.
  *
  * What T033 built was the frame and the data load — deliberately not what goes inside it. The capture
- * sheet arrived at T034, the backlog drawer at T035, the month grid at T042, and the week list and
- * period navigation at T043–T044. Still absent, with a place reserved below and a task that fills it:
- * the platform filter row (T061). Building it here because the export draws it would be letting a
- * picture reorder the task board.
+ * sheet arrived at T034, the backlog drawer at T035, the month grid at T042, the week list and period
+ * navigation at T043–T044, the item sheet and the drag path at T052–T056, and the platform filter at
+ * T061. Every band the export draws now exists.
+ *
+ * ## `items` and `visible` are two lists
+ *
+ * The filter narrows loaded state (T061), so this component holds both the full list and the filtered
+ * one. The rule for which a consumer gets: **anything that displays a set takes `visible`; anything
+ * that acts on a row takes `items`.** The grid, the week list, the drawer and the header counts are
+ * the first kind; the item sheet, the delete confirmation and the drag overlay are the second. Look
+ * `editing` up in `visible` and the sheet closes itself the moment the creator gives that item a
+ * platform the filter excludes — a normal edit that would read as a crash.
  *
  * ## The period is state; `today` is not
  *
@@ -131,6 +140,25 @@ export function CalendarShell() {
   const [dragging, setDragging] = useState<ContentItem | null>(null);
 
   /**
+   * The platform filter (T061), or null for all platforms.
+   *
+   * State, not a URL parameter and not a request: `selectByPlatform` narrows the list already in
+   * memory, which is what makes SC-005's one-second budget trivially met and what R-007 asks for.
+   */
+  const [platform, setPlatform] = useState<Platform | null>(null);
+
+  /**
+   * What every *view* draws — the grid, the week list, the drawer, and the header counts.
+   *
+   * **`items` and `visible` are two values, and which one a consumer gets is a decision each time.**
+   * The rule: anything that *displays a set* takes `visible`; anything that *acts on a row* takes
+   * `items`. `editing` below is the clearest case — looking the open item up in `visible` would close
+   * the sheet the moment the creator changed that item's platform to one the filter excludes, which
+   * is a normal thing to do with the sheet open and would read as the app crashing.
+   */
+  const visible = selectByPlatform(items, platform);
+
+  /**
    * Both sensors, and the `PointerSensor`'s constraint is the whole of T055.
    *
    * Without an activation constraint the sensor claims the gesture the instant a finger moves on a
@@ -217,11 +245,21 @@ export function CalendarShell() {
       onDragEnd={onDragEnd}
     >
       <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
+        {/*
+         * Both counts describe **what is on screen**, so both narrow with the filter.
+         *
+         * This is not the same question as period navigation, where `countOverdue` deliberately
+         * counts every loaded item rather than the visible period's. Moving to another month does not
+         * change which items exist to the creator — it changes which days they are looking at, and an
+         * overdue item two months back is exactly the one they have lost track of. A filter is the
+         * creator saying "show me fewer items", and a header reading `12 items` above a grid drawing
+         * three is simply wrong.
+         */}
         <CalendarHeader
           period={period}
           view={view}
-          itemCount={items.length}
-          overdueCount={countOverdue(items, today)}
+          itemCount={visible.length}
+          overdueCount={countOverdue(visible, today)}
           loading={status === "loading"}
         />
 
@@ -256,18 +294,29 @@ export function CalendarShell() {
               {status === "loading" ? "Loading your items…" : ""}
             </p>
           ) : view === "month" ? (
-            <MonthGrid period={period} today={today} items={items} onOpenItem={openItem} />
+            <MonthGrid period={period} today={today} items={visible} onOpenItem={openItem} />
           ) : (
-            <WeekList period={period} today={today} items={items} onOpenItem={openItem} />
+            <WeekList period={period} today={today} items={visible} onOpenItem={openItem} />
           )}
         </main>
+
+        {/*
+         * The platform filter (T061), above the drawer rather than under the header where the export
+         * draws it. T061 requires it "within thumb reach (FR-022)", and at the 375×667 floor the
+         * export's position is in the top fifth of the screen — see the note in `PlatformFilter.tsx`
+         * for the full reasoning and the test that pins the position.
+         */}
+        <PlatformFilter platform={platform} onChange={setPlatform} />
 
         {/*
          * Between the content region and the action band, which is where the export puts it and where
          * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
          * at T054.
+         *
+         * Takes `visible`, so the filter narrows the drawer and the grid alike — US4 scenario 1 names
+         * both surfaces, and they read from one state precisely so they cannot disagree.
          */}
-        <BacklogDrawer items={items} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
+        <BacklogDrawer items={visible} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
 
         <CalendarActionBar onCapture={() => setCapturing(true)}>
           <PeriodNav
