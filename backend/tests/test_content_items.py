@@ -1443,3 +1443,309 @@ def test_a_platform_filtered_read_carries_the_full_contracted_shape(
     (item,) = auth_client.get(ITEMS_PATH, params={"platform": Platform.TIKTOK.value}).json()
 
     assert set(item) == CONTRACTED_ITEM_KEYS
+
+
+# ---------------------------------------------------------------------------
+# The published link — T063 (FR-019, US5)
+#
+# A characterisation section, and deliberately so. `PublishedUrl` in `app/api/content_items.py` was
+# written at T030, not here: the constraint had to exist from the moment the field became writable,
+# because an unbounded URL reaching `String(2048)` is a 500 rather than a 422. Most of what follows
+# therefore passes on the day it is written, which is the correct outcome for a task whose
+# subject is a rule that already had to be true. What the section adds is the *reason* the rule is
+# what it is, in a place that fails when someone relaxes it.
+#
+# Three things decide the shape of everything below.
+#
+# **The scheme rule is an allowlist and it says nothing about the rest of the URL.** FR-019's value
+# is rendered as an `href` (T065), so `javascript:` and `data:` are the two spellings that turn a
+# stored string into script execution — but a denial list naming them is only as good as its
+# author's imagination, and the contract's `pattern: "^https?://"` is an allowlist for that reason.
+# The consequence is characterised rather than tightened: `https://` on its own is accepted, because
+# the contract's `format: uri` is a JSON Schema *annotation* and the pattern is the only
+# machine-checkable rule it declares. Narrowing that is a contract amendment before it is a code
+# change.
+#
+# **A refusal must not be a partial write**, on this path as much as on the update path. Two of the
+# tests below are the create-side twin of `test_a_refused_update_stores_nothing`: a 422 that had
+# already inserted the row would be invisible from the response and would leave the creator looking
+# at an error over data that changed anyway. `backend/AGENTS.md` records the general form — a test
+# asserting an absence is green against a great many broken things — so both assert the stored state
+# rather than only the status code.
+#
+# **Round-tripping means Postgres, not the response body.** Every assertion that a link survived
+# re-reads it through the list read the calendar renders from (R-007), because an endpoint that
+# echoed its request would satisfy any assertion made against the `POST` response alone. A published
+# link is also the one field on the item that cannot be reconstructed if it is mangled — the creator
+# pasted it from somewhere else, and a truncated query string produces a URL that still looks right
+# and opens the wrong thing.
+#
+# Two of this task's four subjects were already covered on the update path at T048
+# (`test_update_refuses_a_published_link_that_is_not_http` and
+# `test_update_refuses_a_published_link_over_the_contracted_length`), and FR-019a — the link
+# surviving a backward status change — is asserted exhaustively in `test_transitions.py`. Neither is
+# restated here. What was missing is the whole of the **create** path, which is the path the item
+# sheet uses when a creator captures an already-published piece.
+# ---------------------------------------------------------------------------
+
+
+A_LIVE_POST = "https://youtube.com/watch?v=abc123"
+"""One realistic link, reused so a failure names the spelling rather than the fixture."""
+
+NOT_HTTP_URLS = [
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "ftp://example.com/video",
+    "not a url at all",
+    "//example.com/video",
+]
+"""The five spellings the scheme allowlist must refuse, shared by the tests below.
+
+`javascript:` and `data:` are the two that matter — they are what an `href` executes. The other
+three are here to pin that the implemented rule is "starts with `http(s)://`" and not "does not
+start with `javascript:`", which is the shape a denial list would have and the shape a later reader
+is most likely to rewrite it into.
+"""
+
+MAX_URL_LENGTH = 2048
+"""`maxLength` in the contract and `String(2048)` in the column, which must be the same number.
+
+Named rather than repeated so the boundary pair below cannot drift apart, and so a change to either
+declaration fails a test that says what the number is for.
+"""
+
+
+def a_url_of_length(length: int) -> str:
+    """Build a syntactically valid https URL of exactly `length` characters."""
+    prefix = "https://example.com/"
+    return prefix + "x" * (length - len(prefix))
+
+
+def test_a_posted_item_is_valid_with_no_published_link(auth_client: TestClient) -> None:
+    """FR-019 says an item in `posted` *can* carry a link, not that it must.
+
+    The distinction is load-bearing and it is one an implementer is likely to get wrong in the
+    direction of strictness: INV-1 already makes `platform` a precondition for leaving `idea`, so
+    "a second precondition for reaching `posted`" is a plausible-sounding symmetry. It is not in the
+    spec, and it would break the creator who publishes first and pastes the link afterwards — which
+    is the normal order, because the link does not exist until the post does.
+
+    `data-model.md` agrees at the storage layer: `published_url` is nullable with no partial index
+    and no CHECK naming `status`. This test is what notices if one appears.
+    """
+    response = create_item(
+        auth_client,
+        title="Ring light comparison",
+        platform=Platform.TIKTOK.value,
+        status=Status.POSTED.value,
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["status"] == Status.POSTED
+    assert response.json()["published_url"] is None
+
+
+def test_advancing_to_posted_does_not_require_a_published_link(auth_client: TestClient) -> None:
+    """The same rule on the update path, which is the one the item sheet actually uses.
+
+    `test_transitions.py` advances an item to `posted` while setting a platform, so a link
+    requirement would already fail there — but that test's subject is INV-1, and a reader tightening
+    the URL rule would not think to read it. This one names the link, starts from an item that
+    already has its platform, and sends the single field the status control sends.
+    """
+    item = create_item(
+        auth_client, title="Ring light comparison", platform=Platform.TIKTOK.value
+    ).json()
+
+    response = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"status": Status.POSTED.value})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == Status.POSTED
+    assert response.json()["published_url"] is None
+
+
+@pytest.mark.parametrize(
+    "url",
+    NOT_HTTP_URLS,
+    ids=["javascript", "data", "ftp", "nonsense", "protocol-relative"],
+)
+def test_create_refuses_a_published_link_that_is_not_http(
+    auth_client: TestClient, url: str
+) -> None:
+    """The scheme allowlist on the create path, which had no test of its own before T063.
+
+    The shared `PublishedUrl` annotation is what makes this hold, and this test is what stops
+    someone restating the type inline on `ContentItemCreate` — the create path is the one that runs
+    first for an item captured after it was published, so a `javascript:` URL that only the update
+    path refused would still reach the database.
+    """
+    response = create_item(auth_client, title="Ring light comparison", published_url=url)
+
+    assert response.status_code == 422
+
+
+def test_create_refuses_a_published_link_over_the_contracted_length(
+    auth_client: TestClient,
+) -> None:
+    """2048, matching `String(2048)`, so the column can never be the thing that refuses.
+
+    A URL longer than the column is a 500 carrying a Postgres string if it is not caught here — one
+    of the six defects the post-review pass in `tasks.md` found, and the reason `PublishedUrl` was
+    bounded at T030 rather than at this task.
+    """
+    response = create_item(
+        auth_client,
+        title="Ring light comparison",
+        published_url=a_url_of_length(MAX_URL_LENGTH + 1),
+    )
+
+    assert response.status_code == 422
+
+
+def test_a_link_of_exactly_the_contracted_length_is_accepted(auth_client: TestClient) -> None:
+    """The other side of the boundary, and the half that a `<` for a `<=` breaks silently.
+
+    Paired with the test above on purpose: a limit asserted only from the refusing side is satisfied
+    by an implementation that refuses everything, and a creator whose link happens to sit on the
+    boundary would be told a valid URL is invalid with nothing in the message to say by how much.
+    2048 characters must also *fit* in `String(2048)`, so this is an assertion about the column as
+    well as about the validator.
+    """
+    exact = a_url_of_length(MAX_URL_LENGTH)
+
+    response = create_item(auth_client, title="Ring light comparison", published_url=exact)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["published_url"] == exact
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["javascript:alert(1)", a_url_of_length(MAX_URL_LENGTH + 1)],
+    ids=["bad-scheme", "over-length"],
+)
+def test_a_refused_create_stores_nothing(auth_client: TestClient, url: str) -> None:
+    """A 422 on create must leave no row, and the response body cannot show that.
+
+    The create-side twin of `test_a_refused_update_stores_nothing`, and the reason it is a separate
+    test rather than an extra assertion: the two refusals above are about the status code, and a
+    status code is exactly what an implementation that validated field by field and inserted as it
+    went would still return. Both spellings are exercised because they fail at different points in
+    pydantic's constraint chain — a pattern mismatch and a length overflow — and an implementation
+    could plausibly handle one before the insert and the other after it.
+
+    The list read is the assertion rather than a by-id read, because a refused create hands back no
+    id to ask about.
+    """
+    response = create_item(auth_client, title="Should not be stored", published_url=url)
+
+    assert response.status_code == 422
+    assert auth_client.get(ITEMS_PATH).json() == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://example.com/post/1", "https://example.com/post/1"],
+    ids=["http", "https"],
+)
+def test_a_published_link_round_trips_through_create_and_the_list_read(
+    auth_client: TestClient, url: str
+) -> None:
+    """FR-019 end to end: a valid link is stored and comes back byte for byte.
+
+    Both schemes, because the contract's pattern is `^https?://` and an implementation that
+    hard-coded `https://` would refuse a perfectly good link — plenty of live posts still resolve
+    over plain `http`, and the creator pastes whatever the address bar gave them.
+
+    Read back through the **list**, not through the response body, for two reasons. It is the read
+    R-007 makes the calendar render from, so a link present only in the create response would be
+    invisible on the surface that shows it; and an endpoint that echoed its request would satisfy
+    any assertion made against the `POST` response alone.
+    """
+    created = create_item(auth_client, title="Ring light comparison", published_url=url)
+
+    assert created.status_code == 201, created.text
+    assert created.json()["published_url"] == url
+
+    (listed,) = auth_client.get(ITEMS_PATH).json()
+
+    assert listed["published_url"] == url
+
+
+def test_a_published_link_set_by_update_round_trips(auth_client: TestClient) -> None:
+    """The same round trip on the write path a creator actually takes to record a link.
+
+    The normal order is publish, then paste — so the link almost always arrives by `PATCH` on an
+    item that already exists, not by `POST`. Re-read afterwards so the assertion is about Postgres
+    rather than about the response FastAPI built from the model it just assigned to.
+    """
+    item = create_item(
+        auth_client,
+        title="Ring light comparison",
+        platform=Platform.YOUTUBE.value,
+        status=Status.POSTED.value,
+    ).json()
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"published_url": A_LIVE_POST})
+
+    assert updated.status_code == 200, updated.text
+    assert auth_client.get(f"{ITEMS_PATH}/{item['id']}").json()["published_url"] == A_LIVE_POST
+
+
+def test_a_published_link_keeps_its_query_string_and_fragment(auth_client: TestClient) -> None:
+    """No normalisation of any kind, which matters more here than for any other field.
+
+    `?v=abc123&t=30s` and `#comments` are the parts that decide *which* post and *where in it* the
+    link lands, and they are the parts a well-meaning canonicaliser strips. A mangled URL is worse
+    than a refused one: it still looks like a link, still opens, and quietly goes somewhere else —
+    and the creator has no copy of the original, because the whole point of FR-019 is that the app
+    is where the link is kept.
+
+    The title is stripped and the URL is stripped, but neither is otherwise rewritten. This is what
+    says so.
+    """
+    url = "https://youtube.com/watch?v=abc123&t=30s#comments"
+
+    body = create_item(auth_client, title="Ring light comparison", published_url=url).json()
+
+    assert body["published_url"] == url
+
+
+def test_a_pasted_link_is_stored_stripped(auth_client: TestClient) -> None:
+    """`strip_whitespace` on `PublishedUrl`, characterised because it is creator-facing.
+
+    A link copied on a phone arrives with a trailing newline or a leading space far more often than
+    not, and the pattern is anchored at `^` — so without the strip, the most common way of getting a
+    URL into this field would be refused as "not http". Stripping happens *before* the pattern is
+    applied, which is also why `" javascript:alert(1)"` is still refused rather than sneaking past
+    an anchored check: the two tests are the same annotation seen from both sides.
+    """
+    body = create_item(
+        auth_client, title="Ring light comparison", published_url=f"  {A_LIVE_POST}\n"
+    ).json()
+
+    assert body["published_url"] == A_LIVE_POST
+
+
+def test_the_scheme_allowlist_does_not_check_the_rest_of_the_url(auth_client: TestClient) -> None:
+    """Characterising a looseness rather than tightening it — the contract decides this, not taste.
+
+    `https://` with nothing after it is accepted. The contract types `published_url` as
+    `format: uri` with `pattern: "^https?://"`, and `format` in JSON Schema is an annotation that
+    validators are not required to enforce, so the pattern is the only machine-checkable rule the
+    contract declares. Enforcing well-formedness on top of it would be the API refusing a value the
+    contract permits, which is drift in the direction `specs/` outranks code is meant to prevent.
+
+    Deliberately not treated as a defect. The rule that protects the creator is the *scheme*:
+    FR-019's value is rendered as an `href` (T065), so what must never be stored is a URL that
+    executes, and a truncated-but-harmless one merely fails to open. Spec.md's "malformed published
+    link" edge case is answered by the half that is enforced — the item's status change is not lost,
+    which `test_a_refused_create_stores_nothing` and `test_a_refused_update_stores_nothing` assert.
+
+    If a later task wants structural validation, it amends `contracts/openapi.yaml` first and
+    deletes this test in the same merge request.
+    """
+    response = create_item(auth_client, title="Ring light comparison", published_url="https://")
+
+    assert response.status_code == 201, response.text
+    assert response.json()["published_url"] == "https://"

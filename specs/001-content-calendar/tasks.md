@@ -809,7 +809,49 @@ opens the live post.
 
 ### Tests for User Story 5
 
-- [ ] T063 [P] [US5] Extend `backend/tests/test_content_items.py` with published-link tests: a `posted` item is valid without a link, a `javascript:` or `data:` URL is rejected, an over-length URL is rejected, and a valid http link round-trips (FR-019)
+- [x] T063 [P] [US5] Extend `backend/tests/test_content_items.py` with published-link tests: a `posted` item is valid without a link, a `javascript:` or `data:` URL is rejected, an over-length URL is rejected, and a valid http link round-trips (FR-019)
+
+**T063 result (2026-08-02)**: done, one merge request, backend suite **254 → 271 passing** (11 new
+test functions, 17 cases with parametrisation), nothing skipped; `ruff`, `ruff format --check` and
+`mypy` clean. No application code changed — this task adds tests only.
+
+**All 17 passed on the day they were written, and that is the correct outcome rather than a fail-first
+miss.** `PublishedUrl` in `app/api/content_items.py` was written at **T030**, not here: the constraint
+had to exist from the moment `published_url` first became writable, because an unbounded URL reaching
+`String(2048)` is a 500 rather than a 422 — one of the six defects the post-review pass found. That
+type's docstring names T063 as the task that writes its tests, so this is a **characterisation task**
+by design and a red run would have meant the constraint had gone missing.
+
+Green was therefore not taken as evidence. Each rejection assertion was **verified by breaking the
+constraint and confirming the right tests went red**, per `backend/AGENTS.md`: dropping `pattern` and
+`max_length` from `PublishedUrl` turned all 8 new refusal cases red (plus the 6 pre-existing update
+ones), and `max_length=2047` with `strip_whitespace` removed turned the boundary and paste tests red.
+The implementation was restored unchanged in both cases.
+
+**Which of the four bullets were already covered, and which were not:**
+
+| Bullet | State before T063 |
+|---|---|
+| `javascript:`/`data:` rejected | Covered on the **update** path only (`test_update_refuses_a_published_link_that_is_not_http`, T048). The **create** path had no test — added here, same five spellings |
+| Over-length rejected | Same: `test_update_refuses_a_published_link_over_the_contracted_length` existed, the create path did not. Added, plus the **accepting** side of the boundary, which nothing asserted in either direction |
+| A valid http link round-trips | Only incidentally, inside `test_create_accepts_every_field_at_once`'s whole-body compare, and only for `https`. Plain `http://` was untested although the contract's pattern permits it, and nothing re-read a link out of Postgres |
+| A `posted` item is valid without a link | Only incidentally, via `test_transitions.py::test_advancing_and_setting_a_platform_in_one_request_succeeds` — whose subject is INV-1, and which does not assert `published_url is None`. Named explicitly here on both write paths |
+
+**FR-019a is not touched.** `test_transitions.py` already asserts the link surviving `posted → draft →
+idea` exhaustively (`test_the_published_link_survives_leaving_posted`, plus the whole-item walk and
+the durable re-read), and `test_an_explicit_null_clears_the_field` already covers the creator removing
+it directly. Duplicating either would have made two files disagree about which owns INV-3.
+
+**One looseness is characterised rather than tightened, and it is the only place code and spec come
+close to disagreeing.** `https://` with nothing after it is accepted. The contract types
+`published_url` as `format: uri` with `pattern: "^https?://"`; `format` is a JSON Schema *annotation*
+that validators need not enforce, so the pattern is the only machine-checkable rule declared, and the
+API implements it exactly — **not drift.** Enforcing structural well-formedness on top would be the
+API refusing a value the contract permits. `test_the_scheme_allowlist_does_not_check_the_rest_of_the_url`
+pins this with the note that tightening it is a `contracts/openapi.yaml` amendment first. **T066 is
+where this matters**: spec.md's "malformed published link" edge case has two halves, and the half that
+is enforced today is the second one — the status change is not lost — which the two
+`stores_nothing` tests now assert on both write paths.
 
 ### Implementation for User Story 5
 
