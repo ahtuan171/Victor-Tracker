@@ -46,8 +46,10 @@ import {
   ApiError,
   createContentItem,
   listContentItems,
+  updateContentItem,
   type ContentItem,
   type ContentItemCreate,
+  type ContentItemUpdate,
   type ListContentItemsParams,
 } from "./api";
 import { isBeforeDateOnly, nowInstant, type DateOnly } from "./dates";
@@ -208,6 +210,62 @@ export function pendingItemRolledBack(state: ItemsState, tempId: number): ItemsS
   return { ...state, items: state.items.filter((item) => item.id !== tempId) };
 }
 
+/**
+ * Merge a set of changes onto a stored row, giving the row to show while the server is thinking.
+ *
+ * **This is FR-023's omit-versus-null distinction on the optimistic side of the wire**, and it is
+ * the one place in the frontend where getting it wrong is silent. A field the caller omitted keeps
+ * its stored value; a field set to explicit `null` is cleared. Written as a spread per field rather
+ * than `changes.hook ?? item.hook`, because `??` treats `null` as "no opinion" and would make
+ * "unschedule this item" mean "leave the date alone" — a drag back to the backlog that appeared to
+ * do nothing.
+ *
+ * `exactOptionalPropertyTypes` is what makes `=== undefined` an exact test for "the caller omitted
+ * this": under that flag no caller can pass an explicit `undefined`, so an own property is always a
+ * field someone meant to write. See `ContentItemUpdate` in `lib/api.ts`.
+ *
+ * `id`, `created_at` and `updated_at` are never touched. `updated_at` in particular is the server's
+ * to set — advancing it here would put a timestamp on screen that no row ever had, and the
+ * reconciliation would quietly correct it a beat later.
+ */
+export function itemWithChanges(item: ContentItem, changes: ContentItemUpdate): ContentItem {
+  return {
+    ...item,
+    ...(changes.title === undefined ? {} : { title: changes.title }),
+    ...(changes.hook === undefined ? {} : { hook: changes.hook }),
+    ...(changes.platform === undefined ? {} : { platform: changes.platform }),
+    ...(changes.scheduled_date === undefined ? {} : { scheduled_date: changes.scheduled_date }),
+    ...(changes.status === undefined ? {} : { status: changes.status }),
+    ...(changes.published_url === undefined ? {} : { published_url: changes.published_url }),
+  };
+}
+
+/**
+ * Replace a row with another version of itself, **in place**, matched on `id`.
+ *
+ * One transition serving all three steps of an optimistic edit — show the change, accept the
+ * server's answer, or put the original back — which is deliberate: a separate rollback function
+ * would be free to drift from the function that applied the change, and rollback is the branch a
+ * browser test reaches least.
+ *
+ * In place rather than remove-and-prepend, for the same reason as `pendingItemReconciled`: a row
+ * that jumps to the front of the backlog the moment its status changes is exactly the artifact
+ * optimistic updates exist to avoid.
+ *
+ * **A row that is no longer present is left absent, not resurrected.** A list read can land between
+ * the optimistic write and the server's answer, and absence from a response is how a deletion made
+ * on another device arrives (see `itemsLoaded`) — re-inserting here would undo it.
+ *
+ * `status` and `error` are untouched: a refused *write* is the item sheet's to render beside its own
+ * controls (T053), while `state.error` describes a failed *read* of the whole list.
+ */
+export function itemChanged(state: ItemsState, next: ContentItem): ItemsState {
+  return {
+    ...state,
+    items: state.items.map((item) => (item.id === next.id ? next : item)),
+  };
+}
+
 // --- Selectors ------------------------------------------------------------------------------
 
 /**
@@ -314,6 +372,23 @@ export interface ContentItemsStore extends ItemsState {
    * when it rejects.
    */
   readonly createItem: (draft: ContentItemCreate) => Promise<ContentItem>;
+  /**
+   * Change some fields of an item, showing the change immediately (T051, FR-023).
+   *
+   * The single write behind both halves of FR-014 and FR-015: the item sheet's taps (T052) and the
+   * drag onto a day (T054) both land here, which is what makes "both paths produce an identical
+   * result" true by construction.
+   *
+   * **Takes the row, not just its id.** Three reasons, and each would otherwise need machinery: it
+   * makes the `isPending` guard read as itself rather than as an inline `id < 0`; it is what the
+   * change is merged onto; and it *is* the rollback value, so a refusal restores the row the
+   * creator was actually looking at with no snapshot to capture and no index to remember.
+   *
+   * Resolves with the saved row and **rejects with the original `ApiError`** once the optimistic
+   * change has been rolled back — including the 409s, which T053 renders beside the platform
+   * control. Callers should keep the sheet open on a rejection.
+   */
+  readonly updateItem: (item: ContentItem, changes: ContentItemUpdate) => Promise<ContentItem>;
 }
 
 /**
@@ -398,7 +473,40 @@ export function useContentItems(params: ListContentItemsParams = {}): ContentIte
     }
   }, []);
 
-  return { ...state, reload, createItem };
+  const updateItem = useCallback(
+    async (item: ContentItem, changes: ContentItemUpdate): Promise<ContentItem> => {
+      // A caller bug, not a server response: the id does not exist yet, so this would be a 404 that
+      // rolled the edit back and showed the creator an error about an item they can see. Every
+      // surface offering an edit must skip pending rows — the chip exposes `aria-busy` for exactly
+      // this. Loud here so that omission surfaces in development rather than as a mystery 404.
+      // (The proxy would refuse it anyway: `PARAM_PATTERNS.item_id` is digits-only, so a negative
+      // id never reaches FastAPI. That is a backstop, not the mechanism.)
+      if (isPending(item)) {
+        throw new Error(`Cannot update item ${item.id}: it has not been saved yet.`);
+      }
+
+      setState((previous) => itemChanged(previous, itemWithChanges(item, changes)));
+
+      try {
+        const saved = await updateContentItem(item.id, changes);
+        // The server's row, not the optimistic one — it carries the real `updated_at`, and any
+        // field the backend normalised on the way in.
+        setState((previous) => itemChanged(previous, saved));
+        return saved;
+      } catch (error) {
+        // `item` is the row as it was before the optimistic change, so restoring it needs no
+        // snapshot. Under FR-023a's last-write-wins this is also the right answer when something
+        // else has moved underneath: the creator's screen returns to what they were looking at.
+        setState((previous) => itemChanged(previous, item));
+        // Rethrown for the same reason `createItem` rethrows: a refused write belongs beside the
+        // control that attempted it, not in `state.error`, which would blank the calendar.
+        throw error;
+      }
+    },
+    [],
+  );
+
+  return { ...state, reload, createItem, updateItem };
 }
 
 /**
