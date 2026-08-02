@@ -1,9 +1,9 @@
 /**
  * The typed API client (research.md R-007).
  *
- * Four operations only — login, logout, list, create. The other four contract operations arrive
- * with the stories that call them, because `workflow.md` forbids abstraction before a second
- * caller and an unused wrapper is exactly that.
+ * Seven operations — login, logout, list, create, and the three by-id ones added at T051 for US3.
+ * The eighth, `/health`, is Render's liveness probe and no screen reads it; `lib/proxy-allowlist.ts`
+ * records that decision rather than leaving it implied.
  *
  * **The types below are hand-written from `specs/001-content-calendar/contracts/openapi.yaml`.**
  * This project installs no codegen tool: the contract has eight operations and four schemas, which
@@ -94,6 +94,37 @@ export interface ContentItemCreate {
   readonly title: string;
   readonly hook?: string | null;
   readonly platform?: Platform | null;
+  readonly scheduled_date?: string | null;
+  readonly status?: Status;
+  readonly published_url?: string | null;
+}
+
+/**
+ * `ContentItemUpdate` in the contract — every field optional, and *optional* means two things.
+ *
+ * **This type is why `exactOptionalPropertyTypes` is on** (see `frontend/AGENTS.md`). The backend
+ * reads `model_dump(exclude_unset=True)`, so it distinguishes a key that was **omitted** — leave the
+ * stored value alone — from one set to **explicit null** — clear it. `JSON.stringify` drops
+ * `undefined` values, so those two intentions are two different requests, and without the flag
+ * `{ platform: undefined }` would be assignable to `platform?: Platform | null` and collapse them.
+ *
+ * So the spelling below is load-bearing: `platform?: Platform | null`, never `| undefined`. Under
+ * the flag a caller cannot pass an explicit `undefined` at all, which means an own property here is
+ * always a field the caller meant to write.
+ *
+ * Two fields have no null spelling, and the contract agrees: `title` is `NOT NULL` with INV-2
+ * forbidding an empty one, and `status` is `NOT NULL` with a default, so "clear the status" has no
+ * meaning. Both `$ref` their type directly in `openapi.yaml` while every nullable field is a union
+ * with `"null"`.
+ *
+ * The contract's `minProperties: 1` is not expressed here — TypeScript has no way to say it, and
+ * the backend answers 422 rather than treating an empty body as a silent no-op 200.
+ */
+export interface ContentItemUpdate {
+  readonly title?: string;
+  readonly hook?: string | null;
+  readonly platform?: Platform | null;
+  /** `YYYY-MM-DD`, or null to send the item back to the backlog (FR-014). */
   readonly scheduled_date?: string | null;
   readonly status?: Status;
   readonly published_url?: string | null;
@@ -202,6 +233,58 @@ export async function listContentItems(params: ListContentItemsParams = {}): Pro
  */
 export async function createContentItem(item: ContentItemCreate): Promise<ContentItem> {
   return toContentItem(await request<unknown>("POST", "/content-items", { body: item }));
+}
+
+/**
+ * Fetch one item.
+ *
+ * **No surface in v0.1 calls this on the happy path**, and that is not an oversight. R-007 holds
+ * every item in client state loaded by one list read, so the item sheet at T052 opens on a row it
+ * already has — refetching it would be a round trip to learn what is on screen, on a backend whose
+ * free tier spins down. It exists because the contract declares it and because it is the honest
+ * recovery for a surface that finds itself holding a stale row.
+ *
+ * Throws `ApiError` with `status === 404` for an id that does not exist.
+ */
+export async function getContentItem(id: number): Promise<ContentItem> {
+  return toContentItem(await request<unknown>("GET", `/content-items/${id}`));
+}
+
+/**
+ * Change some fields of an item (FR-023).
+ *
+ * The single mutation behind every edit: a tap in the item sheet (T052) and a drag onto a day
+ * (T054) produce the identical request with one field set, which is what makes "both paths produce
+ * an identical result" true by construction rather than by discipline.
+ *
+ * `changes` carries only what should change — see `ContentItemUpdate` for why an omitted field and
+ * an explicit null are two different requests rather than two spellings of one.
+ *
+ * Throws `ApiError` on a 409 with `code === "platform_required"` (advancing past `idea` with no
+ * platform) or `"platform_locked"` (clearing the platform of an item already past `idea`) — one
+ * invariant, two codes, because the creator's next step differs (FR-009, FR-009a). T053 renders
+ * both beside the platform control.
+ */
+export async function updateContentItem(
+  id: number,
+  changes: ContentItemUpdate,
+): Promise<ContentItem> {
+  return toContentItem(await request<unknown>("PATCH", `/content-items/${id}`, { body: changes }));
+}
+
+/**
+ * Delete an item. Hard delete, and the contract answers 204 with no body.
+ *
+ * **A missing id is a 404, not an idempotent 204** — settled at T050, and this client reports it
+ * rather than swallowing it. Whether a 404 is benign is a question about a *screen* (T056 is
+ * reconciling a view, not committing a transaction), and that judgement belongs to the surface that
+ * knows what the creator was told, not to the transport.
+ *
+ * The confirmation FR-020 requires happens before this is called; the API does not second-guess a
+ * caller that has already confirmed.
+ */
+export async function deleteContentItem(id: number): Promise<void> {
+  await request<void>("DELETE", `/content-items/${id}`);
 }
 
 // --- Transport ------------------------------------------------------------------------------

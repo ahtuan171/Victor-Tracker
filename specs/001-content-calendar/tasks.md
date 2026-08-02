@@ -375,6 +375,12 @@ read overlapping a create that has *already* reconciled would drop the reconcile
 today — nothing calls `reload()` and the fetch effect runs once on mount — but **T044 is the first task
 that plausibly wires `reload()` to a UI action**, and it must handle it there.
 
+> **Superseded at the Phase 4 checkpoint — read that entry before acting on this one.** Both halves of
+> the prediction were wrong: T044 wires no `reload()` at all, and the fix recorded here ("merge on id")
+> is now **forbidden**, because T050's `DELETE` makes absence-from-a-response the way a deletion
+> arrives. The hole was closed by `savedSince` instead. Left in place as the record of what was
+> believed at Phase 3; the resolution is under Phase 4 below.
+
 **3. `/speckit-analyze`: no constitution conflicts, 44/46 requirements cited (96%).** It found the
 `date_from`/`date_to`-versus-backlog conflict recorded under Phase 4 below — the one finding that would
 have cost real work, and one that coverage counting alone did not produce; it came from reading the
@@ -693,7 +699,7 @@ than pass vacuously against a 405. Backend suite **228 → 238**, nothing skippe
 FR-020's confirmation is **not** here and is not missing: it is a placement and gesture problem
 (`design.md` — never one tap from a common gesture), so it belongs to T056's dialog. An API-side
 second step would not make an accidental tap less accidental.
-- [ ] T051 [US3] Extend `frontend/lib/api.ts` with the fetch-one, update, and delete operations, wiring update through the optimistic path in `lib/items.ts` with rollback on failure (research.md R-007)
+- [X] T051 [US3] Extend `frontend/lib/api.ts` with the fetch-one, update, and delete operations, wiring update through the optimistic path in `lib/items.ts` with rollback on failure (research.md R-007)
 - [ ] T052 [US3] Build the item sheet in `frontend/components/item/ItemSheet.tsx` as the single editing surface, carrying controls for **title, hook, platform, date, and status** — this is what FR-006a requires and what the first draft of this plan omitted entirely, leaving every item stuck in `idea` forever. This sheet is also where the parent requirements land: it is the only surface carrying all six fields (FR-006), the only one offering the three statuses in both directions (FR-007, FR-008), the only single-select platform control (FR-010, FR-010a), and the **tap** half of changing a date and a status without a separate detail page (FR-014, FR-015). Skip rows with `isPending` — the id does not exist yet
 - [ ] T053 [US3] Surface the 409 invariant errors in `ItemSheet` as the contract's `detail` message, with the platform control adjacent so a refusal is resolvable without leaving the sheet (FR-009, FR-009a, SC-012)
 - [ ] T054 [US3] Build the drag path for scheduling with `@dnd-kit/core` in `frontend/components/calendar/`, registering `PointerSensor` and `KeyboardSensor`, with day cells and the backlog drawer as the only drop targets, all calling the same `updateItem` (FR-014, FR-014a, research.md R-003) — the **drag** half of FR-014, whose tap half is T052; "both produce an identical result" is only assertable because both call `updateItem`. Skip rows with `isPending`. Restore the full drawer copy — "Undated ideas, newest first. Drag one onto a day to schedule it." — which T035 trimmed because the drag did not exist yet. The drag ghost is a dashed border on **all four sides**; overdue is dashed on the **left only**, and `overdue.spec.ts` asserts `borderTopStyle === "solid"` to keep the two treatments apart

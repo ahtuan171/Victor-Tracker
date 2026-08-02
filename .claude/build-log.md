@@ -1381,3 +1381,70 @@ so the status was asserted and the `{detail}` shape never was. These are the fir
 through a **query parameter** rather than a body, which matters because they go through the same
 `RequestValidationError` handler that flattens `detail` from an array to a string. Backend suite
 170 → 172.
+
+## T051 — the by-id client operations, and a stale instruction that had become dangerous
+
+Phase 5's frontend opens here. `lib/api.ts` gained `getContentItem`, `updateContentItem` and
+`deleteContentItem`; `lib/items.ts` gained `itemWithChanges`, `itemChanged`, and `updateItem` on the
+store. 24 new tests, all written and run red first: **234 → 258 frontend tests, none skipped.**
+
+**Phase 5's backend (T046–T050) has no entry in this log.** MRs !25 and !26 landed without one. Not
+reconstructed here — an account written after the fact by someone who did not do the work is worse
+than the gap it fills. `tasks.md` and the two AGENTS.md files carry the durable half.
+
+### One transition, three callers, and no snapshot
+
+The interesting design question was rollback. An optimistic edit needs the row as it was, and the
+obvious ways to get it are all machinery: capture it inside a `setState` updater (a side effect in a
+function React may invoke twice), keep a `stateRef` mirroring state (an assignment during render, or
+an effect that lags), or remember an index and splice it back (wrong the moment a read lands in
+between).
+
+None of that is needed if `updateItem` takes the **row** rather than the id. The argument *is* the
+rollback value. That collapses the whole thing into one pure transition — `itemChanged(state, next)`,
+replace-by-id in place — with three callers: show the optimistic row, accept the server's row, put the
+original back. There is deliberately **no** `itemRolledBack`: a second function would be free to drift
+from the one that applied the change, and rollback is precisely the branch that is never exercised by
+a browser test.
+
+It also fixed the `isPending` guard's ergonomics for free. `if (isPending(item))` reads as the rule;
+`if (id < 0)` is the inline the predicate was exported to prevent.
+
+### The merge that `??` would have broken
+
+`itemWithChanges` is six explicit `=== undefined` spreads rather than six `??`. This is the same
+distinction `exactOptionalPropertyTypes` was switched on for, one layer up: `changes.hook ?? item.hook`
+treats `null` as "no opinion", so **every clear becomes a no-op**. A drag back to the backlog would
+appear to do nothing; an item would never let go of its platform. Nothing would fail — not the build,
+not the types, not a test that only ever sets values.
+
+The wire half is asserted directly: an omitted field is absent from the request body, an explicit null
+is present *as null*. Those are two different requests to a backend reading `model_dump(exclude_unset=True)`.
+
+### `reload()` still has no caller, for the second time in a row
+
+Phase 3 predicted T044. Phase 4 recorded that prediction as wrong and offered T051. Wrong again — an
+optimistic edit reconciles against the `PATCH` response, so there is nothing left to re-read. Both
+predictions failed the same way: they assumed a write implies a refetch, which is exactly what R-007
+rejects.
+
+### The find: a rules file telling the next agent to reintroduce a bug
+
+`frontend/AGENTS.md` carried, in its Traps section, the Phase 3 `reviewer`'s recorded fix for
+`itemsLoaded` — "handle it by merging on id rather than widening the pending check". The Phase 4
+checkpoint closed that hole with `savedSince` and wrote, in the **Decisions table of the same file**,
+that a merge-by-id is forbidden because absence from a response is how a deletion arrives.
+
+So the file disagreed with itself, ~100 lines apart, and the stale half was the one phrased as an
+instruction. T050 landed `DELETE` two days later and T056 will call it, which is the moment the
+instruction stops being merely stale and starts costing a deleted item that never leaves the screen on
+any device but the one that deleted it.
+
+This is the Phase 4 CRITICAL's pattern exactly — an amendment applied to one artifact — with two
+differences worth recording. It was in a **rules** file rather than a spec, so no `/speckit-analyze`
+pass would read it. And the amendment that superseded it landed *in the same file*, which is the case
+the "grep the claim, not the file you happened to open" rule is weakest against: the file **was** open.
+
+Fixed in this MR: removed from AGENTS.md rather than annotated, so nobody reads it again, and the
+Phase 3 record in `tasks.md` — a log, so it keeps its history — gained a superseded-by pointer at the
+paragraph itself rather than only at the Phase 4 entry that overturns it.

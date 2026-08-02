@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import type { ContentItem, ContentItemCreate } from "@/lib/api";
+import type { ContentItem, ContentItemCreate, ContentItemUpdate } from "@/lib/api";
 import {
   INITIAL_ITEMS_STATE,
   isPending,
+  itemChanged,
   itemsFailed,
+  itemWithChanges,
   countOverdue,
   isOverdue,
   itemsLoaded,
@@ -296,6 +298,126 @@ test.describe("optimistic create", () => {
     // A refused *write* is the capture sheet's to render beside its own field. Folding it into the
     // list's error would blank the calendar because one save failed.
     const state = pendingItemRolledBack(pendingItemInserted(ready([item(1)]), item(-1)), -1);
+
+    expect(state.status).toBe("ready");
+    expect(state.error).toBeNull();
+  });
+});
+
+test.describe("itemWithChanges", () => {
+  const stored = item(7, {
+    title: "Ring light review",
+    hook: "The one nobody mentions",
+    platform: "tiktok",
+    scheduled_date: "2026-08-04",
+    status: "draft",
+    published_url: "https://example.com/v/1",
+  });
+
+  test("a field the caller omitted keeps its stored value", () => {
+    const next = itemWithChanges(stored, { status: "posted" });
+
+    expect(next.status).toBe("posted");
+    expect(next.hook).toBe("The one nobody mentions");
+    expect(next.platform).toBe("tiktok");
+    expect(next.scheduled_date).toBe("2026-08-04");
+    expect(next.published_url).toBe("https://example.com/v/1");
+  });
+
+  test("an explicit null clears the field, and omission does not", () => {
+    // The whole of FR-023's partial-update semantics, on the optimistic side of the wire. A merge
+    // written with `??` collapses these two into one and silently keeps the old value.
+    expect(itemWithChanges(stored, { scheduled_date: null }).scheduled_date).toBeNull();
+    expect(itemWithChanges(stored, { hook: null }).hook).toBeNull();
+    expect(itemWithChanges(stored, { platform: null }).platform).toBeNull();
+    expect(itemWithChanges(stored, { published_url: null }).published_url).toBeNull();
+
+    expect(itemWithChanges(stored, { title: "x" }).scheduled_date).toBe("2026-08-04");
+  });
+
+  test("clearing one field leaves the others alone", () => {
+    const next = itemWithChanges(stored, { scheduled_date: null });
+
+    expect(next.title).toBe("Ring light review");
+    expect(next.status).toBe("draft");
+    expect(next.published_url).toBe("https://example.com/v/1");
+  });
+
+  test("several fields at once, which is what one sheet save is", () => {
+    const next = itemWithChanges(stored, { title: "Ring light, honestly", platform: "youtube", status: "posted" });
+
+    expect(next.title).toBe("Ring light, honestly");
+    expect(next.platform).toBe("youtube");
+    expect(next.status).toBe("posted");
+  });
+
+  test("the id and the timestamps are never guessed", () => {
+    const next = itemWithChanges(stored, { status: "posted" });
+
+    // `updated_at` belongs to the server. Advancing it optimistically would put a time on screen
+    // that no row ever had, and the reconciliation would silently correct it a beat later.
+    expect(next.id).toBe(7);
+    expect(next.created_at).toBe(stored.created_at);
+    expect(next.updated_at).toBe(stored.updated_at);
+  });
+
+  test("the stored item is not mutated", () => {
+    itemWithChanges(stored, { status: "posted", platform: null });
+
+    expect(stored.status).toBe("draft");
+    expect(stored.platform).toBe("tiktok");
+  });
+
+  test("an empty change set is the identity, field for field", () => {
+    // The backend refuses `{}` with a 422 (`minProperties: 1`), so this never leaves the browser —
+    // but the merge must not invent a value on the way to finding that out.
+    const empty: ContentItemUpdate = {};
+
+    expect(itemWithChanges(stored, empty)).toEqual(stored);
+  });
+});
+
+test.describe("optimistic update", () => {
+  test("the changed row is replaced in place, not moved", () => {
+    // Same reason as reconciliation: a row that jumps to the front the moment its status changes is
+    // the artifact optimistic updates exist to avoid.
+    const state = itemChanged(ready([item(3), item(2), item(1)]), item(2, { status: "posted" }));
+
+    expect(ids(state)).toEqual([3, 2, 1]);
+    expect(state.items[1]?.status).toBe("posted");
+  });
+
+  test("it is its own inverse, which is what makes rollback one function", () => {
+    // Apply the optimistic row, then put the original back. Two callers, one transition — there is
+    // no separate rollback shape that could drift from the shape that applied the change.
+    const before = item(2, { status: "idea" });
+    const applied = itemChanged(ready([item(3), before, item(1)]), itemWithChanges(before, { status: "posted" }));
+
+    const rolledBack = itemChanged(applied, before);
+
+    expect(ids(rolledBack)).toEqual([3, 2, 1]);
+    expect(rolledBack.items[1]).toEqual(before);
+  });
+
+  test("a row that is no longer present is not resurrected", () => {
+    // A list read can land between the optimistic write and the server's answer. If it deleted this
+    // row — the way a deletion on another device arrives — putting it back would undo that.
+    const state = itemChanged(ready([item(3), item(1)]), item(2, { status: "posted" }));
+
+    expect(ids(state)).toEqual([3, 1]);
+  });
+
+  test("no other row is touched", () => {
+    const first = item(3);
+    const state = itemChanged(ready([first, item(2)]), item(2, { title: "changed" }));
+
+    expect(state.items[0]).toBe(first);
+  });
+
+  test("status and error are left alone", () => {
+    // A refused *write* is the item sheet's to render beside its own controls (T053). Folding it
+    // into the list's error would blank the calendar because one edit was refused.
+    const state = itemChanged(ready([item(1)]), item(1, { status: "posted" }));
 
     expect(state.status).toBe("ready");
     expect(state.error).toBeNull();
