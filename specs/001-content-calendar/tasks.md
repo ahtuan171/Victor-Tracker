@@ -630,7 +630,7 @@ dragging, and confirm zero route changes throughout.
 ### Implementation for User Story 3
 
 - [x] T049 [US3] Implement `GET /content-items/{id}` and `PATCH /content-items/{id}` in `backend/app/api/content_items.py` with partial-update semantics and the 409 invariant responses from the contract
-- [ ] T050 [US3] Implement `DELETE /content-items/{id}` in `backend/app/api/content_items.py` as a hard delete (FR-004)
+- [x] T050 [US3] Implement `DELETE /content-items/{id}` in `backend/app/api/content_items.py` as a hard delete (FR-004)
 
 **T046–T049 result (2026-08-02)**: done, in **one merge request**, and this is the fourth instance of
 the same stated deviation (after T029–T031, T036–T037, T043–T044) rather than a new one. All three
@@ -668,6 +668,31 @@ Four things the task lines do not imply:
   frontend bug that dropped its payload would look like a successful save — and under optimistic
   updates (R-007) the creator would watch the change stick on screen and vanish on the next load.
   Registered in `REACHABLE_4XX` alongside the two new 404s, per `backend/AGENTS.md`'s both-places rule.
+
+**T050 result (2026-08-02)**: done, its own merge request — the phase's test tasks all named `PATCH`
+as their subject, so `DELETE` carried its own tests and an MR containing them alone would have been
+red. **10 tests written, 8 red before the route existed**; the other two are pins that cannot fail
+first (an id is not reused, a second delete 404s) and both were tightened to assert the 204 rather
+than pass vacuously against a 405. Backend suite **228 → 238**, nothing skipped; `ruff`,
+`ruff format --check` and `mypy` clean. Three decisions the one-line task does not imply:
+
+- **The hard-delete claim is asserted below the API, not through it.** `test_delete_removes_the_row_
+  from_the_database` reads the row back through the session. Every other assertion in the section is
+  green against a soft delete implemented as a filter on the list read — which would then hand the
+  item straight back through `GET /content-items/{id}`, a route with no filter to add. The schema
+  makes a soft delete impossible anyway (no `deleted_at`, no flag, and `data-model.md` lists neither),
+  so writing one would be a spec amendment wearing an implementation costume.
+- **A missing id is 404, not an idempotent 204.** 204 both times is defensible HTTP and was rejected:
+  it would tell T056 its delete succeeded when the row had already been destroyed elsewhere. The
+  contract declares 404 for a missing id with no exception for this verb, and the frontend is the
+  right place to decide the 404 is benign — it is recovering a screen, not a transaction.
+- **The unauthenticated case is aimed at an id that does not exist**, so it pins that 401 wins over
+  404. The other order lets an unauthenticated caller enumerate which ids are real by reading the
+  status code. Both the 401 and the 404 are registered in `REACHABLE_4XX`, per the both-places rule.
+
+FR-020's confirmation is **not** here and is not missing: it is a placement and gesture problem
+(`design.md` — never one tap from a common gesture), so it belongs to T056's dialog. An API-side
+second step would not make an accidental tap less accidental.
 - [ ] T051 [US3] Extend `frontend/lib/api.ts` with the fetch-one, update, and delete operations, wiring update through the optimistic path in `lib/items.ts` with rollback on failure (research.md R-007)
 - [ ] T052 [US3] Build the item sheet in `frontend/components/item/ItemSheet.tsx` as the single editing surface, carrying controls for **title, hook, platform, date, and status** — this is what FR-006a requires and what the first draft of this plan omitted entirely, leaving every item stuck in `idea` forever. This sheet is also where the parent requirements land: it is the only surface carrying all six fields (FR-006), the only one offering the three statuses in both directions (FR-007, FR-008), the only single-select platform control (FR-010, FR-010a), and the **tap** half of changing a date and a status without a separate detail page (FR-014, FR-015). Skip rows with `isPending` — the id does not exist yet
 - [ ] T053 [US3] Surface the 409 invariant errors in `ItemSheet` as the contract's `detail` message, with the platform control adjacent so a refusal is resolvable without leaving the sheet (FR-009, FR-009a, SC-012)

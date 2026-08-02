@@ -1,10 +1,9 @@
-"""The content-item routes. Create and list at T030 and T031; the rest arrive with their stories.
+"""The content-item routes. Create and list at T030 and T031, the by-id three at T049 and T050.
 
-`GET /content-items/{id}`, `PATCH`, and `DELETE` land at T049 and T050, and the two query parameters
-this file does not implement yet — `date_from`/`date_to` at T037, `platform` at T060 — belong to the
-stories that need them. `contracts/openapi.yaml` describes the finished module, so this file being a
-subset of it is incremental delivery; a parameter appearing here *before* its task would be the
-speculative build constitution VII forbids.
+All five operations the module needs now exist. The one query parameter this file does not implement
+— `platform` at T060 — belongs to the story that needs it. `contracts/openapi.yaml` describes the
+finished module, so this file being a subset of it is incremental delivery; a parameter appearing
+here *before* its task would be the speculative build constitution VII forbids.
 
 Two things here are the whole reason this module is not a thin CRUD wrapper:
 
@@ -392,3 +391,46 @@ def update_content_item(
     session.commit()
     session.refresh(item)
     return item
+
+
+@router.delete(
+    "/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        404: {"model": ErrorResponse, "description": "No such item."},
+    },
+    summary="Delete a content item",
+)
+def delete_content_item(
+    item_id: int,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> None:
+    """FR-004's delete. Hard, and there is no other kind available here.
+
+    `data-model.md` gives `content_item` no `deleted_at` and no archive flag, so a soft delete would
+    need a column the spec does not describe — a product decision wearing an implementation costume.
+    The contract says hard delete outright, and `tests/test_content_items.py` asserts the row is
+    gone from the *database* rather than only from the list response, because a soft delete as a
+    filter on the list read passes every assertion made over HTTP and then hands the item straight
+    back through `GET /content-items/{id}`.
+
+    **No confirmation, no `?confirm=` parameter.** FR-020 requires the creator to confirm before a
+    delete, and that belongs to T056's dialog: it is a placement and gesture problem (`design.md` —
+    never one tap from a common gesture), and an API-side second step would not make an accidental
+    tap any less accidental. The API does not second-guess a caller that has already confirmed.
+
+    **404 rather than an idempotent 204 on a missing id.** 204 both times is defensible HTTP, but it
+    would tell T056 that its delete succeeded when the row had already been destroyed elsewhere. The
+    contract declares 404 for a missing id with no exception for this verb, and the frontend is the
+    right place to decide that a 404 here is benign — it is recovering a screen, not a transaction.
+
+    Third caller of `get_or_404`, so "no such item" reads identically whichever verb asked.
+
+    No return annotation of `Response`, and no `response_model`: a 204 must carry no body, and a
+    route declaring a model would serialise `null` into it — a body where the contract promises
+    none, which some clients treat as a protocol error rather than as a value.
+    """
+    session.delete(get_or_404(session, item_id))
+    session.commit()
