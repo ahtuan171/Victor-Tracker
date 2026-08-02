@@ -1235,3 +1235,211 @@ def test_delete_does_not_reuse_the_deleted_id(auth_client: TestClient) -> None:
     replacement = create_item(auth_client, title="Created after the delete").json()
 
     assert replacement["id"] != deleted["id"]
+
+
+# ---------------------------------------------------------------------------
+# List — the platform filter, T059 (FR-016, US4)
+#
+# The one query parameter that narrows on something other than `scheduled_date`, and the reason it
+# needs its own section rather than a case appended to the date-range one: every assertion above is
+# about which *days* come back, and this is about which *rows* do.
+#
+# Two things decide the shape of everything below.
+#
+# **An exact-set assertion is the only kind that can fail here.** FastAPI ignores an undeclared
+# query parameter silently, so `GET /content-items?platform=tiktok` against the endpoint as it
+# stands today returns the whole list with a 200 — and `assert "TikTok item" in titles` passes
+# against it. `backend/AGENTS.md` records this biting at T036, where four tests were green before
+# the implementation existed. Every test here that names the parameter asserts `== {...}`.
+#
+# **The platformless item is in the fixture, not in one test.** US4 scenario 4 makes its exclusion a
+# stated behaviour rather than a side effect, and the endpoint gets it for free from SQL — `NULL =
+# 'tiktok'` is `NULL`, not `TRUE` — which is exactly the kind of behaviour that vanishes in a
+# rewrite that filters in Python. It is the same trap the undated item guards in the date-range
+# section, one column over.
+# ---------------------------------------------------------------------------
+
+
+PLATFORM_TITLES = {
+    Platform.TIKTOK: "Ring light comparison",
+    Platform.INSTAGRAM: "Carousel that converts",
+    Platform.YOUTUBE: "Three-point lighting",
+}
+
+NO_PLATFORM_TITLE = "Undecided"
+
+
+def seed_every_platform(client: TestClient) -> None:
+    """One item per platform, plus one with no platform at all.
+
+    All four are dated inside `FULL_SPAN` so the composition tests further down can add a date range
+    without needing a second fixture — a platform filter that silently ignored its date bounds, or
+    the reverse, would otherwise pass by returning the same four rows either way.
+    """
+    for platform, title in PLATFORM_TITLES.items():
+        create_item(client, title=title, platform=platform.value, scheduled_date=RANGE_MIDDLE)
+    create_item(client, title=NO_PLATFORM_TITLE, scheduled_date=RANGE_MIDDLE)
+
+
+@pytest.mark.parametrize("platform", list(Platform), ids=[p.value for p in Platform])
+def test_the_platform_filter_returns_only_that_platform(
+    auth_client: TestClient, platform: Platform
+) -> None:
+    """US4 scenario 1, asserted for each platform rather than for a representative one.
+
+    An exact set, so an ignored parameter fails here instead of passing three membership checks. All
+    three run because the values are a `StrEnum` round-tripping through a Postgres enum, and
+    `values_callable` (see `backend/AGENTS.md`) is the kind of mapping that can be right for the
+    member a test happened to pick and wrong for its siblings.
+    """
+    seed_every_platform(auth_client)
+
+    assert titles_in(auth_client, platform=platform.value) == {PLATFORM_TITLES[platform]}
+
+
+@pytest.mark.parametrize("platform", list(Platform), ids=[p.value for p in Platform])
+def test_an_item_with_no_platform_is_excluded_by_any_platform_filter(
+    auth_client: TestClient, platform: Platform
+) -> None:
+    """US4 scenario 4, and the half of FR-016 that a rewrite is most likely to lose.
+
+    The contract states it outright — "items with no platform are excluded when this is set" — while
+    the endpoint will implement it with nothing that looks like a line about NULL. Asserted against
+    every platform because an implementation that special-cased one branch would pass a single case.
+
+    The creator's escape hatch is the test below: clearing the filter has to bring it back, or an
+    unplatformed idea would be unreachable from a surface that remembers its filter.
+    """
+    seed_every_platform(auth_client)
+
+    assert NO_PLATFORM_TITLE not in titles_in(auth_client, platform=platform.value)
+
+
+def test_the_unfiltered_read_still_returns_every_platform_and_the_platformless_item(
+    auth_client: TestClient,
+) -> None:
+    """US4 scenario 2, and the control that stops the exclusion tests passing vacuously.
+
+    Without this, `NO_PLATFORM_TITLE not in ...` would be just as green against a
+    `seed_every_platform` that failed to create it, or against a filter returning nothing at all.
+    """
+    seed_every_platform(auth_client)
+
+    assert titles_in(auth_client) == {*PLATFORM_TITLES.values(), NO_PLATFORM_TITLE}
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["twitter", "TIKTOK", "tik-tok", ""],
+    ids=["not-a-platform", "wrong-case", "near-miss", "empty"],
+)
+def test_an_unknown_platform_is_refused(auth_client: TestClient, value: str) -> None:
+    """A value outside the enum is a 422, not a silently dropped filter.
+
+    The same reasoning as the malformed date bounds: a dropped filter returns *every* item, and on a
+    filtered calendar that reads as "this platform has a busy month" rather than as the filter
+    failing. There is no visible difference in the response body between "no filter was asked for"
+    and "the filter was not understood", which is why the status code has to carry it.
+
+    `TIKTOK` is here because the Python member is spelled that way and the wire value is not — an
+    endpoint typed against the enum's *names* would accept it and reject `tiktok`. The empty string
+    is the spelling a frontend produces by putting an unset filter into a query string without
+    checking it, and it must not mean "all": a caller that wants everything omits the parameter.
+    """
+    response = auth_client.get(ITEMS_PATH, params={"platform": value})
+
+    assert response.status_code == 422
+
+
+def test_the_platform_filter_composes_with_a_date_range(auth_client: TestClient) -> None:
+    """Two narrowing parameters `AND` together, which is what the contract's silence means.
+
+    Both are declared as independent filters with no stated interaction, so the combination is an
+    intersection. Asserted in both directions from one fixture: the same platform inside and outside
+    the range, so an implementation that let either parameter overwrite the other's `WHERE` clause
+    fails on one of the two assertions.
+    """
+    seed_every_platform(auth_client)
+    create_item(
+        auth_client,
+        title="TikTok, next month",
+        platform=Platform.TIKTOK.value,
+        scheduled_date=DAY_AFTER,
+    )
+
+    assert titles_in(auth_client, platform=Platform.TIKTOK.value, **FULL_SPAN) == {
+        PLATFORM_TITLES[Platform.TIKTOK]
+    }
+    assert titles_in(auth_client, platform=Platform.TIKTOK.value) == {
+        PLATFORM_TITLES[Platform.TIKTOK],
+        "TikTok, next month",
+    }
+
+
+def test_the_platform_filter_composes_with_scheduled_none(auth_client: TestClient) -> None:
+    """The backlog, narrowed to one platform — the other read a caller might want filtered.
+
+    Not a query the calendar surface issues (it reads once and narrows client-side, research.md
+    R-007), but the endpoint's parameters are independent of which surface uses them, and a filter
+    that only worked on the dated branch would be a real defect for any caller that asked.
+    """
+    seed_every_platform(auth_client)
+    create_item(auth_client, title="Undated TikTok idea", platform=Platform.TIKTOK.value)
+    create_item(auth_client, title="Undated Instagram idea", platform=Platform.INSTAGRAM.value)
+
+    assert titles_in(auth_client, scheduled="none", platform=Platform.TIKTOK.value) == {
+        "Undated TikTok idea"
+    }
+
+
+def test_a_platform_filter_matching_nothing_is_an_empty_array(auth_client: TestClient) -> None:
+    """No items on a platform is an empty list and a 200, not a 404.
+
+    The absence of items for a platform is a legitimate answer to a legitimate question, and T062
+    renders it as an empty state naming the filter. A 404 would make that surface parse an error to
+    find out it had nothing to show.
+    """
+    create_item(auth_client, title="Only ever posted here", platform=Platform.YOUTUBE.value)
+
+    response = auth_client.get(ITEMS_PATH, params={"platform": Platform.TIKTOK.value})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_the_platform_filtered_read_is_ordered_too(
+    auth_client: TestClient, session: Session
+) -> None:
+    """`created_at DESC, id DESC` survives this `WHERE` clause as well.
+
+    The third filtered path to assert it, for the same reason as the first two: an `.order_by()`
+    applied inside one branch is correct everywhere except the branch it was not applied to. Written
+    through the session because distinct `created_at` values are impossible over HTTP inside one
+    transaction, and the excluded row shares the newer timestamp — so a filter applied *after* the
+    sort would still fail here.
+    """
+    now = datetime.now(UTC)
+    insert_item(
+        session, title="Older TikTok", platform=Platform.TIKTOK, created_at=now - timedelta(hours=1)
+    )
+    insert_item(session, title="Newer TikTok", platform=Platform.TIKTOK, created_at=now)
+    insert_item(session, title="Newer YouTube", platform=Platform.YOUTUBE, created_at=now)
+
+    listed = auth_client.get(ITEMS_PATH, params={"platform": Platform.TIKTOK.value}).json()
+
+    assert [item["title"] for item in listed] == ["Newer TikTok", "Older TikTok"]
+
+
+def test_a_platform_filtered_read_carries_the_full_contracted_shape(
+    auth_client: TestClient,
+) -> None:
+    """FR-017 and FR-018 on the fourth path through the list route.
+
+    A response model applied per-branch is a thing that can drift, and this is the last branch to
+    acquire one.
+    """
+    create_item(auth_client, title="Ring light comparison", platform=Platform.TIKTOK.value)
+
+    (item,) = auth_client.get(ITEMS_PATH, params={"platform": Platform.TIKTOK.value}).json()
+
+    assert set(item) == CONTRACTED_ITEM_KEYS

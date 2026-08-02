@@ -1,9 +1,9 @@
 """The content-item routes. Create and list at T030 and T031, the by-id three at T049 and T050.
 
-All five operations the module needs now exist. The one query parameter this file does not implement
-— `platform` at T060 — belongs to the story that needs it. `contracts/openapi.yaml` describes the
-finished module, so this file being a subset of it is incremental delivery; a parameter appearing
-here *before* its task would be the speculative build constitution VII forbids.
+All five operations exist, and as of T060 so does every query parameter `contracts/openapi.yaml`
+declares. The module is no longer a subset of its contract — which means the next parameter proposed
+for this file has no task behind it, and adding one before its story needs it is the speculative
+build constitution VII forbids.
 
 Two things here are the whole reason this module is not a thin CRUD wrapper:
 
@@ -238,8 +238,12 @@ def list_content_items(
         date | None,
         Query(description="Inclusive upper bound on `scheduled_date` (FR-013)."),
     ] = None,
+    platform: Annotated[
+        Platform | None,
+        Query(description="Restrict to one platform (FR-016). Unplatformed items are excluded."),
+    ] = None,
 ) -> list[ContentItem]:
-    """FR-011, FR-012 and FR-013 — the backlog read and the calendar read, one query apart.
+    """FR-011, FR-012, FR-013 and FR-016 — the backlog read and the calendar read, one query apart.
 
     `Literal["none"]` rather than a free string: the contract's enum has exactly one member, so
     `scheduled=all` is a typo and must be refused rather than quietly treated as "no filter". That
@@ -265,6 +269,22 @@ def list_content_items(
     inventing a response the contract does not carry — and no surface issues either query, because
     the drawer sends `scheduled=none` and period navigation always builds `from <= to`.
 
+    **`platform` narrows on a different column and excludes unplatformed items** (FR-016, T060), and
+    that exclusion is stated by the contract rather than left to fall out: `NULL = 'tiktok'` is
+    `NULL`, so an item with no platform matches no filter. US4 scenario 4 makes this the intended
+    behaviour and clearing the filter the way back to those items — which is why T062's empty state
+    names the active filter instead of showing a blank grid.
+
+    Typed `Platform | None`, so a value outside the enum is a 422. The same reasoning as the date
+    bounds, and the stakes are higher here: FastAPI drops an *undeclared* query parameter silently,
+    so a filter the API did not understand would return every item, and a calendar narrowed to one
+    platform that quietly shows all three reads as a busy month rather than as a broken filter.
+
+    **No surface sends this parameter.** T061's filter narrows already-loaded state client-side, for
+    the same reason the calendar's read is unparameterised: every filter here bounds the server's
+    response, and the backlog drawer reads the same loaded state the grid does (research.md R-007).
+    The parameter exists for a caller that wants only one platform, and no v0.1 surface is one.
+
     **Ordering is `created_at DESC, id DESC`, and the second key is not decoration.** `created_at`
     alone is not a total order: Postgres `now()` is transaction time, so anything written in one
     transaction shares a timestamp, and the row order Postgres returns for ties is not stable
@@ -283,6 +303,9 @@ def list_content_items(
 
     if date_to is not None:
         query = query.where(col(ContentItem.scheduled_date) <= date_to)
+
+    if platform is not None:
+        query = query.where(col(ContentItem.platform) == platform)
 
     query = query.order_by(col(ContentItem.created_at).desc(), col(ContentItem.id).desc())
 
