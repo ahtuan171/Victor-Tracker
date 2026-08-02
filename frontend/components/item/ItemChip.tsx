@@ -2,6 +2,7 @@ import { PlatformCue } from "@/components/item/PlatformCue";
 import { StatusCue } from "@/components/item/StatusCue";
 import type { ContentItem } from "@/lib/api";
 import { isPending } from "@/lib/items";
+import type { CueSize } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,8 +15,10 @@ import { cn } from "@/lib/utils";
  *   width it would render two or three characters, which is worse than nothing because it looks like
  *   a truncation bug. What survives is the cue and the monogram, which is exactly what FR-017 and
  *   FR-018 require to be legible without opening the item.
- * - **`full`** — the week list (T043) and the backlog drawer (T041), where the title leads and the
- *   cues bracket it.
+ * - **`peek`** — the backlog drawer's collapsed strip, one clipped horizontal row. Title present but
+ *   bounded, because the strip is a glance rather than a list.
+ * - **`full`** — the week list (T043) and the expanded backlog drawer (T041), where the title leads
+ *   and the cues bracket it.
  *
  * ## The title is always in the accessible name, even when it is not drawn
  *
@@ -42,7 +45,7 @@ export function ItemChip({
   className,
 }: {
   readonly item: ContentItem;
-  readonly size?: "micro" | "full";
+  readonly size?: CueSize;
   readonly className?: string;
 }) {
   const pending = isPending(item);
@@ -56,14 +59,7 @@ export function ItemChip({
       data-testid="item-chip"
       className={cn(
         "border-hairline flex items-center rounded-sm border",
-        size === "micro"
-          ? "bg-surface-3 gap-[3px] px-[3px] py-0.5"
-          : // 44px is the tap-target floor from `.claude/rules/design.md`, and the chip is a hair
-            // under it at the export's padding. It is set here rather than at T052 so that turning
-            // this into a button is a behaviour change and not a re-layout — the drawer row it
-            // replaces is already 44px, and shrinking it now to grow it back later would be a
-            // visible regression in between.
-            "bg-surface-2 min-h-11 gap-2.5 px-3 py-2.5",
+        FRAME[size],
         // The optimistic row stays legible but visibly not-yet-saved. Dimming the whole chip rather
         // than the title alone keeps the cue from reading as a status the server has agreed to.
         pending && "opacity-60",
@@ -73,9 +69,19 @@ export function ItemChip({
       <StatusCue status={item.status} size={size} />
 
       {size === "micro" ? (
-        <span className="sr-only">{item.title}</span>
+        <span className="sr-only" data-testid="item-title">
+          {item.title}
+        </span>
       ) : (
-        <span className="text-ink flex-1 truncate text-sm leading-snug">{item.title}</span>
+        <span
+          data-testid="item-title"
+          className={cn(
+            "text-ink truncate",
+            size === "peek" ? "text-xs leading-tight" : "flex-1 text-sm leading-snug",
+          )}
+        >
+          {item.title}
+        </span>
       )}
 
       {/* T045's OVERDUE label sits here, between the title and the monogram, as the export draws it. */}
@@ -90,3 +96,18 @@ export function ItemChip({
     </article>
   );
 }
+
+/**
+ * The chip's own box at each size, straight from the export.
+ *
+ * `full` is `min-h-11` — 44px, the tap-target floor in `.claude/rules/design.md` — rather than the
+ * export's slightly shorter padding. This becomes a button at **T052**, and the drawer row it
+ * replaces is already 44px, so sizing it correctly now makes that a behaviour change instead of a
+ * re-layout. `peek` is bounded at 170px like the export's, because the strip clips rather than wraps:
+ * one long title must not push the rest of the backlog out of view.
+ */
+const FRAME: Readonly<Record<CueSize, string>> = {
+  micro: "bg-surface-3 gap-[3px] px-[3px] py-0.5",
+  peek: "bg-surface-3 max-w-[170px] flex-none gap-2 px-2.5 py-2",
+  full: "bg-surface-2 min-h-11 gap-2.5 px-3 py-2.5",
+};

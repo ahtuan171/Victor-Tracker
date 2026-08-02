@@ -27,3 +27,6 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Agent worktrees — transient, never committed
+.claude/worktrees/
