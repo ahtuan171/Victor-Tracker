@@ -144,6 +144,26 @@ The rule: when a checkpoint amends a decision, **grep the claim across `specs/` 
 have open. Related: this is also why `/speckit-analyze` earns its place beside `reviewer` — a clean
 `reviewer` pass missed it, because reviewing code against specs cannot see two specs disagreeing.
 
+**2026-08-02 — the contract has now carried an overturned claim at four checkpoints running, and
+Phase 6 showed the failure mode is the *reason*, not the conclusion.** Phase 4 CRITICAL, Phase 5
+HIGH, Phase 6 MEDIUM — every one of them in `contracts/openapi.yaml`. Stop treating this as bad luck:
+the contract is the artifact least often opened while building a surface and the one that outranks
+code when someone does open it, so a wrong sentence there survives longest and is obeyed hardest.
+**Read the whole `description` block of any operation you touch, every time.**
+
+Phase 6's instance is the instructive one because the *conclusion* was still true. The contract said
+the calendar sends no query parameters "because **each of these bounds `scheduled_date`**". Correct
+advice, wrong reason — and the reason is the load-bearing half, because it is what a future agent
+consults about some parameter that does not exist yet. Read literally it licenses sending any
+parameter that bounds a different column, which is precisely backwards; `platform` (T060) was already
+that parameter. **A rule stated as a property of today's parameters silently becomes a licence when a
+new one arrives.** State the general form — here: every parameter narrows what the *server* returns,
+and both surfaces read one loaded state.
+
+The same amendment's "period" framing was also still in `data-model.md` and in **T061's own task
+line**, nine tasks after it was overturned. Grepping the claim found them; reading the files would
+not have.
+
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the
 `postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the

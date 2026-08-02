@@ -129,10 +129,21 @@ paths:
         makes a follow-up request per item (FR-017, FR-018).
 
         Every parameter below is optional and every one of them narrows. The calendar surface sends
-        **none** of them: it reads the whole list once and narrows client-side, because each of these
-        bounds `scheduled_date` and so excludes undated items — and the backlog drawer reads the same
-        loaded state (research.md R-007). A caller that wants only the backlog sends `scheduled=none`;
-        a caller that wants a date window sends `date_from`/`date_to`. The calendar is neither.
+        **none** of them, and the reason is general rather than a property of any one parameter:
+        each narrows what the *server* returns, and the calendar and the backlog drawer read the
+        **same loaded state** (research.md R-007) — so any parameter sent here narrows both surfaces
+        at once, and the drawer has no way to get back what the grid's query excluded.
+
+        What each one would cost concretely: `date_from`/`date_to` bound `scheduled_date`, so a
+        ranged read returns no undated rows and empties the backlog; `platform` bounds the platform
+        column, so a filtered read hides every unplatformed idea — which US4 scenario 4 requires be
+        reachable by clearing the filter. **This rule holds for any parameter added later**, whatever
+        column it bounds; it is not a statement about `scheduled_date`. It said so until T060, when
+        `platform` became the first parameter that narrows on something else.
+
+        A caller that wants only the backlog sends `scheduled=none`; a caller that wants a date
+        window sends `date_from`/`date_to`; a caller that wants one platform sends `platform`. The
+        calendar is none of them — it reads the whole list once and narrows client-side.
       parameters:
         - name: scheduled
           in: query

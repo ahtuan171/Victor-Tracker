@@ -793,7 +793,7 @@ Three things worth recording, none of which the task line implies:
   wanting everything omits the parameter. The generated schema renders `anyOf: [Platform, null]`,
   which is what `date_from` and `date_to` already do, so this follows the established convention
   rather than introducing a second one.
-- [x] T061 [US4] Build the platform filter in `frontend/components/item/PlatformFilter.tsx` as local state narrowing the already-loaded period, applied to the grid and the backlog drawer alike, within thumb reach (FR-016, FR-022, SC-005, research.md R-007)
+- [x] T061 [US4] Build the platform filter in `frontend/components/item/PlatformFilter.tsx` as local state narrowing the already-loaded list — the whole list, read once, **not** a period (research.md R-007's Phase 4 amendment) — applied to the grid and the backlog drawer alike, within thumb reach (FR-016, FR-022, SC-005)
 
 **T061 result (2026-08-02)**: done. `selectByPlatform` in `lib/items.ts` (a pure selector beside
 `selectBacklog` and `groupByScheduledDate`), `components/item/PlatformFilter.tsx`, and the wiring in
@@ -859,6 +859,45 @@ under the condition above there are no items on that platform in **any** period,
 would suggest another might have some.
 
 **Checkpoint**: all of US1–US4 work independently.
+
+**Phase 6 checkpoint result (2026-08-02)**: run in full, all three gates. **271 backend + 349 frontend
+tests passing, nothing skipped.**
+
+| Gate | Result |
+|---|---|
+| Hand-walk, quickstart V3 + V6 + SC-005, 375px, production build, **nothing stubbed** | **25/25 checks.** One `GET /api/content-items` for the entire walk |
+| `reviewer` agent over T059–T062 | **No confirmed code defects.** One MEDIUM, a stale sentence in `contracts/openapi.yaml` |
+| `/speckit-analyze` | **0 CRITICAL.** Same stale claim, plus the same claim in two further artifacts |
+
+**All three findings were the same finding, in three artifacts, and that is the fourth checkpoint
+running that the contract has carried an overturned claim.** `contracts/openapi.yaml` said the
+calendar omits every parameter *"because **each of these bounds `scheduled_date`**"* — true of
+`date_from`/`date_to`, false of `platform` from the moment T060 landed. The *conclusion* stayed
+correct and T061 was built to the real semantics, so nothing broke. **What was wrong was the
+reason**, and the reason is the load-bearing part: it is what a future agent consults to decide
+whether some *new* parameter is safe to send. Read literally it says "a parameter that does not bound
+`scheduled_date` is fine to send" — the exact opposite of the rule. Now rewritten to state the general
+form: every parameter narrows what the **server** returns, and the grid and drawer read one loaded
+state, so any of them narrows both surfaces at once.
+
+`data-model.md`'s FR-016 row and **T061's own task line** still described the unit as "the loaded
+period" — the framing the Phase 4 amendment overturned. Both fixed here. Grepping the claim rather
+than the file is what found them, which is the rule `.claude/memory.md` records.
+
+Three things confirmed working rather than assumed:
+
+- **SC-005 was met by 32×.** The filter applied in **31ms** against a 1000ms budget, and the walk
+  issued **one** request in total across five filter changes and a period navigation. The budget is
+  met by architecture (a `filter` over memory), not by being fast.
+- **SC-004 survives greyscale at both chip sizes**, tested by *pixel* rather than by computed style —
+  each status cue was screenshotted under `grayscale(1)` and hashed. Comparing CSS would pass on three
+  different hues of one shape; three distinct hashes cannot. `idea`/`draft`/`posted` differ at the
+  micro size and at the full size.
+- **The two-chip day cap loses nothing.** 9 dated items, 8 chips drawn, 1 `+N more`, and expanding
+  restored the 9th.
+
+Worth carrying into Phase 8: **T067's "every interactive element" now includes two components that
+did not exist when it was written** — `PlatformFilter` and `FilteredEmpty`.
 
 ---
 
