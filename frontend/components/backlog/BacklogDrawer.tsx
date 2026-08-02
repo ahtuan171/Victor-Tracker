@@ -5,8 +5,9 @@ import { useEffect, useId, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 
 import { ItemChip } from "@/components/item/ItemChip";
-import type { ContentItem } from "@/lib/api";
-import { selectBacklog } from "@/lib/items";
+import type { ContentItem, Platform } from "@/lib/api";
+import { selectBacklog, selectByPlatform } from "@/lib/items";
+import { platformCue } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,11 +40,24 @@ import { cn } from "@/lib/utils";
  */
 export function BacklogDrawer({
   items,
+  platformFilter,
   onCapture,
   onOpenItem,
 }: {
-  /** Every loaded item. Narrowing to the backlog is this component's job, not its caller's. */
+  /**
+   * **Every loaded item, unfiltered** — the one consumer on this surface that does not take the
+   * shell's `visible` list, and the reason is T062.
+   *
+   * This component has *two* empty states and they are opposites: "you have not captured anything
+   * yet" and "you have, and the filter is hiding it". Handed only the filtered list it cannot tell
+   * them apart, and it would tell a creator with a full backlog to go and capture something. So it
+   * takes the full list and applies both narrowings itself. They compose in either order — asserted
+   * in `tests/client/items.spec.ts`, because this component picks one order and `CalendarShell`
+   * picks the other for the grid.
+   */
   readonly items: readonly ContentItem[];
+  /** The active platform filter, or null. Applied here; see `items` above for why not by the shell. */
+  readonly platformFilter: Platform | null;
   /** Opens the capture sheet. The drawer's empty state and its expanded footer both point at it. */
   readonly onCapture: () => void;
   /** Opens the item sheet (T052). Both drawer states offer it — the peek strip is the backlog view
@@ -53,7 +67,18 @@ export function BacklogDrawer({
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
 
-  const backlog = selectBacklog(items);
+  const backlog = selectBacklog(selectByPlatform(items, platformFilter));
+
+  /**
+   * Whether the filter is the reason this drawer is empty (T062).
+   *
+   * True only when there *are* undated ideas and the filter is hiding all of them. An account with
+   * nothing captured keeps the first-run copy however the filter is set, because a filter is not why
+   * that calendar is empty — the same rule `CalendarShell` applies to the grid's empty state, and the
+   * two must agree or one surface blames the filter while the other does not.
+   */
+  const hiddenByFilter =
+    platformFilter !== null && backlog.length === 0 && selectBacklog(items).length > 0;
 
   useEffect(() => {
     if (!expanded) return;
@@ -74,6 +99,8 @@ export function BacklogDrawer({
         <ExpandedBacklog
           panelId={panelId}
           backlog={backlog}
+          hiddenByFilter={hiddenByFilter}
+          platformFilter={platformFilter}
           onCollapse={() => setExpanded(false)}
           onCapture={onCapture}
           onOpenItem={onOpenItem}
@@ -83,6 +110,8 @@ export function BacklogDrawer({
       <PeekStrip
         panelId={panelId}
         backlog={backlog}
+        hiddenByFilter={hiddenByFilter}
+        platformFilter={platformFilter}
         expanded={expanded}
         onToggle={() => setExpanded((open) => !open)}
         onOpenItem={onOpenItem}
@@ -100,12 +129,16 @@ export function BacklogDrawer({
 function PeekStrip({
   panelId,
   backlog,
+  hiddenByFilter,
+  platformFilter,
   expanded,
   onToggle,
   onOpenItem,
 }: {
   panelId: string;
   backlog: readonly ContentItem[];
+  hiddenByFilter: boolean;
+  platformFilter: Platform | null;
   expanded: boolean;
   onToggle: () => void;
   onOpenItem: (item: ContentItem) => void;
@@ -151,9 +184,25 @@ function PeekStrip({
 
       {backlog.length === 0 ? (
         <p className="text-ink-mid px-4 py-3 text-xs" data-testid="backlog-empty-peek">
-          {/* The export's first-run copy. It names the capture action because T035 asks the empty
-              state to point at it, and because "empty" on its own reads as something being broken. */}
-          Empty. Everything you capture starts here — tap <b className="text-ink">+ Capture</b>.
+          {/*
+           * Two different empty states wearing one layout (T062). Under a filter the backlog is not
+           * empty — it is *hidden*, and the first-run copy would be actively wrong: it tells a
+           * creator with a full backlog to go and capture something. The spec's edge case asks the
+           * empty state to name the active filter, and this strip is the backlog view a creator sees
+           * most, so it is the one that most needs to say which of the two it is.
+           */}
+          {!hiddenByFilter ? (
+            <>
+              {/* The export's first-run copy. It names the capture action because T035 asks the
+                  empty state to point at it, and because "empty" alone reads as something broken. */}
+              Empty. Everything you capture starts here — tap <b className="text-ink">+ Capture</b>.
+            </>
+          ) : (
+            <>
+              No undated <b className="text-ink">{platformCue(platformFilter)!.label}</b> ideas. Clear
+              the filter to see the rest.
+            </>
+          )}
         </p>
       ) : (
         <ul
@@ -199,10 +248,14 @@ export const BACKLOG_DROP_ID = "backlog";
 function ExpandedBacklog({
   panelId,
   backlog,
+  hiddenByFilter,
+  platformFilter,
   onCollapse,
   onCapture,
   onOpenItem,
 }: {
+  hiddenByFilter: boolean;
+  platformFilter: Platform | null;
   panelId: string;
   backlog: readonly ContentItem[];
   onCollapse: () => void;
@@ -257,7 +310,12 @@ function ExpandedBacklog({
         <ul className="flex-1 overflow-y-auto p-4" data-testid="backlog-list">
           {backlog.length === 0 ? (
             <li className="text-ink-mid py-6 text-center text-sm" data-testid="backlog-empty">
-              Nothing here yet. Capture an idea and it lands in this list.
+              {/* The same two states as the peek strip, and they must not disagree — a creator who
+                  expands the drawer to find out why it is empty gets the fuller sentence, not a
+                  different answer. */}
+              {!hiddenByFilter
+                ? "Nothing here yet. Capture an idea and it lands in this list."
+                : `No undated ${platformCue(platformFilter)!.label} ideas. Clear the platform filter to see the rest of your backlog.`}
             </li>
           ) : (
             backlog.map((item) => <BacklogRow key={item.id} item={item} onOpenItem={onOpenItem} />)

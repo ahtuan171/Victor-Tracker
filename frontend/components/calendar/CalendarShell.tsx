@@ -19,6 +19,7 @@ import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { DeleteConfirm } from "@/components/item/DeleteConfirm";
+import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
@@ -45,10 +46,15 @@ import { cn } from "@/lib/utils";
  *
  * The filter narrows loaded state (T061), so this component holds both the full list and the filtered
  * one. The rule for which a consumer gets: **anything that displays a set takes `visible`; anything
- * that acts on a row takes `items`.** The grid, the week list, the drawer and the header counts are
- * the first kind; the item sheet, the delete confirmation and the drag overlay are the second. Look
- * `editing` up in `visible` and the sheet closes itself the moment the creator gives that item a
- * platform the filter excludes — a normal edit that would read as a crash.
+ * that acts on a row takes `items`.** The grid, the week list and the header counts are the first
+ * kind; the item sheet, the delete confirmation and the drag overlay are the second. Look `editing`
+ * up in `visible` and the sheet closes itself the moment the creator gives that item a platform the
+ * filter excludes — a normal edit that would read as a crash.
+ *
+ * **`BacklogDrawer` is the one exception**, and it is a considered one: it takes `items` *and* the
+ * filter, and narrows by both itself. T062 gives it two opposite empty states — "nothing captured
+ * yet" versus "the filter is hiding your backlog" — and the filtered list alone cannot distinguish
+ * them, so it would tell a creator with a full backlog to go and capture something.
  *
  * ## The period is state; `today` is not
  *
@@ -293,6 +299,21 @@ export function CalendarShell() {
             <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
               {status === "loading" ? "Loading your items…" : ""}
             </p>
+          ) : /*
+             * The filtered empty state (T062, spec Edge Cases) replaces the grid rather than sitting
+             * above it, which is what the export's `1i` draws — an empty six-week grid under an
+             * explanation is still a blank screen, and the region is the explanation.
+             *
+             * The condition is "the filter hid everything", not "this period is empty": an empty
+             * month with items in April is a normal calendar showing nothing planned, and the period
+             * arrows already answer it. See `FilteredEmpty.tsx`.
+             *
+             * `items.length > 0` keeps it away from the genuinely empty account — a creator with no
+             * items at all should meet the drawer's first-run copy pointing at `+ CAPTURE`, not a
+             * message about a filter that is not why their calendar is empty.
+             */
+          platform !== null && visible.length === 0 && items.length > 0 ? (
+            <FilteredEmpty platform={platform} onClear={() => setPlatform(null)} />
           ) : view === "month" ? (
             <MonthGrid period={period} today={today} items={visible} onOpenItem={openItem} />
           ) : (
@@ -313,10 +334,18 @@ export function CalendarShell() {
          * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
          * at T054.
          *
-         * Takes `visible`, so the filter narrows the drawer and the grid alike — US4 scenario 1 names
-         * both surfaces, and they read from one state precisely so they cannot disagree.
+         * **The one consumer handed `items` rather than `visible`**, and it applies the filter itself.
+         * The filter does narrow the drawer — US4 scenario 1 names both surfaces — but T062 gives this
+         * component two opposite empty states ("nothing captured yet" and "the filter is hiding it"),
+         * and it cannot tell them apart from the filtered list alone. Handing it both inputs keeps
+         * that judgement in the component that renders the sentence.
          */}
-        <BacklogDrawer items={visible} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
+        <BacklogDrawer
+          items={items}
+          platformFilter={platform}
+          onCapture={() => setCapturing(true)}
+          onOpenItem={openItem}
+        />
 
         <CalendarActionBar onCapture={() => setCapturing(true)}>
           <PeriodNav
