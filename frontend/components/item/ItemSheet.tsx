@@ -123,10 +123,12 @@ export function ItemSheet({
    * - **Keyed on the id, not the object.** An optimistic save replaces the item in the store, so its
    *   object identity changes mid-edit; keying on identity would discard the creator's typing at the
    *   moment their own save landed.
-   * - **Cleared to null on close.** Without this, closing and reopening the *same* item keeps the
-   *   abandoned draft, so an edit the creator explicitly walked away from reappears as though it had
-   *   been saved. Caught by `item-sheet.spec.ts`; it is the reason the id is tracked here as well as
-   *   in `CalendarShell`.
+   * - **`editingId` is cleared on close** — not `draft`, which is left as it was. That is enough,
+   *   and the indirection is worth being precise about: the *next* open then sees `item.id !==
+   *   editingId` even for the same item, and resyncs `draft` from the live store row. Without it,
+   *   reopening the same item would keep the abandoned draft, so an edit the creator explicitly
+   *   walked away from would reappear looking saved. Caught by `item-sheet.spec.ts`, and it is why
+   *   the id is tracked here as well as in `CalendarShell`.
    */
   if (item === null) {
     if (editingId !== null) setEditingId(null);

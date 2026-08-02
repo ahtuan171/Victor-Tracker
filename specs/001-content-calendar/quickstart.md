@@ -115,8 +115,10 @@ the colour version looks.
 **Proves**: FR-006a, FR-014a, FR-015a, FR-015b, SC-002, SC-011, SC-012, US3 scenario 7
 
 1. Capture an idea with only a title.
-2. Using taps only, open it, **assign a platform**, set a date, advance to `draft`, then `posted`, and
-   paste a published link.
+2. Using taps only, open it, **assign a platform**, set a date, and advance to `draft`, then `posted`.
+   (Pasting a published link is **V8's** step and belongs to US5 — the field arrives at T064. V4 is the
+   **Phase 5** checkpoint gate, so a step from Phase 7 would make the gate unrunnable at the phase that
+   runs it. FR-019 is deliberately absent from this scenario's *Proves* list for the same reason.)
 3. Watch the address bar throughout.
 4. Repeat the scheduling step on a second item by dragging it from the backlog drawer onto a day.
 

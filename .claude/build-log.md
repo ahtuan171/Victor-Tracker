@@ -1746,3 +1746,75 @@ a development artifact no creator will ever have, and the subject under test is 
 automated test can click is one restyle away from being broken with the suite still green.** The real
 fix is running the suite against `pnpm start`, which is a `playwright.config.ts` change with a cost
 (every run rebuilds) and is not T057's to make.
+
+## The Phase 5 checkpoint — three gates, and the contract was stale again
+
+**Three findings across three gates, all fixed in the checkpoint's own merge request.** 322 frontend
+and 238 backend tests, nothing skipped.
+
+### The hand-walk was the cheapest gate and the most convincing
+
+21 checks at 375px on a production build against a live stack — browser → proxy → FastAPI → Postgres,
+nothing stubbed, signed in as the seeded creator. All 21 passed. The whole of V4 works end to end, the
+drag half produced the same scheduled date as the tap half, changes survived a reload *and* a fresh
+sign-in, and **V9 placed five ideas onto five days in 4.9s** against SC-008's 60-second budget.
+
+Worth stating plainly because the suite cannot say it: every frontend test stubs the proxy, so a green
+run is evidence about the frontend in isolation. This walk is the only thing in the project that
+exercises the seam.
+
+### F1: the contract cited a requirement as authority for a claim that requirement denies
+
+`contracts/openapi.yaml`'s `PATCH` description: *"A drag and a tap produce the identical request with
+one field set (FR-014a, **FR-015a**)."* True for a **date**. False for a **status** — FR-015a was
+amended in the post-review clarification to read *"Status is not draggable"*, because a status drag has
+nowhere to drop at 375px without the horizontal scroll FR-021 forbids, and lanes are a second core
+capability constitution principle III does not permit.
+
+So the sentence conflated the two axes *and* cited as its authority the very requirement that
+contradicts it. This is the Phase 4 CRITICAL's pattern for the second time in two phases: **the
+contract is where an overturned decision survives longest.** It is the artifact least often opened
+while building a surface, and the one that outranks code when someone does open it.
+
+The rule earns its keep: grep the claim, not the file. `"drag and a tap"` and `"identical request"`
+across `specs/` and both `AGENTS.md` found exactly one occurrence, which is why the fix is a single
+paragraph rather than a sweep.
+
+### F2: the reviewer found a cue that was missing rather than wrong
+
+`DeleteConfirm` rendered its `ItemChip` without `today`. `ItemChip` defaults `today` to `null` and
+`isOverdue(item, null)` is false — so an overdue item in the delete dialog quietly lost its dashed
+border. Nothing failed. No test covered it. The dialog's own justification, written one task earlier,
+is *"the status cue and platform monogram are how they check it is the right one"* — and overdue is
+part of that context, on exactly the item a creator is most likely to be deleting.
+
+Two things about the fix are worth more than the fix. `today` is now **required** rather than
+defaulted on this component, so the next surface cannot omit it the same way. And the test was
+**verified red before the fix** by reverting one line — a test written after a fix that was never
+observed failing is a test of nothing.
+
+This is also a good example of what the `reviewer` gate is *for*: an omission, in a default, on a path
+no assertion reached. `/speckit-analyze` reads artifacts against each other and could never see it.
+
+### F3: a checkpoint gate that could not be run at its own checkpoint
+
+Quickstart V4 step 2 asked the creator to paste a published link. The link field is **T064 — US5,
+Phase 7** — and `tasks.md` makes V4 a **Phase 5** gate. The step was also absent from V4's own *Proves*
+list (no FR-019), so it was over-specified rather than load-bearing.
+
+Small, but it is a *gate* that could not be completed at the phase that runs it, and the failure mode
+is a future agent either building T064 early to satisfy it or quietly skipping a step and calling the
+gate passed.
+
+### Recorded, not fixed: a control no automated test can click
+
+The `MONTH` toggle. Next's dev overlay covers it at 375px, and `playwright.config.ts` runs `next dev`,
+so this is true in CI too — not just in a hand-walk, which is how the Phase 4 checkpoint recorded it.
+
+It went unnoticed until T057 for a reason worth generalising: **no test had ever clicked it.** `WEEK`
+works, so the toggle was exercised in one direction only, and the gap was invisible because the half
+that works is the half every test happened to use. A control that no automated test can click is one
+restyle away from being broken with the suite still green.
+
+The real fix — running the suite against `pnpm start` — rebuilds on every run and belongs with T069's
+overlay audit, not here.

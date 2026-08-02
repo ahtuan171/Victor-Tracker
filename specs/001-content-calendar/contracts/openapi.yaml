@@ -240,9 +240,18 @@ paths:
       tags: [content-items]
       summary: Partially update a content item
       description: |
-        The single mutation endpoint behind every date and status change. A drag and a tap produce
-        the identical request with one field set (FR-014a, FR-015a) — which is what makes "both
-        paths produce an identical result" true by construction rather than by discipline.
+        The single mutation endpoint behind every date and status change.
+
+        For a **scheduled date** there are two entry points and they produce the identical request
+        with one field set — a drag onto a day and the item sheet's date control (FR-014a). That is
+        what makes "both paths produce an identical result" true by construction rather than by
+        discipline.
+
+        For a **status** there is one entry point: a tap. FR-015a was amended in the post-review
+        clarification to make status tap-only — a status drag has nowhere to drop at 375px without
+        the horizontal scroll FR-021 forbids, and status lanes are a second core capability that
+        constitution principle III does not permit this module. Do not read the paragraph above as
+        implying a status drag exists.
 
         Omitted fields are untouched. Explicit null clears a field, subject to the invariants:
         clearing `platform` while status is past `idea` is refused (FR-009a), and `published_url`
