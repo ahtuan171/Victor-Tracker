@@ -623,14 +623,51 @@ dragging, and confirm zero route changes throughout.
 
 ### Tests for User Story 3
 
-- [ ] T046 [P] [US3] Write `backend/tests/test_transitions.py` covering INV-1 in both directions — advancing past `idea` without a platform returns 409 `platform_required`, clearing the platform of a non-`idea` item returns 409 `platform_locked` (FR-009, FR-009a)
-- [ ] T047 [P] [US3] Extend `backend/tests/test_transitions.py` with a lossless-reversal test: set every field, walk `posted → draft → idea`, and assert platform and published link both survive (FR-008a, FR-019a, INV-3)
-- [ ] T048 [P] [US3] Extend `backend/tests/test_content_items.py` with partial-update semantics — omitted fields untouched, explicit null clears, last-write-wins with no version check, and an over-length or non-http published link rejected with 422 (FR-023, FR-023a)
+- [x] T046 [P] [US3] Write `backend/tests/test_transitions.py` covering INV-1 in both directions — advancing past `idea` without a platform returns 409 `platform_required`, clearing the platform of a non-`idea` item returns 409 `platform_locked` (FR-009, FR-009a)
+- [x] T047 [P] [US3] Extend `backend/tests/test_transitions.py` with a lossless-reversal test: set every field, walk `posted → draft → idea`, and assert platform and published link both survive (FR-008a, FR-019a, INV-3)
+- [x] T048 [P] [US3] Extend `backend/tests/test_content_items.py` with partial-update semantics — omitted fields untouched, explicit null clears, last-write-wins with no version check, and an over-length or non-http published link rejected with 422 (FR-023, FR-023a)
 
 ### Implementation for User Story 3
 
-- [ ] T049 [US3] Implement `GET /content-items/{id}` and `PATCH /content-items/{id}` in `backend/app/api/content_items.py` with partial-update semantics and the 409 invariant responses from the contract
+- [x] T049 [US3] Implement `GET /content-items/{id}` and `PATCH /content-items/{id}` in `backend/app/api/content_items.py` with partial-update semantics and the 409 invariant responses from the contract
 - [ ] T050 [US3] Implement `DELETE /content-items/{id}` in `backend/app/api/content_items.py` as a hard delete (FR-004)
+
+**T046–T049 result (2026-08-02)**: done, in **one merge request**, and this is the fourth instance of
+the same stated deviation (after T029–T031, T036–T037, T043–T044) rather than a new one. All three
+test tasks name `PATCH` as their subject, so an MR carrying any of them alone would be red and the
+merge gate refuses a red pipeline. **Fail-first was satisfied in the doing: 19 tests written, 19
+failures** against a codebase with no by-id route at all. Backend suite **172 → 228**, nothing
+skipped; `ruff`, `ruff format --check` and `mypy` clean.
+
+Four things the task lines do not imply:
+
+- **INV-1 stayed one condition with two messages.** `check_invariant_1` gained a keyword argument
+  that chooses between `platform_required` and `platform_locked`; it did **not** gain a second `if`.
+  The stored predicate cannot tell the two approaches apart and should not — both leave the row in
+  the same forbidden state, and what differs is only the creator's next step. Written as two checks,
+  the pair would be free to disagree about what "past `idea`" means. `backend/AGENTS.md` called this
+  out before the task started, and `test_the_two_invariant_codes_are_not_interchangeable` is what
+  keeps the distinction real: every other 409 test in the suite passes if both codes collapse to one.
+- **The invariant is evaluated against the item as it *would be*, before anything is assigned.** Two
+  consequences the contract implies but never states: advancing and setting a platform in one request
+  is legal, and so is moving back to `idea` while clearing the platform. Evaluated against the
+  *stored* item instead, a title-only idea would have no single request that could advance it and the
+  creator would alternate between two 409s — with the `platform_locked` message describing a
+  two-request dance the API forced rather than a choice. Checking before assignment is also what makes
+  a refusal leave the row untouched, asserted by re-reading over HTTP rather than by trusting the
+  response body.
+- **`exclude_unset=True` is the whole of the partial-update contract, and INV-3 needs no code.**
+  Pydantic reports an omitted field and an explicit `null` both as `None`; only `model_fields_set`
+  separates them. Because nothing in `PATCH` touches a field the caller did not name, "a backward
+  status change clears nothing" (FR-008a, FR-019a) falls out rather than being implemented — which is
+  exactly why `test_transitions.py` asserts it exhaustively, comparing the whole item at each step.
+  An implementation reading `model_dump()` would turn every update into a full replacement and would
+  pass any test whose request happened to name every field.
+- **The contract's `minProperties: 1` is enforced, so an empty body is 422 rather than a no-op 200.**
+  A `PATCH` that changed nothing and answered 200 is indistinguishable from one that worked, so a
+  frontend bug that dropped its payload would look like a successful save — and under optimistic
+  updates (R-007) the creator would watch the change stick on screen and vanish on the next load.
+  Registered in `REACHABLE_4XX` alongside the two new 404s, per `backend/AGENTS.md`'s both-places rule.
 - [ ] T051 [US3] Extend `frontend/lib/api.ts` with the fetch-one, update, and delete operations, wiring update through the optimistic path in `lib/items.ts` with rollback on failure (research.md R-007)
 - [ ] T052 [US3] Build the item sheet in `frontend/components/item/ItemSheet.tsx` as the single editing surface, carrying controls for **title, hook, platform, date, and status** — this is what FR-006a requires and what the first draft of this plan omitted entirely, leaving every item stuck in `idea` forever. This sheet is also where the parent requirements land: it is the only surface carrying all six fields (FR-006), the only one offering the three statuses in both directions (FR-007, FR-008), the only single-select platform control (FR-010, FR-010a), and the **tap** half of changing a date and a status without a separate detail page (FR-014, FR-015). Skip rows with `isPending` — the id does not exist yet
 - [ ] T053 [US3] Surface the 409 invariant errors in `ItemSheet` as the contract's `detail` message, with the platform control adjacent so a refusal is resolvable without leaving the sheet (FR-009, FR-009a, SC-012)
