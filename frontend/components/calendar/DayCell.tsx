@@ -32,6 +32,7 @@ export function DayCell({
   inPeriod,
   today,
   items,
+  onOpenItem,
 }: {
   readonly date: DateOnly;
   /** The day of the month, already derived by the grid — this component does no date arithmetic. */
@@ -41,6 +42,8 @@ export function DayCell({
   /** The creator's own calendar day, or null before it is known. Only the chips read it (T045). */
   readonly today: DateOnly | null;
   readonly items: readonly ContentItem[];
+  /** Opens the item sheet (T052). Threaded down rather than reached for, like `items` and `today`. */
+  readonly onOpenItem: (item: ContentItem) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -73,7 +76,13 @@ export function DayCell({
       </span>
 
       {visible.map((item) => (
-        <ItemChip key={item.id} item={item} size="micro" today={today} />
+        <ItemChip
+          key={item.id}
+          item={item}
+          size="micro"
+          today={today}
+          onOpen={onOpenItem}
+        />
       ))}
 
       {hidden > 0 ? (

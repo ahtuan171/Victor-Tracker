@@ -241,6 +241,47 @@ export function itemWithChanges(item: ContentItem, changes: ContentItemUpdate): 
 }
 
 /**
+ * What changed between the row as stored and the row as edited (T052).
+ *
+ * The item sheet holds its draft as a whole `ContentItem` — the same shape it renders — and this is
+ * what turns that draft back into the minimal `PATCH` body. Sending the whole item instead would be
+ * a full replacement dressed as a partial update: correct today, and silently destructive the moment
+ * two surfaces edit one item, because every unchanged field would be rewritten with whatever this
+ * screen last read (FR-023a's last-write-wins is about *fields the creator touched*, not about every
+ * field they happened to have on screen).
+ *
+ * **A cleared field becomes an explicit `null`, and that is a change like any other.** Emptying the
+ * date input unschedules the item; emptying the hook removes it. `itemWithChanges` is the inverse and
+ * the two are asserted against each other in `tests/client/items.spec.ts`.
+ *
+ * `id`, `created_at` and `updated_at` are not comparable fields — they are not in `ContentItemUpdate`
+ * and the server owns them. `title` and `status` have no null spelling, matching the contract.
+ *
+ * An empty result means nothing changed, and the caller must **not** send it: the backend refuses an
+ * empty body with a 422 (`minProperties: 1`), deliberately, so that a frontend bug which dropped its
+ * payload cannot look like a successful save.
+ */
+export function changesBetween(original: ContentItem, draft: ContentItem): ContentItemUpdate {
+  return {
+    ...(draft.title === original.title ? {} : { title: draft.title }),
+    ...(draft.hook === original.hook ? {} : { hook: draft.hook }),
+    ...(draft.platform === original.platform ? {} : { platform: draft.platform }),
+    ...(draft.scheduled_date === original.scheduled_date
+      ? {}
+      : { scheduled_date: draft.scheduled_date }),
+    ...(draft.status === original.status ? {} : { status: draft.status }),
+    ...(draft.published_url === original.published_url
+      ? {}
+      : { published_url: draft.published_url }),
+  };
+}
+
+/** Whether a change set would be refused as empty — the caller's cue to close without saving. */
+export function hasChanges(changes: ContentItemUpdate): boolean {
+  return Object.keys(changes).length > 0;
+}
+
+/**
  * Replace a row with another version of itself, **in place**, matched on `id`.
  *
  * One transition serving all three steps of an optimistic edit — show the change, accept the

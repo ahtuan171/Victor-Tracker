@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 import type { ContentItem, ContentItemCreate, ContentItemUpdate } from "@/lib/api";
 import {
   INITIAL_ITEMS_STATE,
+  changesBetween,
+  hasChanges,
   isPending,
   itemChanged,
   itemsFailed,
@@ -374,6 +376,75 @@ test.describe("itemWithChanges", () => {
     const empty: ContentItemUpdate = {};
 
     expect(itemWithChanges(stored, empty)).toEqual(stored);
+  });
+});
+
+test.describe("changesBetween", () => {
+  const stored = item(7, {
+    title: "Ring light review",
+    hook: "The one nobody mentions",
+    platform: "tiktok",
+    scheduled_date: "2026-08-04",
+    status: "draft",
+    published_url: null,
+  });
+
+  test("an untouched draft produces nothing to send", () => {
+    const changes = changesBetween(stored, { ...stored });
+
+    expect(changes).toEqual({});
+    expect(hasChanges(changes)).toBe(false);
+  });
+
+  test("only the fields that differ are sent", () => {
+    const changes = changesBetween(stored, { ...stored, status: "posted" });
+
+    // Not `{title, hook, platform, scheduled_date, status, published_url}` — sending the whole item
+    // is a full replacement wearing a PATCH's clothes.
+    expect(changes).toEqual({ status: "posted" });
+    expect(hasChanges(changes)).toBe(true);
+  });
+
+  test("a cleared field is sent as an explicit null, not omitted", () => {
+    const changes = changesBetween(stored, { ...stored, scheduled_date: null });
+
+    expect(changes).toEqual({ scheduled_date: null });
+    // Omission would mean "leave the date alone", which is the opposite of unscheduling.
+    expect("scheduled_date" in changes).toBe(true);
+  });
+
+  test("clearing the platform is a change, which is how platform_locked becomes reachable", () => {
+    expect(changesBetween(stored, { ...stored, platform: null })).toEqual({ platform: null });
+  });
+
+  test("several edits in one save, which is what SC-012 depends on", () => {
+    // A title-only idea given a platform *and* advanced in one request. Two requests would make the
+    // first one a guaranteed 409 — the backend validates the item as it would be after the change,
+    // precisely so this single request exists.
+    const idea = item(9, { title: "Car idea" });
+
+    const changes = changesBetween(idea, { ...idea, platform: "youtube", status: "draft" });
+
+    expect(changes).toEqual({ platform: "youtube", status: "draft" });
+  });
+
+  test("id and the timestamps are never sent, because they are not the caller's to set", () => {
+    const changes = changesBetween(stored, {
+      ...stored,
+      id: 999,
+      created_at: "2020-01-01T00:00:00Z",
+      updated_at: "2020-01-01T00:00:00Z",
+    });
+
+    expect(changes).toEqual({});
+  });
+
+  test("it is the inverse of itemWithChanges", () => {
+    // The invariant that keeps the two halves of the edit path honest: whatever the sheet computes
+    // as a diff, applying it optimistically must reproduce the draft it came from.
+    const draft = { ...stored, status: "posted" as const, hook: null, scheduled_date: null };
+
+    expect(itemWithChanges(stored, changesBetween(stored, draft))).toEqual(draft);
   });
 });
 

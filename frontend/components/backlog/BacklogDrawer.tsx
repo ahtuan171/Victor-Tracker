@@ -37,11 +37,15 @@ import { selectBacklog } from "@/lib/items";
 export function BacklogDrawer({
   items,
   onCapture,
+  onOpenItem,
 }: {
   /** Every loaded item. Narrowing to the backlog is this component's job, not its caller's. */
   readonly items: readonly ContentItem[];
   /** Opens the capture sheet. The drawer's empty state and its expanded footer both point at it. */
   readonly onCapture: () => void;
+  /** Opens the item sheet (T052). Both drawer states offer it — the peek strip is the backlog view
+      a creator sees most, so it would be the odd one out if only the expanded list were tappable. */
+  readonly onOpenItem: (item: ContentItem) => void;
 }) {
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
@@ -69,6 +73,7 @@ export function BacklogDrawer({
           backlog={backlog}
           onCollapse={() => setExpanded(false)}
           onCapture={onCapture}
+          onOpenItem={onOpenItem}
         />
       ) : null}
 
@@ -77,6 +82,7 @@ export function BacklogDrawer({
         backlog={backlog}
         expanded={expanded}
         onToggle={() => setExpanded((open) => !open)}
+        onOpenItem={onOpenItem}
       />
     </>
   );
@@ -93,11 +99,13 @@ function PeekStrip({
   backlog,
   expanded,
   onToggle,
+  onOpenItem,
 }: {
   panelId: string;
   backlog: readonly ContentItem[];
   expanded: boolean;
   onToggle: () => void;
+  onOpenItem: (item: ContentItem) => void;
 }) {
   return (
     <section
@@ -146,7 +154,11 @@ function PeekStrip({
               {/* T041: the peek strip carries the cues too. FR-017 says status is legible "in both
                   calendar and backlog views" without qualification, and this strip is the backlog
                   view a creator sees most — it is on screen whenever the calendar is. */}
-              <ItemChip item={item} size="peek" />
+              <ItemChip
+                item={item}
+                size="peek"
+                onOpen={onOpenItem}
+              />
             </li>
           ))}
         </ul>
@@ -170,11 +182,13 @@ function ExpandedBacklog({
   backlog,
   onCollapse,
   onCapture,
+  onOpenItem,
 }: {
   panelId: string;
   backlog: readonly ContentItem[];
   onCollapse: () => void;
   onCapture: () => void;
+  onOpenItem: (item: ContentItem) => void;
 }) {
   return (
     <>
@@ -228,7 +242,13 @@ function ExpandedBacklog({
               Nothing here yet. Capture an idea and it lands in this list.
             </li>
           ) : (
-            backlog.map((item) => <BacklogRow key={item.id} item={item} />)
+            backlog.map((item) => (
+              <BacklogRow
+                key={item.id}
+                item={item}
+                onOpenItem={onOpenItem}
+              />
+            ))
           )}
         </ul>
 
@@ -274,10 +294,16 @@ function ExpandedBacklog({
  * item identically. **T052's tap-to-open and T054's drag both name an id the server has not issued
  * yet** and must skip these rows; `aria-busy` on the chip is what they read.
  */
-function BacklogRow({ item }: { item: ContentItem }) {
+function BacklogRow({
+  item,
+  onOpenItem,
+}: {
+  item: ContentItem;
+  onOpenItem: (item: ContentItem) => void;
+}) {
   return (
     <li className="mb-2 last:mb-0" data-testid="backlog-row">
-      <ItemChip item={item} />
+      <ItemChip item={item} onOpen={onOpenItem} />
     </li>
   );
 }
