@@ -45,6 +45,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   createContentItem,
+  deleteContentItem,
   listContentItems,
   updateContentItem,
   type ContentItem,
@@ -307,6 +308,51 @@ export function itemChanged(state: ItemsState, next: ContentItem): ItemsState {
   };
 }
 
+/**
+ * Take a row off the surface (T056, FR-020, FR-004).
+ *
+ * The optimistic half of a delete. Matched on id and a no-op if the row is already absent, which is
+ * the common case when the same item was deleted on another device — absence from a list response is
+ * how that arrives.
+ */
+export function itemRemoved(state: ItemsState, id: number): ItemsState {
+  return { ...state, items: state.items.filter((item) => item.id !== id) };
+}
+
+/**
+ * Put a deleted row back where it belongs, when the server refused to delete it.
+ *
+ * **By the list's own ordering, not by a remembered index**, and that is the interesting choice. An
+ * index captured before the removal is stale the moment anything else lands — a list read, another
+ * edit — and restoring to a stale index puts the row in a position it never occupied. Re-deriving the
+ * position from the ordering is correct whatever happened in between, and it needs nothing captured.
+ *
+ * The ordering is the server's: `created_at DESC, id DESC` (see `backend/AGENTS.md`), which is total,
+ * which is why `selectBacklog` can filter without sorting. Pending rows sit ahead of every saved row
+ * and are skipped, because they are ordered by when this browser created them rather than by the
+ * server's answer.
+ *
+ * Both timestamps come from the same serialiser, so comparing them as strings is chronological. `id`
+ * breaks the tie exactly as the server's `ORDER BY` does.
+ *
+ * A row that is somehow still present is left alone rather than duplicated.
+ */
+export function itemRestored(state: ItemsState, item: ContentItem): ItemsState {
+  if (state.items.some((each) => each.id === item.id)) return state;
+
+  const at = state.items.findIndex((each) => !isPending(each) && sortsBefore(item, each));
+  const items = [...state.items];
+  items.splice(at === -1 ? items.length : at, 0, item);
+
+  return { ...state, items };
+}
+
+/** `created_at DESC, id DESC` — the server's ordering, as a predicate. */
+function sortsBefore(a: ContentItem, b: ContentItem): boolean {
+  if (a.created_at !== b.created_at) return a.created_at > b.created_at;
+  return a.id > b.id;
+}
+
 // --- Selectors ------------------------------------------------------------------------------
 
 /**
@@ -430,6 +476,19 @@ export interface ContentItemsStore extends ItemsState {
    * control. Callers should keep the sheet open on a rejection.
    */
   readonly updateItem: (item: ContentItem, changes: ContentItemUpdate) => Promise<ContentItem>;
+  /**
+   * Delete an item, taking it off the surface immediately (T056, FR-004, FR-020).
+   *
+   * **A 404 resolves rather than rejecting**, and that is a decision this layer is entitled to make.
+   * T050 settled that the backend answers 404 for an id that does not exist rather than an idempotent
+   * 204, which is right for an API. But this call is reconciling a *screen*, not committing a
+   * transaction: the creator asked for the item to be gone, and it is gone. Telling them a deletion
+   * failed because the item was already deleted would be an error message describing success.
+   *
+   * Every other failure rejects with the original `ApiError`, after the row has been put back where
+   * the list's ordering says it belongs.
+   */
+  readonly deleteItem: (item: ContentItem) => Promise<void>;
 }
 
 /**
@@ -547,7 +606,28 @@ export function useContentItems(params: ListContentItemsParams = {}): ContentIte
     [],
   );
 
-  return { ...state, reload, createItem, updateItem };
+  const deleteItem = useCallback(async (item: ContentItem): Promise<void> => {
+    // Same guard as `updateItem`, same reason: the id does not exist on the server yet. `ItemChip`
+    // will not open a pending row, so the sheet's delete button cannot be reached for one — this is
+    // the backstop, not the mechanism.
+    if (isPending(item)) {
+      throw new Error(`Cannot delete item ${item.id}: it has not been saved yet.`);
+    }
+
+    setState((previous) => itemRemoved(previous, item.id));
+
+    try {
+      await deleteContentItem(item.id);
+    } catch (error) {
+      // Already gone is the outcome that was asked for. See `deleteItem` in `ContentItemsStore`.
+      if (error instanceof ApiError && error.status === 404) return;
+
+      setState((previous) => itemRestored(previous, item));
+      throw error;
+    }
+  }, []);
+
+  return { ...state, reload, createItem, updateItem, deleteItem };
 }
 
 /**

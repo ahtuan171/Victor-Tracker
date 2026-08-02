@@ -18,6 +18,7 @@ import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
+import { DeleteConfirm } from "@/components/item/DeleteConfirm";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import type { ContentItem } from "@/lib/api";
@@ -80,7 +81,7 @@ import { cn } from "@/lib/utils";
  * one of the day can take tens of seconds. `reload()` therefore still has no caller here.
  */
 export function CalendarShell() {
-  const { items, status, error, createItem, updateItem } = useContentItems();
+  const { items, status, error, createItem, updateItem, deleteItem } = useContentItems();
 
   /** Null on the server and during hydration, the creator's own day afterwards — see the note above. */
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
@@ -114,6 +115,17 @@ export function CalendarShell() {
    */
   const [editingId, setEditingId] = useState<number | null>(null);
   const editing = items.find((item) => item.id === editingId) ?? null;
+
+  /**
+   * The item awaiting a delete confirmation (T056).
+   *
+   * A **captured row**, not an id looked up in `items` — the opposite of `editing`, and deliberately
+   * so. The optimistic delete removes the row from `items` immediately, so an id lookup would go null
+   * the instant the request left and close the dialog before it could render a refusal. This is the
+   * one place holding a copy is correct: it is also the value `itemRestored` puts back if the server
+   * says no.
+   */
+  const [deletingItem, setDeletingItem] = useState<ContentItem | null>(null);
 
   /** The row being dragged, so `DragOverlay` has something to draw following the finger. */
   const [dragging, setDragging] = useState<ContentItem | null>(null);
@@ -283,6 +295,21 @@ export function CalendarShell() {
             if (!open) setEditingId(null);
           }}
           onSave={updateItem}
+          onRequestDelete={(item) => {
+            // The sheet closes first. Two modal surfaces at once on a 375px screen is the layout
+            // problem, and leaving the sheet open behind a confirmation about the same item is the
+            // comprehension one.
+            setEditingId(null);
+            setDeletingItem(item);
+          }}
+        />
+
+        <DeleteConfirm
+          item={deletingItem}
+          onOpenChange={(open: boolean) => {
+            if (!open) setDeletingItem(null);
+          }}
+          onDelete={deleteItem}
         />
 
         {/*
