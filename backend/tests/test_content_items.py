@@ -793,3 +793,315 @@ def test_a_date_range_read_carries_the_full_contracted_shape(auth_client: TestCl
     (item,) = auth_client.get(ITEMS_PATH, params=FULL_SPAN).json()
 
     assert set(item) == CONTRACTED_ITEM_KEYS
+
+
+# ---------------------------------------------------------------------------
+# Fetch one, and partial update — T048 (FR-004, FR-023, FR-023a)
+#
+# The invariant behaviour of `PATCH` lives in `test_transitions.py`; this section is about the
+# *semantics* of a partial update, which is a different subject with a different failure mode. The
+# distinction that carries the whole section: pydantic reports an omitted field and an explicitly
+# null field both as `None`, and only `model_fields_set` separates them. An implementation reading
+# `model_dump()` instead of `model_dump(exclude_unset=True)` turns every request into a full
+# replacement — and passes any test whose request happens to name every field.
+# ---------------------------------------------------------------------------
+
+
+FULL_ITEM = {
+    "title": "Three-point lighting",
+    "hook": "The one setup that fixes every talking head",
+    "platform": "youtube",
+    "scheduled_date": "2026-09-20",
+    "status": "posted",
+    "published_url": "https://youtube.com/watch?v=xyz789",
+}
+"""An item with every writable field set.
+
+The starting point for the untouched-field tests, because a field that is null to begin with cannot
+demonstrate that it survived a request that did not mention it.
+"""
+
+
+def a_full_item(client: TestClient) -> Any:
+    """Create an item with every field set and return the parsed body."""
+    response = create_item(client, **FULL_ITEM)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_fetch_one_requires_authentication(client: TestClient) -> None:
+    """FR-002 reaches the by-id routes too — the boundary is per-route, not per-module."""
+    assert client.get(f"{ITEMS_PATH}/1").status_code == 401
+
+
+def test_update_requires_authentication(client: TestClient) -> None:
+    """The mutation endpoint, unauthenticated."""
+    assert client.patch(f"{ITEMS_PATH}/1", json={"title": "x"}).status_code == 401
+
+
+def test_fetch_one_returns_the_full_contracted_shape(auth_client: TestClient) -> None:
+    """Same exact-set rule as the list response, in both directions."""
+    item = a_full_item(auth_client)
+
+    fetched = auth_client.get(f"{ITEMS_PATH}/{item['id']}")
+
+    assert fetched.status_code == 200
+    assert set(fetched.json()) == CONTRACTED_ITEM_KEYS
+    assert fetched.json() == item
+
+
+def test_update_returns_the_full_contracted_shape(auth_client: TestClient) -> None:
+    """The response model applies to this route as well, and it is a separate declaration."""
+    item = a_full_item(auth_client)
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "Renamed"})
+
+    assert set(updated.json()) == CONTRACTED_ITEM_KEYS
+
+
+def test_fetching_an_item_that_does_not_exist_is_a_404(auth_client: TestClient) -> None:
+    """The contract's `NotFound`, on the read."""
+    assert auth_client.get(f"{ITEMS_PATH}/999999").status_code == 404
+
+
+def test_updating_an_item_that_does_not_exist_is_a_404(auth_client: TestClient) -> None:
+    """The same, on the write.
+
+    Reachable in production rather than hypothetical: T054's drag names an id, and T056 has to
+    recover cleanly when the item is already gone — a second window can delete it mid-gesture.
+    """
+    assert auth_client.patch(f"{ITEMS_PATH}/999999", json={"title": "x"}).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["title", "hook", "platform", "scheduled_date", "status", "published_url"],
+)
+def test_updating_one_field_leaves_every_other_field_untouched(
+    auth_client: TestClient, field: str
+) -> None:
+    """FR-023's core promise, asserted once per field rather than once overall.
+
+    Parametrised because the failure this guards against is asymmetric: an implementation that
+    dumped the whole model would clear the five fields the request did not name, and a single test
+    naming one field would catch it — but a *partial* regression, where one field is handled
+    differently from the rest, needs every field to be the one under test at some point. The
+    comparison is whole-item, so a field added to the model later is covered on the day it is added.
+    """
+    item = a_full_item(auth_client)
+    replacement = {
+        "title": "A different title",
+        "hook": "A different hook",
+        "platform": "tiktok",
+        "scheduled_date": "2026-10-01",
+        "status": "draft",
+        "published_url": "https://tiktok.com/@creator/video/1",
+    }[field]
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={field: replacement}).json()
+
+    assert updated[field] == replacement
+    assert {k: v for k, v in updated.items() if k not in {field, "updated_at"}} == {
+        k: v for k, v in item.items() if k not in {field, "updated_at"}
+    }
+
+
+@pytest.mark.parametrize("field", ["hook", "scheduled_date", "published_url"])
+def test_an_explicit_null_clears_the_field(auth_client: TestClient, field: str) -> None:
+    """The other half of the distinction: null means clear, and it must not mean "leave alone".
+
+    `platform` is absent from this list on purpose — clearing it is governed by INV-1 and lives in
+    `test_transitions.py`, where the legal and illegal cases sit together. `status` has no null
+    spelling at all: the column is `NOT NULL`, and the contract `$ref`s `Status` directly.
+
+    Paired with the test above, these two are what pin `exclude_unset=True`. An implementation that
+    ignored explicit nulls would pass every untouched-field test and quietly make the three
+    clearable fields write-once — a creator could never unschedule an item, which is FR-014 with the
+    backlog as its destination.
+    """
+    item = a_full_item(auth_client)
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={field: None})
+
+    assert updated.status_code == 200
+    assert updated.json()[field] is None
+
+
+def test_clearing_a_field_is_durable(auth_client: TestClient) -> None:
+    """FR-023 again: the clear reaches Postgres, not only the response body."""
+    item = a_full_item(auth_client)
+
+    auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"scheduled_date": None})
+
+    assert auth_client.get(f"{ITEMS_PATH}/{item['id']}").json()["scheduled_date"] is None
+
+
+def test_an_unscheduled_item_returns_to_the_backlog(auth_client: TestClient) -> None:
+    """The clear above, observed through the read the backlog drawer actually issues.
+
+    Clearing `scheduled_date` is how an item leaves the calendar, and `scheduled=none` is the only
+    query that finds undated items. Asserting the two together is what makes "unschedule" a
+    behaviour rather than a column write — T054's drag onto the drawer depends on exactly this.
+    """
+    item = a_full_item(auth_client)
+
+    auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"scheduled_date": None})
+
+    backlog = auth_client.get(ITEMS_PATH, params={"scheduled": "none"}).json()
+
+    assert [row["id"] for row in backlog] == [item["id"]]
+
+
+def test_an_empty_update_body_is_refused(auth_client: TestClient) -> None:
+    """The contract's `minProperties: 1`.
+
+    A no-op that answered 200 would be indistinguishable from a successful save, so a frontend bug
+    that dropped its payload would look like it worked — and under optimistic updates (R-007) the
+    creator would watch the change stick and then vanish on the next load.
+    """
+    item = a_full_item(auth_client)
+
+    assert auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={}).status_code == 422
+
+
+def test_the_last_write_wins_with_no_version_check(auth_client: TestClient) -> None:
+    """FR-023a, asserted as the *absence* of a conflict response.
+
+    Two updates to the same item from the same starting state, with nothing between them. Neither is
+    refused and the second one's value is what is stored — no version column, no `If-Match`, no 409
+    for a stale write. Written down because "we simply don't do that" decays silently, and because a
+    future reader who adds optimistic concurrency should have to delete a test that says not to.
+    """
+    item = a_full_item(auth_client)
+
+    first = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "First writer"})
+    second = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "Second writer"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert auth_client.get(f"{ITEMS_PATH}/{item['id']}").json()["title"] == "Second writer"
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["", "   ", "\t", "\n"],
+    ids=["empty", "spaces", "tab", "newline"],
+)
+def test_update_refuses_a_title_that_trims_to_nothing(auth_client: TestClient, title: str) -> None:
+    """INV-2 on the update path, not only on create.
+
+    The shared `Title` annotation is what makes this hold, and this test is what stops someone
+    restating the type inline on `ContentItemUpdate` with the `strip_whitespace` dropped — which
+    would pass `min_length` on `"   "` and reach the CHECK constraint as a 500.
+    """
+    item = a_full_item(auth_client)
+
+    assert auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": title}).status_code == 422
+
+
+def test_update_stores_a_title_stripped(auth_client: TestClient) -> None:
+    """The same annotation's other half, so both write paths normalise identically."""
+    item = a_full_item(auth_client)
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "  Ring light  "})
+
+    assert updated.json()["title"] == "Ring light"
+
+
+def test_update_refuses_a_title_over_the_contracted_length(auth_client: TestClient) -> None:
+    """200 characters, matching `String(200)` so the column can never be the thing that refuses."""
+    item = a_full_item(auth_client)
+
+    assert (
+        auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "x" * 201}).status_code
+        == 422
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "ftp://example.com/video",
+        "not a url at all",
+        "//example.com/video",
+    ],
+    ids=["javascript", "data", "ftp", "nonsense", "protocol-relative"],
+)
+def test_update_refuses_a_published_link_that_is_not_http(
+    auth_client: TestClient, url: str
+) -> None:
+    """FR-019's value is rendered as an `href` (T065), so the scheme is an allowlist.
+
+    An allowlist of `http`/`https` rather than a denial list of dangerous schemes, because a denial
+    list is only as good as its author's imagination. `javascript:` and `data:` are the two that
+    matter; the others pin that the rule is "starts with http(s)://" rather than "does not start
+    with javascript:". T063 extends this to the frontend's rendering.
+    """
+    item = a_full_item(auth_client)
+
+    response = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"published_url": url})
+
+    assert response.status_code == 422
+
+
+def test_update_refuses_a_published_link_over_the_contracted_length(
+    auth_client: TestClient,
+) -> None:
+    """2048, matching `String(2048)` — an unbounded URL is a 500 from the column otherwise."""
+    item = a_full_item(auth_client)
+    too_long = "https://example.com/" + "x" * 2048
+
+    response = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"published_url": too_long})
+
+    assert response.status_code == 422
+
+
+def test_a_refused_update_stores_nothing(auth_client: TestClient) -> None:
+    """A 422 must not be a partial write.
+
+    The request below carries one legal field and one illegal one. A model that validated field by
+    field and assigned as it went would store the title and then refuse the request, which is the
+    worst of both — the creator sees an error and the data changed anyway.
+    """
+    item = a_full_item(auth_client)
+
+    response = auth_client.patch(
+        f"{ITEMS_PATH}/{item['id']}",
+        json={"title": "Should not be stored", "published_url": "javascript:alert(1)"},
+    )
+
+    assert response.status_code == 422
+    assert auth_client.get(f"{ITEMS_PATH}/{item['id']}").json() == item
+
+
+def test_an_update_is_visible_in_the_list_read(auth_client: TestClient) -> None:
+    """The calendar renders from the list, so a change only the by-id read can see is invisible.
+
+    R-007 loads the list once and narrows it client-side, which means every change the creator makes
+    has to be present in *that* response for the surface to reflect it after a reload.
+    """
+    item = a_full_item(auth_client)
+
+    auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"title": "Renamed in the list"})
+
+    listed = auth_client.get(ITEMS_PATH).json()
+
+    assert [row["title"] for row in listed] == ["Renamed in the list"]
+
+
+def test_a_scheduled_date_set_by_update_round_trips_as_a_plain_date(
+    auth_client: TestClient,
+) -> None:
+    """FR-012a on the write path T054's drag uses.
+
+    The drag sets exactly one field and it is this one, so the `DATE`-end-to-end promise has to hold
+    here as well as on create — a timestamp creeping in is how the midnight-UTC off-by-one gets back
+    in.
+    """
+    item = a_full_item(auth_client)
+
+    updated = auth_client.patch(f"{ITEMS_PATH}/{item['id']}", json={"scheduled_date": "2026-11-03"})
+
+    assert updated.json()["scheduled_date"] == "2026-11-03"

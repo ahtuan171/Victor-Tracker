@@ -19,8 +19,8 @@ Two things here are the whole reason this module is not a thin CRUD wrapper:
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, status
-from pydantic import BaseModel, StringConstraints
+from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, StringConstraints, model_validator
 from sqlmodel import col, select
 
 from app.auth import CurrentCreator
@@ -77,6 +77,47 @@ class ContentItemCreate(BaseModel):
     published_url: PublishedUrl | None = None
 
 
+class ContentItemUpdate(BaseModel):
+    """The contract's `ContentItemUpdate`: every field optional, and *optional* means two things.
+
+    This model is where FR-023's partial-update semantics live, and the whole of it rests on
+    pydantic's distinction between a field that was **omitted** and one that was set to **null**.
+    Both are `None` on the instance; only `model_fields_set` tells them apart, which is why the
+    route below reads `model_dump(exclude_unset=True)` and never `model_dump()`. Dumping everything
+    would turn every `PATCH` into a full replacement that silently clears whatever the caller left
+    out — the single most destructive way this endpoint can be written, and one that passes any test
+    whose request happens to set every field.
+
+    `status` is the one field with no null spelling: the column is `NOT NULL` with a default, so
+    "clear the status" has no meaning. The contract agrees — it `$ref`s `Status` directly while
+    every other nullable field is a union with `"null"`.
+
+    The field types are shared with `ContentItemCreate` (`Title`, `Hook`, `PublishedUrl`) rather
+    than restated, so INV-2's strip-then-measure rule and the URL scheme allowlist cannot drift
+    between the two write paths. A second hand-written copy is exactly where they would.
+    """
+
+    title: Title | None = None
+    hook: Hook | None = None
+    platform: Platform | None = None
+    scheduled_date: date | None = None
+    status: Status | None = None
+    published_url: PublishedUrl | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "ContentItemUpdate":
+        """The contract's `minProperties: 1`.
+
+        An empty body is refused rather than treated as a no-op 200. A `PATCH` that changed nothing
+        and answered 200 is indistinguishable from one that worked, so a frontend bug that dropped
+        its payload would look like a successful save — and with optimistic updates (R-007) the
+        creator would see the change stick on screen and vanish on the next load.
+        """
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change.")
+        return self
+
+
 class ContentItemRead(BaseModel):
     """The contract's `ContentItem`, and the single response model for every route in this file.
 
@@ -101,7 +142,12 @@ class ContentItemRead(BaseModel):
     updated_at: datetime
 
 
-def check_invariant_1(item_status: Status, platform: Platform | None) -> None:
+def check_invariant_1(
+    item_status: Status,
+    platform: Platform | None,
+    *,
+    clearing_platform: bool = False,
+) -> None:
     """INV-1: a platform is required past `idea` (FR-009, FR-009a).
 
     Both non-`idea` statuses are guarded, not just `draft`. `idea -> posted` directly is a legal
@@ -109,11 +155,29 @@ def check_invariant_1(item_status: Status, platform: Platform | None) -> None:
     through to the CHECK constraint — and it is the path a creator who films and publishes in one
     sitting takes.
 
-    Shared rather than inlined because T049's `PATCH` is the second caller and raises the *other*
-    code from the same rule: advancing without a platform and clearing a platform while advanced are
-    one invariant, and the contract distinguishes them only to give the creator the right next step.
+    Shared rather than inlined because `PATCH` is the second caller and raises the *other* code from
+    the same rule: advancing without a platform and clearing a platform while advanced are one
+    invariant, and the contract distinguishes them only to give the creator the right next step.
+
+    **There is one condition here, and `clearing_platform` chooses the instruction, not the rule.**
+    The stored predicate — `status = 'idea' OR platform IS NOT NULL` — cannot tell the two
+    approaches apart and should not: both leave the row in the same forbidden state. What differs is
+    creator does next, so `platform_required` says "pick one" and `platform_locked` says "move it
+    back to ideas first" (T053 renders it beside the platform control). Writing this as two `if`
+    statements is the parallel check `backend/AGENTS.md` warns against — the two would then be free
+    to disagree about what "past idea" means.
+
+    **Both callers pass the item as it would be *after* the change, never as stored.** Validating an
+    incoming status against the stored platform would refuse
+    `{"status": "draft", "platform": "tiktok"}` on a title-only idea, leaving no single request that
+    can advance it and the creator alternating between two 409s.
     """
     if item_status is not Status.IDEA and platform is None:
+        if clearing_platform:
+            raise InvariantViolationError(
+                "platform_locked",
+                "Move this item back to ideas before removing its platform.",
+            )
         raise InvariantViolationError(
             "platform_required",
             "Pick a platform before moving this item out of ideas.",
@@ -224,3 +288,107 @@ def list_content_items(
     query = query.order_by(col(ContentItem.created_at).desc(), col(ContentItem.id).desc())
 
     return list(session.exec(query).all())
+
+
+def get_or_404(session: SessionDep, item_id: int) -> ContentItem:
+    """Fetch one item or raise the contract's 404.
+
+    Shared by the two by-id routes because "no such item" must read identically whichever verb asked
+    — a `GET` and a `PATCH` disagreeing about the message is the kind of thing nobody notices until
+    it is on a screen. `HTTPException` rather than `InvariantViolationError`: a 404 carries the
+    plain `{detail}` shape, and only the 409 may add a `code` key (`tests/test_errors.py`).
+    """
+    item = session.get(ContentItem, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="No such item.")
+    return item
+
+
+@router.get(
+    "/{item_id}",
+    response_model=ContentItemRead,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        404: {"model": ErrorResponse, "description": "No such item."},
+    },
+    summary="Fetch one content item",
+)
+def get_content_item(
+    item_id: int,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> ContentItem:
+    """FR-004's "view", and the read the frontend uses to confirm a write landed.
+
+    No surface fetches one item to *render* it — the list response already carries every field
+    (FR-017, FR-018), which is what R-007's single read depends on. This exists because the contract
+    declares it and because a caller that has just been handed an id needs a way to read it back.
+    """
+    return get_or_404(session, item_id)
+
+
+@router.patch(
+    "/{item_id}",
+    response_model=ContentItemRead,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        404: {"model": ErrorResponse, "description": "No such item."},
+        409: {
+            "model": InvariantErrorResponse,
+            "description": "The change would violate INV-1.",
+        },
+    },
+    summary="Partially update a content item",
+)
+def update_content_item(
+    item_id: int,
+    body: ContentItemUpdate,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> ContentItem:
+    """The single mutation endpoint behind every date and status change (FR-014a, FR-015a).
+
+    A drag and a tap send the identical request with one field set, which is what makes "both paths
+    produce an identical result" true by construction rather than by discipline — there is no second
+    code path for either to diverge from.
+
+    **The invariant is checked against the item as it would be, and before anything is assigned.**
+    Computing `next_status`/`next_platform` first means a request that both advances the item and
+    sets its platform is legal, and so is one that moves it back to `idea` while clearing the
+    platform — the two escape hatches the 409 messages point at. Checking before assignment is what
+    makes a refusal leave the row untouched: with `create_savepoint` in the test harness, an
+    implementation that assigned first and validated second would mutate the in-session object and
+    leave whether that reaches Postgres up to transaction bookkeeping.
+
+    **`exclude_unset=True` is the whole of the partial-update contract.** It yields the fields the
+    caller actually sent, including the ones sent as an explicit `null`, and omits the rest. Without
+    it every `PATCH` becomes a full replacement that clears whatever was left out. INV-3 needs no
+    code of its own as a result: nothing here touches a field the caller did not name, so a backward
+    status change cannot clear `platform` or `published_url` (FR-008a, FR-019a). That is an absence
+    rather than a line, which is why `tests/test_transitions.py` asserts it exhaustively.
+
+    Last write wins with no version check (FR-023a). One creator, so the only person who can be
+    overwritten is themselves from a second window.
+    """
+    item = get_or_404(session, item_id)
+    updates = body.model_dump(exclude_unset=True)
+
+    next_status = updates.get("status", item.status)
+    next_platform = updates.get("platform", item.platform)
+
+    # "Clearing" means this request removed a platform the item had. An item that never had one and
+    # is being advanced has not had anything taken from it, so it gets `platform_required` — the
+    # instruction that fits. Both are the same violation of the same predicate.
+    clearing_platform = (
+        "platform" in updates and updates["platform"] is None and item.platform is not None
+    )
+
+    check_invariant_1(next_status, next_platform, clearing_platform=clearing_platform)
+
+    for field, value in updates.items():
+        setattr(item, field, value)
+
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item

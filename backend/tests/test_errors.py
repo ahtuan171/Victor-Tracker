@@ -113,6 +113,27 @@ REACHABLE_4XX = [
         409,
         id="create-item-invariant-violation",
     ),
+    # The by-id 404s (T049). Distinct from `starlette-not-found` below, which is the framework's own
+    # 404 for an unrouted path — these are the application's, for a routed path and a missing row,
+    # and nothing else proves the two carry the same shape. Reachable in production rather than
+    # hypothetical: T054's drag names an id and T056 has to survive the item being already gone.
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get("/content-items/999999"),
+        404,
+        id="fetch-item-not-found",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch(
+            "/content-items/999999", json={"title": "x"}
+        ),
+        404,
+        id="update-item-not-found",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch("/content-items/999999", json={}),
+        422,
+        id="update-item-empty-body",
+    ),
     # The date bounds are the first 4xx reachable through a *query parameter* rather than a body,
     # and FastAPI renders those through the same RequestValidationError handler — which is the claim
     # worth pinning, because that handler is what flattens `detail` from an array to a string. Two
