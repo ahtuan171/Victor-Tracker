@@ -7,6 +7,8 @@ import {
   hasChanges,
   isPending,
   itemChanged,
+  itemRemoved,
+  itemRestored,
   itemsFailed,
   itemWithChanges,
   countOverdue,
@@ -346,7 +348,11 @@ test.describe("itemWithChanges", () => {
   });
 
   test("several fields at once, which is what one sheet save is", () => {
-    const next = itemWithChanges(stored, { title: "Ring light, honestly", platform: "youtube", status: "posted" });
+    const next = itemWithChanges(stored, {
+      title: "Ring light, honestly",
+      platform: "youtube",
+      status: "posted",
+    });
 
     expect(next.title).toBe("Ring light, honestly");
     expect(next.platform).toBe("youtube");
@@ -462,7 +468,10 @@ test.describe("optimistic update", () => {
     // Apply the optimistic row, then put the original back. Two callers, one transition — there is
     // no separate rollback shape that could drift from the shape that applied the change.
     const before = item(2, { status: "idea" });
-    const applied = itemChanged(ready([item(3), before, item(1)]), itemWithChanges(before, { status: "posted" }));
+    const applied = itemChanged(
+      ready([item(3), before, item(1)]),
+      itemWithChanges(before, { status: "posted" }),
+    );
 
     const rolledBack = itemChanged(applied, before);
 
@@ -492,6 +501,72 @@ test.describe("optimistic update", () => {
 
     expect(state.status).toBe("ready");
     expect(state.error).toBeNull();
+  });
+});
+
+test.describe("optimistic delete", () => {
+  test("the row goes immediately, and only that row", () => {
+    const state = itemRemoved(ready([item(3), item(2), item(1)]), 2);
+
+    expect(ids(state)).toEqual([3, 1]);
+  });
+
+  test("removing a row that is already gone changes nothing", () => {
+    // The common case when the same item was deleted on another device: absence from a list response
+    // is how that arrives, so the row may already have gone.
+    expect(ids(itemRemoved(ready([item(3), item(1)]), 2))).toEqual([3, 1]);
+  });
+
+  test("a refused delete puts the row back in the list's own order, not at the front", () => {
+    // `created_at DESC, id DESC`. Restoring by a remembered index would be stale the moment anything
+    // else landed; re-deriving it from the ordering is correct whatever happened in between.
+    const older = item(1, { created_at: "2026-08-01T09:00:00.000Z" });
+    const middle = item(2, { created_at: "2026-08-02T09:00:00.000Z" });
+    const newer = item(3, { created_at: "2026-08-03T09:00:00.000Z" });
+
+    const state = itemRestored(itemRemoved(ready([newer, middle, older]), 2), middle);
+
+    expect(ids(state)).toEqual([3, 2, 1]);
+  });
+
+  test("it restores to the front when the row is the newest", () => {
+    const older = item(1, { created_at: "2026-08-01T09:00:00.000Z" });
+    const newest = item(9, { created_at: "2026-08-09T09:00:00.000Z" });
+
+    expect(ids(itemRestored(ready([older]), newest))).toEqual([9, 1]);
+  });
+
+  test("it restores to the end when the row is the oldest", () => {
+    const oldest = item(1, { created_at: "2026-07-01T09:00:00.000Z" });
+    const newer = item(4, { created_at: "2026-08-01T09:00:00.000Z" });
+
+    expect(ids(itemRestored(ready([newer]), oldest))).toEqual([4, 1]);
+  });
+
+  test("id breaks a tie, exactly as the server's ORDER BY does", () => {
+    const first = item(5);
+    const second = item(3);
+
+    expect(ids(itemRestored(ready([first]), second))).toEqual([5, 3]);
+    expect(ids(itemRestored(ready([second]), first))).toEqual([5, 3]);
+  });
+
+  test("it restores behind pending rows, never among them", () => {
+    // Pending rows are ordered by when *this browser* created them, not by the server's answer, so a
+    // saved row has no position among them.
+    const state = itemRestored(ready([item(-1), item(-2), item(1)]), item(4));
+
+    expect(ids(state)).toEqual([-1, -2, 4, 1]);
+  });
+
+  test("a row that is somehow still present is not duplicated", () => {
+    expect(ids(itemRestored(ready([item(2), item(1)]), item(2)))).toEqual([2, 1]);
+  });
+
+  test("status and error are left alone in both directions", () => {
+    const removed = itemRemoved(ready([item(1)]), 1);
+    expect(removed.status).toBe("ready");
+    expect(itemRestored(removed, item(1)).error).toBeNull();
   });
 });
 

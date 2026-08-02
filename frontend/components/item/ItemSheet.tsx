@@ -54,9 +54,9 @@ import { cn } from "@/lib/utils";
  *
  * - **The published link** is **T064** (US5), prompted on the move to `posted` and never required.
  *   The export draws it beside the date; the date takes the full width until then.
- * - **`DELETE ITEM`** is **T056**. The export draws the button here and it opens a confirmation —
- *   rendering the button now, with nothing behind it, would be either dead UI or a single tap that
- *   deletes, and FR-020 forbids the second. A seam, not half a build.
+ * - **`DELETE ITEM`** arrived at **T056**. It opens `DeleteConfirm` and never deletes on its own:
+ *   FR-020 forbids a destructive action one tap away, so this button's whole job is to be the *first*
+ *   of two. It is below the save row and in the muted weight, which is where the export puts it.
  *
  * ## A 409 is an instruction, not just an error (T053, FR-009, FR-009a, SC-012)
  *
@@ -74,14 +74,20 @@ export function ItemSheet({
   item,
   today,
   onOpenChange,
+  onRequestDelete,
   onSave,
 }: {
   /** The item being edited, or null when the sheet is closed. Never a pending row — see `openable`. */
   readonly item: ContentItem | null;
   readonly today: DateOnly | null;
   readonly onOpenChange: (open: boolean) => void;
+  /** Open the delete confirmation for this item (T056). The sheet never deletes anything itself. */
+  readonly onRequestDelete: (item: ContentItem) => void;
   /** `updateItem` from `useContentItems`. Rejects with an `ApiError` this sheet renders. */
-  readonly onSave: (item: ContentItem, changes: ReturnType<typeof changesBetween>) => Promise<ContentItem>;
+  readonly onSave: (
+    item: ContentItem,
+    changes: ReturnType<typeof changesBetween>,
+  ) => Promise<ContentItem>;
 }) {
   const titleId = useId();
   const hookId = useId();
@@ -243,7 +249,9 @@ export function ItemSheet({
               value={current?.hook ?? ""}
               // Empty becomes `null`, which is what makes "I deleted the hook" an explicit clear on
               // the wire rather than an omission the server would ignore (FR-023).
-              onChange={(event) => edit({ hook: event.target.value === "" ? null : event.target.value })}
+              onChange={(event) =>
+                edit({ hook: event.target.value === "" ? null : event.target.value })
+              }
               maxLength={500}
               rows={2}
               placeholder="Open on the ledge shot, cut on the siren."
@@ -376,7 +384,10 @@ export function ItemSheet({
             </div>
 
             {overdue ? (
-              <p className="text-overdue mt-1.5 text-[11px] leading-relaxed" data-testid="item-overdue-note">
+              <p
+                className="text-overdue mt-1.5 text-[11px] leading-relaxed"
+                data-testid="item-overdue-note"
+              >
                 Date has passed — overdue
               </p>
             ) : null}
@@ -404,6 +415,24 @@ export function ItemSheet({
             data-testid="item-save"
           >
             {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+
+        {/*
+         * Below the save row and outside it, in the export's muted weight. Two taps minimum to
+         * delete anything, and the second one lives in a focus-trapped `AlertDialog` whose default
+         * focus is `KEEP ITEM` (FR-020, SC-007).
+         */}
+        <div className="px-4 pb-4.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (item !== null) onRequestDelete(item);
+            }}
+            className="border-hairline text-ink-mid font-display h-11 w-full rounded-sm border bg-transparent text-[11px] font-semibold tracking-[0.18em] uppercase"
+            data-testid="item-delete"
+          >
+            Delete item
           </button>
         </div>
       </SheetContent>

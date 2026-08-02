@@ -1632,3 +1632,62 @@ before it could bite rather than nine tasks later.
 Screenshotted at 375px mid-drag: the ghost dashed on **all four** sides, the target cell in a solid
 ring, the source row dimmed in place. The four-versus-left distinction is what `overdue.spec.ts`
 guards with `borderTopStyle === "solid"`.
+
+## T056 — the delete confirmation, and where a 404 stops being an error
+
+20 new tests (9 pure, 11 browser). **298 → 318 frontend, none skipped.** `shadcn add alert-dialog`
+succeeded cleanly this time — the half-succeeding `init` recorded in `frontend/AGENTS.md` did not
+recur.
+
+### FR-020 is three requirements wearing one sentence
+
+*"Deleting an item MUST require an explicit confirmation and MUST NOT be reachable by a single tap or
+by a gesture used for common navigation."* A dialog that merely exists satisfies the first and neither
+of the others, so each got its own mechanism and its own assertion:
+
+1. **Explicit** — an `AlertDialog`, not a `Sheet`. Focus trap, `role="alertdialog"`, no dismissal by
+   clicking outside. A sheet can be swiped or scrimmed away, which is the failure being prevented.
+2. **Not one tap** — chip, `DELETE ITEM`, `DELETE PERMANENTLY`. Three deliberate taps from the
+   calendar, and a test counts them.
+3. **Not next to a common gesture** — `KEEP ITEM` first in the DOM and focused on open, so `Enter`
+   keeps the item; `Escape` too. The destructive action sits *below*, outlined rather than filled.
+
+The export's own footnote said all of this in one line — *"Keep is focused by default. Delete is the
+lower, unstyled-weight action — no swipe or back gesture reaches it."* Worth noticing that the design
+had already done the requirements analysis.
+
+### The restore question, deferred at T051 and answered here
+
+A refused delete has to put the row back, and the obvious way is a remembered index. That is wrong in
+a way that only shows up under load: an index captured before the removal is stale the moment anything
+else lands, and restoring to a stale index puts the row somewhere it never was. It also needs the index
+captured *inside* a `setState` updater, which is a side effect in a function React may invoke twice.
+
+`itemRestored` re-derives the position from the list's own ordering instead — `created_at DESC, id
+DESC`, the server's, which is total, which is the same fact that lets `selectBacklog` filter without
+sorting. Nothing is captured, it is correct whatever happened in between, and it is a pure function
+with eight tests including the two boundaries and the tie-break.
+
+This is also the second payoff of `updateItem`/`deleteItem` taking the **row** rather than an id: the
+argument is the restore value.
+
+### A 404 stops being an error one layer above the transport
+
+T050 settled that the backend answers 404 for a missing id rather than an idempotent 204 — right for
+an API, and `lib/api.ts` still throws. But `deleteItem` in the store **resolves** on it, because this
+call is reconciling a *screen* rather than committing a transaction: the creator asked for the item to
+be gone, and it is gone. An error message describing success is the worst of both.
+
+The general shape is worth keeping: the transport reports what happened; the layer that knows the
+story decides what it means.
+
+### One asymmetry that looks like an inconsistency
+
+`CalendarShell` holds the **id** of the item being edited and the **row** of the item being deleted.
+Both are forced, in opposite directions. The store replaces an item's object on every optimistic edit,
+so a captured row would be stale for the sheet. The optimistic *delete* removes the row from `items`
+immediately, so an id lookup would go null the instant the request left — closing the dialog before it
+could render a refusal.
+
+Screenshotted at 375px. Both buttons clear 44px, the chip in the dialog carries its status cue and
+platform monogram, and the page does not scroll sideways.
