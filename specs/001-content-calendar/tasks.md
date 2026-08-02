@@ -406,8 +406,8 @@ readable without opening it — in the grid *and* in the backlog drawer.
 - [x] T040 [US2] Build the item chip in `frontend/components/item/ItemChip.tsx` combining title, status cue, and platform cue at a size that fits a 375px day cell
 - [x] T041 [US2] Use `ItemChip` in the backlog drawer as well as the grid, so status and platform are legible in both — FR-017 covers the backlog explicitly, and a `posted` item with no date legitimately lives there
 - [x] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, **spanning** the full six weeks the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004). **Amended 2026-08-01 — this task no longer "queries" that span**; see the note below
-- [ ] T043 [US2] Build the week view in `frontend/components/calendar/WeekList.tsx` as a vertical list of seven day sections — not seven columns, which cannot hold readable chips at 375px (FR-021, research.md R-004)
-- [ ] T044 [US2] Build period navigation in `frontend/components/calendar/PeriodNav.tsx` with a month/week toggle and adjacent-period controls in thumb reach (FR-013, FR-022)
+- [x] T043 [US2] Build the week view in `frontend/components/calendar/WeekList.tsx` as a vertical list of seven day sections — not seven columns, which cannot hold readable chips at 375px (FR-021, research.md R-004)
+- [x] T044 [US2] Build period navigation in `frontend/components/calendar/PeriodNav.tsx` with a month/week toggle and adjacent-period controls in thumb reach (FR-013, FR-022)
 - [ ] T045 [US2] Add the derived overdue treatment to `ItemChip`: a left border when `scheduled_date` has passed and status is not `posted`, computed client-side from `dates.today()` and never during server rendering (spec Edge Cases, research.md R-006 addendum)
 
 **Amendment 2026-08-01 (Phase 3 checkpoint `/speckit-analyze`) — the calendar's read stays
@@ -497,6 +497,44 @@ with its whole fixture, so asserting the rendered result could never have caught
 Verified at 375px against the real stack on port 3400 (never 3100), in colour and in greyscale: the
 three statuses stay separable with every colour removed, and the body does not scroll horizontally
 with a full month of dated items.
+
+**T043–T044 result (2026-08-02)**: done, in **one merge request**, and that is a stated deviation
+rather than a slip — the third of its kind, after T029–T031 and T036–T037. The rule those set is that
+one MR per task yields to a task whose subject is another task's, and it applies here in a different
+way: **the week list has no reachable surface until the toggle exists**, and this project's only test
+tool is a browser runner. T043 alone would have merged a component that no test in the suite can
+render — worse than a red pipeline, because it is green. What did *not* move into that MR is T045,
+which has its own surface and its own tests.
+
+The split that survives the merge is the one worth recording: the **span, the step and the title moved
+into `lib/period.ts`**, tested directly in `tests/client/period.spec.ts` under two timezones. That is
+where the calendar-boundary cases live — a month opening on a Sunday, a week straddling New Year, a
+DST weekend — and they are cheap there and nearly untestable through a browser. Frontend suite
+**167 → 216**, nothing skipped; `tsc --noEmit` and `eslint` both silent.
+
+**Four things the task lines do not imply:**
+
+- **`today` and `period` are two values, not one.** `today` is the creator's own calendar day, read
+  once after mount; `period` is whatever is on screen, and they stop being equal at the first arrow
+  tap. The week list marks today's section from `today` and T045's overdue treatment derives from it —
+  both would be wrong against a period the creator has navigated away from.
+- **Navigating issues no request, so the `reload()` hole the Phase 3 checkpoint predicted for T044 did
+  not arrive here.** The amendment above is why: the calendar keeps one unparameterised read, so
+  stepping to another month is pure client-side re-narrowing, and a round trip behind every arrow tap
+  is what R-007 rejects. `period-nav.spec.ts` pins the request count at one across three navigations.
+  **The hole was closed anyway**, because `reload()` is exported and the fix is testable without a
+  caller: `itemsLoaded` now also keeps ids *this browser saved during this read*. Deliberately not a
+  merge-by-id — absence from a response is how a deletion arrives (T050), so an upsert would leave a
+  deleted item on screen forever.
+- **The week list has no chip cap, and that is a decision rather than an omission.** `DayCell` caps at
+  two because 42 cells share one screen's height; seven sections scroll inside `<main>` and have no
+  such budget, so hiding an item behind `+N more` would cost reachability and buy nothing.
+- **`CalendarShell` became `h-dvh` from `min-h-dvh`, and that was a live FR-022 defect, not a
+  restyle.** With a minimum, the column's height is its content's, so `flex-1` on `<main>` has nothing
+  to shrink against — six grid rows plus the drawer pushed the action band **below the fold**. It
+  survived T042 because `calendar.spec.ts` asserts the band sits in the bottom *half* of the screen,
+  which a band hanging off the bottom edge satisfies. Found by screenshot, which is the third time in
+  this project that the mandatory 375px screenshot has caught something no check could.
 
 **Checkpoint**: US1 and US2 both work independently. Run quickstart V3 and V6.
 

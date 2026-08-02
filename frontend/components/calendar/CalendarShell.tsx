@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
+import { PeriodNav } from "@/components/calendar/PeriodNav";
+import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { today, type DateOnly } from "@/lib/dates";
 import { useContentItems } from "@/lib/items";
+import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
+import { cn } from "@/lib/utils";
 
 /**
  * The calendar surface's frame (T033, FR-022, research.md R-007).
@@ -17,10 +21,22 @@ import { useContentItems } from "@/lib/items";
  * a **content region**; and a **bottom action band** holding the primary actions in thumb reach.
  *
  * What T033 built was the frame and the data load — deliberately not what goes inside it. The capture
- * sheet arrived at T034, the backlog drawer at T035, and the month grid at T042. Still absent, each
- * with a place reserved below and a task that fills it: the week list (T043), period navigation
- * (T044) and the platform filter row (T061). Building any of them here because the export draws them
- * would be letting a picture reorder the task board.
+ * sheet arrived at T034, the backlog drawer at T035, the month grid at T042, and the week list and
+ * period navigation at T043–T044. Still absent, with a place reserved below and a task that fills it:
+ * the platform filter row (T061). Building it here because the export draws it would be letting a
+ * picture reorder the task board.
+ *
+ * ## The period is state; `today` is not
+ *
+ * Two separate values, and collapsing them is the bug T044 exists to avoid. `today` is the creator's
+ * own calendar day, read once from the browser's clock; **`period`** is whichever month or week is on
+ * screen, which starts at `today` and then moves as the creator navigates. `anchor` holds the moved
+ * value and stays null until they move it, so "the calendar opens on this month" needs no effect to
+ * synchronise state against a clock that is not known during the first render.
+ *
+ * `today` is still passed down separately — the week list marks today's section with it, and T045's
+ * overdue treatment derives from it. Neither would be correct against a `period` the creator has
+ * navigated away from.
  *
  * ## Why the period is not resolved during render
  *
@@ -37,18 +53,34 @@ import { useContentItems } from "@/lib/items";
  * guarantee. `period === null` is the honest "not known yet" state; the header shows no month until
  * it is known, because a placeholder month would be a *wrong* month for a moment.
  *
- * ## Why the item load does not wait for the period
+ * ## Navigating a period issues no request, and that is deliberate
  *
- * The two effects are independent, and that is a US1 decision rather than an oversight. `date_from`
- * and `date_to` do not exist on the endpoint until T037, so the read is unparameterised: everything
- * is fetched and the surfaces narrow it client-side, exactly as R-007 describes. Coupling the fetch
- * to the period now would mean building the coupling twice.
+ * `date_from`/`date_to` exist on the endpoint (T037) and the calendar still does not send them. The
+ * Phase 3 checkpoint's amendment to T042 is the reason: a ranged read bounds `scheduled_date` and so
+ * returns **no undated rows**, and the backlog drawer narrows this same state — so a range would empty
+ * the backlog. The whole list is read once and every surface narrows it in memory (R-007), which the
+ * spec's Volume assumption (hundreds of items for one creator) is what makes affordable.
+ *
+ * The consequence worth stating: **stepping to another month re-narrows, it does not re-fetch.** A
+ * round trip behind every arrow tap is exactly what R-007 rejects, and on Render's free tier the first
+ * one of the day can take tens of seconds. `reload()` therefore still has no caller here.
  */
 export function CalendarShell() {
   const { items, status, error, createItem } = useContentItems();
 
-  /** Null on the server and during hydration, the real month afterwards — see the note above. */
-  const period = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+  /** Null on the server and during hydration, the creator's own day afterwards — see the note above. */
+  const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+
+  const [view, setView] = useState<CalendarView>("month");
+
+  /**
+   * Where the creator has navigated to, or null while they are still on the current period. Not
+   * initialised from `today` because `today` is null during the first render — an effect to
+   * synchronise them afterwards would be the same "set state from an effect" the store read exists to
+   * avoid, and would render the wrong period once on the way.
+   */
+  const [anchor, setAnchor] = useState<DateOnly | null>(null);
+  const period = anchor ?? today;
 
   /**
    * Owned here rather than inside `CaptureSheet` because the trigger lives in the action band and
@@ -61,8 +93,20 @@ export function CalendarShell() {
     // `relative` is load-bearing rather than defensive: the expanded backlog drawer positions itself
     // against this element, which is what keeps it *on* the calendar surface (R-003a) instead of
     // becoming a full-screen overlay that reads as a second screen.
-    <div className="bg-surface-0 text-ink relative flex min-h-dvh flex-col overflow-hidden">
-      <CalendarHeader period={period} itemCount={items.length} loading={status === "loading"} />
+    //
+    // **`h-dvh`, not `min-h-dvh`** — and the difference is the whole of FR-022 on this surface. With a
+    // minimum, the column's height is still its content's, so `flex-1` on `<main>` has nothing to
+    // shrink against: six rows of grid plus the drawer push the action band *below* the fold and the
+    // page scrolls vertically to reach it. A fixed height is what gives `<main>` a size to be
+    // `min-h-0` against, so the grid scrolls inside its own container the way
+    // `.claude/rules/design.md` requires and the band stays under the thumb.
+    <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
+      <CalendarHeader
+        period={period}
+        view={view}
+        itemCount={items.length}
+        loading={status === "loading"}
+      />
 
       {/*
        * `min-h-0` is what keeps the promise in `.claude/rules/design.md` that the page body never
@@ -82,9 +126,9 @@ export function CalendarShell() {
         ) : null}
 
         {/*
-         * The month grid (T042). The week list (T043) becomes the alternative rendered here, and
-         * T044's toggle chooses between them. The backlog drawer is *not* in this region — it is
-         * anchored to the bottom of the surface, below.
+         * The month grid (T042) or the week list (T043), chosen by the toggle in the action band
+         * (T044). The backlog drawer is *not* in this region — it is anchored to the bottom of the
+         * surface, below.
          *
          * `period === null` until the browser's clock has been read, so there is nothing to draw yet
          * — a grid built from a server-side "today" would be the wrong month for a moment, which is
@@ -94,8 +138,10 @@ export function CalendarShell() {
           <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
             {status === "loading" ? "Loading your items…" : ""}
           </p>
-        ) : (
+        ) : view === "month" ? (
           <MonthGrid period={period} items={items} />
+        ) : (
+          <WeekList period={period} today={today} items={items} />
         )}
       </main>
 
@@ -106,7 +152,18 @@ export function CalendarShell() {
        */}
       <BacklogDrawer items={items} onCapture={() => setCapturing(true)} />
 
-      <CalendarActionBar onCapture={() => setCapturing(true)} />
+      <CalendarActionBar onCapture={() => setCapturing(true)}>
+        <PeriodNav
+          view={view}
+          onViewChange={setView}
+          // Stepping from `period` rather than from `anchor` is what makes the first tap work: until
+          // the creator has navigated, `anchor` is null and the period on screen is `today`.
+          onShift={(delta) => {
+            if (period !== null) setAnchor(shiftPeriod(period, view, delta));
+          }}
+          disabled={period === null}
+        />
+      </CalendarActionBar>
 
       <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
     </div>
@@ -151,18 +208,28 @@ function readNoToday(): DateOnly | null {
  */
 function CalendarHeader({
   period,
+  view,
   itemCount,
   loading,
 }: {
   period: DateOnly | null;
+  view: CalendarView;
   itemCount: number;
   loading: boolean;
 }) {
   return (
     <header className="border-hairline flex items-end justify-between border-b px-4 pt-5 pb-3">
       <div>
-        <p className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase">
-          Content Calendar
+        {/*
+         * `Content Calendar` on the month view, `Week 11` on the week view — the export's `1c` and
+         * `1e` headers. The eyebrow carries the week number rather than the title, because the title
+         * has to name the actual days and there is not room at 375px for both.
+         */}
+        <p
+          className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase"
+          data-testid="calendar-eyebrow"
+        >
+          {period === null ? "Content Calendar" : periodEyebrow(period, view)}
         </p>
         {/*
          * `-skew-x-6` and the uppercase Oswald are the export's display treatment, not decoration
@@ -171,10 +238,16 @@ function CalendarHeader({
          * after-mount read exists to prevent.
          */}
         <h1
-          className="font-display -skew-x-6 text-[27px] leading-none font-bold tracking-wide uppercase"
+          className={cn(
+            "font-display -skew-x-6 leading-none font-bold tracking-wide uppercase",
+            // The week title names days and a month, so it is longer than `MARCH 2026` and drops a
+            // size — the export's own `1c`/`1e` difference. A cross-boundary week is longer still,
+            // which is why the range abbreviates its months in `lib/period.ts`.
+            view === "month" ? "text-[27px]" : "text-2xl",
+          )}
           data-testid="calendar-period"
         >
-          {period === null ? "" : formatPeriod(period)}
+          {period === null ? "" : periodTitle(period, view)}
         </h1>
       </div>
 
@@ -193,14 +266,25 @@ function CalendarHeader({
  * `tests/e2e/calendar.spec.ts` asserts the position rather than leaving it to review. `h-11` is 44px,
  * the minimum tap target, because every shadcn size variant is desktop-scaled.
  *
- * **The month/week toggle and the adjacent-period controls belong in this band and arrive at T044**,
- * where the export places them to the left of the spacer. The band is laid out to receive them —
- * that is why the capture button is pushed right by a spacer that currently has nothing to its left.
+ * The period controls (T044) sit to the left of the spacer, exactly where the export places them.
+ * They are passed in as children rather than built here so this band stays what it is — a layout with
+ * one rule about where a thumb can reach — while `PeriodNav` owns what the controls do.
+ *
+ * **The band is the tightest row in the product**: toggle, two arrows and `+ CAPTURE` inside 375px
+ * with 16px of padding either side. `gap-1.5` rather than the export's 8px buys the margin that keeps
+ * it from clipping, and `tests/e2e/viewport.spec.ts` asserts the body never scrolls sideways.
  */
-function CalendarActionBar({ onCapture }: { onCapture: () => void }) {
+function CalendarActionBar({
+  onCapture,
+  children,
+}: {
+  onCapture: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="border-hairline bg-surface-0 flex items-center gap-2 border-t px-4 pt-2.5 pb-4">
-      {/* T044's period controls land here, to the left of this spacer. */}
+    <div className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-4 pt-2.5 pb-4">
+      {children}
+
       <span className="flex-1" />
 
       <button
@@ -213,31 +297,4 @@ function CalendarActionBar({ onCapture }: { onCapture: () => void }) {
       </button>
     </div>
   );
-}
-
-/**
- * `2026-03-04` to `March 2026`.
- *
- * Built from the string's own parts rather than through `Date`, which is what `lib/dates.ts` and the
- * eslint rule exist to enforce — a `new Date("2026-03-04")` here would land on UTC midnight and name
- * the previous month on the first of any month, west of Greenwich.
- */
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
-
-function formatPeriod(date: DateOnly): string {
-  const [year, month] = date.split("-");
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
