@@ -42,23 +42,38 @@ import { cn } from "@/lib/utils";
  * browser's clock has been read. That is what makes "never during server rendering" true by
  * construction rather than by convention — see `isOverdue` and research.md R-006's addendum.
  *
+ * ## Tapping it opens the item sheet (T052), unless the row is pending
+ *
+ * The chip renders as a **button** rather than an `<article>` — one element, not a wrapper, so the
+ * 44px `full` frame *is* the tap target rather than sitting inside one.
+ *
+ * **A pending row is never openable**, and the check is here rather than at each of the four call
+ * sites: its id does not exist on the server yet, so every control the sheet offers would name an id
+ * that 404s. The row keeps `aria-busy` so the reason is announced rather than merely felt, and it
+ * stays an `<article>` — a disabled button would still be a tab stop promising something.
+ *
  * ## What this deliberately does not do yet
  *
- * - **It is not a button.** Tapping an item to open it is **T052**, and it must skip pending rows —
- *   a pending item's id does not exist on the server yet, so a control naming it would 404. The row
- *   already exposes `aria-busy` for that, and `data-pending` for a test to read.
  * - **It is not draggable.** That is **T054**, with the activation constraint at T055.
- *
- * Each is a seam rather than a partial build: half a drag is worse than none.
  */
 export function ItemChip({
   item,
   size = "full",
   today = null,
+  onOpen,
   className,
 }: {
   readonly item: ContentItem;
   readonly size?: CueSize;
+  /**
+   * Open this item in the item sheet (T052).
+   *
+   * **Required, not optional**, and that is deliberate: a chip the creator cannot open is a bug now
+   * that the sheet exists, and an optional handler passed through a JSX spread is exactly how three of
+   * the four call sites silently stopped opening anything — spreads skip excess-property checking, so
+   * `onOpen` landing where `onOpenItem` was expected compiled cleanly and did nothing.
+   */
+  readonly onOpen: (item: ContentItem) => void;
   /**
    * The creator's own calendar day, or null before the browser's clock has been read.
    *
@@ -72,9 +87,23 @@ export function ItemChip({
 }) {
   const pending = isPending(item);
   const overdue = isOverdue(item, today);
+  const openable = !pending;
+
+  // One element either way. Wrapping the chip in a button instead would put a 44px target around a
+  // 44px row and give the month grid's micro chip a second box to lay out inside a 50px cell.
+  const Element = openable ? "button" : "article";
 
   return (
-    <article
+    <Element
+      {...(openable
+        ? {
+            type: "button" as const,
+            onClick: () => onOpen(item),
+            // The chip's visible content is the accessible name at `full` and `peek`; at `micro` the
+            // title is `sr-only` and is still inside the button, so every size announces the item.
+            "aria-label": `Edit ${item.title}`,
+          }
+        : {})}
       aria-busy={pending}
       data-pending={pending ? "" : undefined}
       data-overdue={overdue ? "" : undefined}
@@ -84,6 +113,7 @@ export function ItemChip({
       className={cn(
         "border-hairline flex items-center rounded-sm border",
         FRAME[size],
+        openable && "focus-visible:ring-brand-hi text-left focus-visible:ring-2 focus-visible:outline-none",
         // `border-l-dashed` is not a Tailwind utility — border *style* has no per-side variant — so
         // the one arbitrary property in this file. Without it `border-dashed` would dash all four
         // sides and the chip would read as the drag ghost the export draws with exactly that.
@@ -136,7 +166,7 @@ export function ItemChip({
           Saving
         </span>
       ) : null}
-    </article>
+    </Element>
   );
 }
 

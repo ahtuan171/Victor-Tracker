@@ -7,6 +7,8 @@ import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
+import { ItemSheet } from "@/components/item/ItemSheet";
+import type { ContentItem } from "@/lib/api";
 import { today, type DateOnly } from "@/lib/dates";
 import { countOverdue, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
@@ -66,7 +68,7 @@ import { cn } from "@/lib/utils";
  * one of the day can take tens of seconds. `reload()` therefore still has no caller here.
  */
 export function CalendarShell() {
-  const { items, status, error, createItem } = useContentItems();
+  const { items, status, error, createItem, updateItem } = useContentItems();
 
   /** Null on the server and during hydration, the creator's own day afterwards — see the note above. */
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
@@ -88,6 +90,26 @@ export function CalendarShell() {
    * also the only place `.claude/rules/design.md` allows a primary action to be.
    */
   const [capturing, setCapturing] = useState(false);
+
+  /**
+   * The item open in the editing sheet (T052), or null.
+   *
+   * **The id is held, not the row.** The store replaces an item's object on every optimistic edit and
+   * on every reconciliation, so a captured object would be the version that was on screen when the
+   * chip was tapped — stale the instant the save it is showing lands. Looking it up each render keeps
+   * the sheet on the live row, and makes it close by itself if that row disappears (a deletion at
+   * T056, or a list read that no longer returns it).
+   */
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const editing = items.find((item) => item.id === editingId) ?? null;
+
+  /**
+   * A pending row never reaches here — `ItemChip` refuses to render as a button for one, because the
+   * id the sheet would name does not exist on the server yet.
+   */
+  function openItem(item: ContentItem): void {
+    setEditingId(item.id);
+  }
 
   return (
     // `relative` is load-bearing rather than defensive: the expanded backlog drawer positions itself
@@ -140,9 +162,9 @@ export function CalendarShell() {
             {status === "loading" ? "Loading your items…" : ""}
           </p>
         ) : view === "month" ? (
-          <MonthGrid period={period} today={today} items={items} />
+          <MonthGrid period={period} today={today} items={items} onOpenItem={openItem} />
         ) : (
-          <WeekList period={period} today={today} items={items} />
+          <WeekList period={period} today={today} items={items} onOpenItem={openItem} />
         )}
       </main>
 
@@ -151,7 +173,7 @@ export function CalendarShell() {
        * R-003a's peek strip has to be for a backlog item to be dragged a short distance onto a day
        * at T054.
        */}
-      <BacklogDrawer items={items} onCapture={() => setCapturing(true)} />
+      <BacklogDrawer items={items} onCapture={() => setCapturing(true)} onOpenItem={openItem} />
 
       <CalendarActionBar onCapture={() => setCapturing(true)}>
         <PeriodNav
@@ -167,6 +189,19 @@ export function CalendarShell() {
       </CalendarActionBar>
 
       <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
+
+      {/*
+       * Mounted always, opened by `editing` being non-null, so the sheet keeps its exit animation and
+       * so the draft it holds survives the optimistic re-render its own save causes.
+       */}
+      <ItemSheet
+        item={editing}
+        today={today}
+        onOpenChange={(open) => {
+          if (!open) setEditingId(null);
+        }}
+        onSave={updateItem}
+      />
     </div>
   );
 }

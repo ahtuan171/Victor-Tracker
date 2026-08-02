@@ -47,6 +47,7 @@ export function MonthGrid({
   period,
   today,
   items,
+  onOpenItem,
 }: {
   /** Any day in the month to display. The grid derives its own span from it. */
   readonly period: DateOnly;
@@ -58,6 +59,8 @@ export function MonthGrid({
   readonly today: DateOnly | null;
   /** Every loaded item. Narrowing to days is this component's job, not its caller's. */
   readonly items: readonly ContentItem[];
+  /** Opens the item sheet (T052). Threaded down rather than reached for, like `items` and `today`. */
+  readonly onOpenItem: (item: ContentItem) => void;
 }) {
   const byDay = groupByScheduledDate(items);
 
@@ -93,6 +96,7 @@ export function MonthGrid({
             inPeriod={day.inPeriod}
             today={today}
             items={byDay.get(day.date) ?? EMPTY}
+            onOpenItem={onOpenItem}
           />
         ))}
       </div>

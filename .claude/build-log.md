@@ -1448,3 +1448,84 @@ the "grep the claim, not the file you happened to open" rule is weakest against:
 Fixed in this MR: removed from AGENTS.md rather than annotated, so nobody reads it again, and the
 Phase 3 record in `tasks.md` — a log, so it keeps its history — gained a superseded-by pointer at the
 paragraph itself rather than only at the Phase 4 entry that overturns it.
+
+## T052 — the item sheet, and a bug that compiled, tested green, and did nothing
+
+The surface whose absence would have left every item stuck in `idea` forever. `ItemSheet.tsx` carries
+title, hook, status, platform and date; chips became buttons on all four surfaces; `CalendarShell`
+owns which item is open. 27 new tests — **258 → 285 frontend, none skipped.**
+
+### The save model was the one real design decision
+
+The export draws `SAVE CHANGES`, so an explicit save was the starting assumption — but the reason to
+keep it is in the *backend*. `check_invariant_1`'s docstring says both callers pass the item as it
+would be **after** the change, "never as stored", because validating an incoming status against the
+stored platform would refuse `{"status": "draft", "platform": "tiktok"}` on a title-only idea and
+leave no single request that can advance it.
+
+That sentence only pays off if the frontend actually sends both fields together. Per-tap saves — which
+"optimistic updates" and "the cue updates immediately" both gently suggest — would make the first tap
+a guaranteed 409, and **SC-012 asks precisely that the creator not meet a refusal they cannot resolve
+from the surface they are on.** The cheapest way to honour it is to not produce the refusal. So: one
+tap, one `PATCH`, carrying a diff.
+
+The optimism is not lost. It moved one layer down: `updateItem` applies the change to the store the
+moment save is tapped, so the chip's cue updates before the request returns. A test asserts that
+against a route that is **never fulfilled**, because against a real answer it could not tell optimism
+from a fast round trip.
+
+### The draft is a `ContentItem`, and that removed a whole class of conversion
+
+The obvious form shape is `{title: string, hook: string, ...}` with `"" ↔ null` conversions on the way
+in and out. Holding a whole `ContentItem` instead means the sheet renders the same shape it diffs, the
+diff's inverse (`itemWithChanges`) reproduces it, and the null — which **is** FR-023's "clear this
+field" — is only converted once, at the `onChange` of each text input.
+
+Two draft-lifecycle bugs fell out of it, one caught by reasoning and one by a test:
+
+- Reset on the **id**, not the object. The store replaces an item's object on every optimistic edit,
+  so identity-keyed reset would discard the creator's typing at the moment their own save landed.
+- Reset to null **on close**. Missed on the first pass: closing and reopening the same item kept the
+  abandoned draft, so an edit explicitly walked away from reappeared looking saved.
+
+### The find: an optional prop passed through a JSX spread
+
+`exactOptionalPropertyTypes` forbids passing an explicit `undefined`, so an optional handler has to be
+threaded as `{...(x === undefined ? {} : { onOpen: x })}`. Three of those went to components whose prop
+is named `onOpenItem`, not `onOpen`.
+
+**It compiled.** JSX spread expressions skip excess-property checking, so the wrong key was neither an
+error nor a warning. `pnpm build`, `typecheck` and `lint` were all clean. The month grid and the week
+list simply did not open anything, and the peek strip — the one site that happened to be right — did,
+which is why five e2e tests failed and fifteen passed.
+
+The fix was not to correct three names. It was to make **`onOpen` and every `onOpenItem` required**,
+which deletes all six spreads and turns the same mistake into a build error. Optionality had bought
+nothing anyway: a chip the creator cannot open is a bug now that the sheet exists.
+
+Worth generalising, because `exactOptionalPropertyTypes` is switched on across this project and the
+spread is its standard workaround: **a conditional spread is a hole in prop typing.** Prefer making
+the prop required where every call site has a value.
+
+### Two places the export is knowingly not followed
+
+Both are `.claude/rules/design.md` overriding the picture, and both now have assertions:
+
+- **44px, not 40px**, on the six status and platform options. They sit in the densest part of the
+  sheet, which is exactly where a missed tap is most likely.
+- **A CLEAR button beside the date**, which the export does not draw. A native date input's own clear
+  affordance is platform-dependent and absent on several mobile browsers, and without it the tap path
+  could schedule but never *un*schedule — leaving T054's drag as the only way back to the backlog,
+  which is the pointer-only dependency SC-011 forbids.
+
+### Screenshotted at 375px, and the first one was a lie
+
+The Tailwind trap makes a screenshot mandatory after any restyle. The first pair was taken against a
+`pnpm start` serving a bundle built **before** the last edit — the change under inspection was not in
+the artifact being inspected. Rebuild between the edit and the shot, or the step verifies the previous
+commit. The real shots show the sheet correct: the status/platform columns, the overdue dashed **left**
+border on the date field with its note, and the DATE label peeking above the fold, which is a decent
+accident — it signals the body scrolls.
+
+One measurement trap recorded in `frontend/AGENTS.md`: the sheet enters on a 200ms `translate-y`, so a
+`boundingBox()` taken the instant `toBeVisible()` resolves is 40px off. `toBeInViewport()` retries.

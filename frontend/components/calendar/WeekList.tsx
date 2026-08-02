@@ -43,6 +43,7 @@ export function WeekList({
   period,
   today,
   items,
+  onOpenItem,
 }: {
   /** Any day in the week to display. The list derives its own span from it. */
   readonly period: DateOnly;
@@ -57,6 +58,8 @@ export function WeekList({
   readonly today: DateOnly | null;
   /** Every loaded item. Narrowing to days is this component's job, not its caller's. */
   readonly items: readonly ContentItem[];
+  /** Opens the item sheet (T052). Threaded down rather than reached for, like `items` and `today`. */
+  readonly onOpenItem: (item: ContentItem) => void;
 }) {
   const byDay = groupByScheduledDate(items);
 
@@ -68,6 +71,7 @@ export function WeekList({
           day={day}
           today={today}
           items={byDay.get(day.date) ?? EMPTY}
+          onOpenItem={onOpenItem}
         />
       ))}
     </section>
@@ -86,11 +90,13 @@ export function WeekList({
 function DaySection({
   day,
   today,
+  onOpenItem,
   items,
 }: {
   readonly day: PeriodDay;
   /** The creator's own calendar day: this section's marker, and the chips' overdue derivation. */
   readonly today: DateOnly | null;
+  readonly onOpenItem: (item: ContentItem) => void;
   readonly items: readonly ContentItem[];
 }) {
   const isToday = day.date === today;
@@ -135,7 +141,7 @@ function DaySection({
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
-              <ItemChip item={item} size="full" today={today} />
+              <ItemChip item={item} size="full" today={today} onOpen={onOpenItem} />
             </li>
           ))}
         </ul>
