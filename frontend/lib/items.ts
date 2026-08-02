@@ -50,7 +50,7 @@ import {
   type ContentItemCreate,
   type ListContentItemsParams,
 } from "./api";
-import { nowInstant } from "./dates";
+import { isBeforeDateOnly, nowInstant, type DateOnly } from "./dates";
 
 // --- Pending items --------------------------------------------------------------------------
 
@@ -224,6 +224,45 @@ export function pendingItemRolledBack(state: ItemsState, tempId: number): ItemsS
  */
 export function selectBacklog(items: readonly ContentItem[]): readonly ContentItem[] {
   return items.filter((item) => item.scheduled_date === null);
+}
+
+/**
+ * Whether this item's scheduled day has passed with the item still unpublished (T045, spec Edge
+ * Cases and Overdue items).
+ *
+ * `scheduled_date < today AND status !== "posted"`. The spec words it as "still `idea` or `draft`",
+ * which is the same set — three statuses, and `posted` is the one that ends the pipeline. Written as
+ * the negation so a fourth status could never silently become non-overdue by omission.
+ *
+ * ## `today` is a parameter, and that is the enforcement
+ *
+ * `dates.today()` **throws** outside the browser on purpose (research.md R-006 addendum): Vercel's
+ * clock is UTC, so a creator in UTC+7 opening the app at 06:00 on the 5th is at 23:00 UTC on the 4th,
+ * and an item dated the 4th would render *not overdue* in the server HTML and *overdue* a moment later
+ * on hydration — a visible flip plus a React mismatch warning, in a cue FR-017 says must be reliable.
+ * Taking the day as an argument means this function cannot be the thing that reads a clock, and
+ * **`null` is a first-class answer**: before the browser's clock is known, nothing is overdue yet.
+ *
+ * The comparison is plain string ordering. `YYYY-MM-DD` is fixed-width and big-endian, so
+ * lexicographic order *is* chronological order — no `Date`, no timezone, no DST (see `lib/dates.ts`).
+ */
+export function isOverdue(item: ContentItem, today: DateOnly | null): boolean {
+  if (today === null || item.scheduled_date === null) return false;
+  return item.status !== "posted" && isBeforeDateOnly(item.scheduled_date, today);
+}
+
+/**
+ * How many loaded items are overdue — the export's second header count (`1c`'s `3 overdue`).
+ *
+ * Derived from the list already in memory rather than stored, which is what the stage-2 data-shape
+ * audit in `design/content-calendar/BRIEF.md` cleared: no `spec.md` amendment was needed because
+ * overdue is not a field. It counts **every** loaded item, not only the ones in the visible period —
+ * an overdue item two months back is exactly the one the creator has lost track of, and a count that
+ * emptied itself as they navigated away from the problem would be the opposite of what the treatment
+ * is for.
+ */
+export function countOverdue(items: readonly ContentItem[], today: DateOnly | null): number {
+  return items.filter((item) => isOverdue(item, today)).length;
 }
 
 /**

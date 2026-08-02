@@ -408,7 +408,7 @@ readable without opening it — in the grid *and* in the backlog drawer.
 - [x] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, **spanning** the full six weeks the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004). **Amended 2026-08-01 — this task no longer "queries" that span**; see the note below
 - [x] T043 [US2] Build the week view in `frontend/components/calendar/WeekList.tsx` as a vertical list of seven day sections — not seven columns, which cannot hold readable chips at 375px (FR-021, research.md R-004)
 - [x] T044 [US2] Build period navigation in `frontend/components/calendar/PeriodNav.tsx` with a month/week toggle and adjacent-period controls in thumb reach (FR-013, FR-022)
-- [ ] T045 [US2] Add the derived overdue treatment to `ItemChip`: a left border when `scheduled_date` has passed and status is not `posted`, computed client-side from `dates.today()` and never during server rendering (spec Edge Cases, research.md R-006 addendum)
+- [x] T045 [US2] Add the derived overdue treatment to `ItemChip`: a left border when `scheduled_date` has passed and status is not `posted`, computed client-side from `dates.today()` and never during server rendering (spec Edge Cases, research.md R-006 addendum)
 
 **Amendment 2026-08-01 (Phase 3 checkpoint `/speckit-analyze`) — the calendar's read stays
 unparameterised, and T042 does not send `date_from`/`date_to`.**
@@ -535,6 +535,24 @@ DST weekend — and they are cheap there and nearly untestable through a browser
   survived T042 because `calendar.spec.ts` asserts the band sits in the bottom *half* of the screen,
   which a band hanging off the bottom edge satisfies. Found by screenshot, which is the third time in
   this project that the mandatory 375px screenshot has caught something no check could.
+
+**T045 result (2026-08-02)**: done, its own merge request. Frontend suite **216 → 234**, nothing
+skipped.
+
+- **`today` reaches `ItemChip` as a prop, and that is the enforcement rather than a convention.**
+  `isOverdue(item, null)` is false, and `null` is what every server render has — so the hydration flip
+  research.md R-006's addendum describes is unrepresentable rather than merely avoided. The pair of
+  tests at the bottom of `overdue.spec.ts` is what proves the value came from the *browser*: the same
+  instant and the same fixture in UTC+7 and UTC-7 give two different answers, which only a
+  client-side clock can produce.
+- **`border-l-dashed` is not a Tailwind utility** — border style has no per-side variant — so this is
+  the project's one arbitrary property, `[border-left-style:dashed]`. A misspelled class renders
+  nothing and fails no other check, so the test asserts the **computed** style, and asserts the top
+  border is still solid: dashing all four sides is how the export draws the *drag ghost* at T054, and
+  the two treatments must not collapse into each other.
+- **The header's `N overdue` arrived with the treatment**, as `CalendarShell` promised at T033.
+  `countOverdue` counts every loaded item rather than the visible period's, because an overdue item
+  two months back is precisely the one the creator has lost track of. Zero prints nothing.
 
 **Checkpoint**: US1 and US2 both work independently. Run quickstart V3 and V6.
 
