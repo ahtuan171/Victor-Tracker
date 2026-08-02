@@ -1691,3 +1691,58 @@ could render a refusal.
 
 Screenshotted at 375px. Both buttons clear 44px, the chip in the dialog carries its status cue and
 platform monogram, and the page does not scroll sideways.
+
+## T057 + T058 — the one E2E flow, and a control no test can click
+
+One merge request: T058 is literally "add two assertions to the file T057 creates". 3 tests.
+**318 → 321 frontend, none skipped.** Phase 5's implementation is complete.
+
+`tech-defaults.md` budgets exactly one E2E flow for v0.1 and this is it. Every other file in
+`tests/e2e/` asserts one surface; this is the only thing that asserts they **compose**.
+
+### The stub had to become a small server
+
+Every other e2e file answers with a canned body, which is right when the subject is one surface. This
+flow *mutates*: the item it captures is the one it later schedules and advances, and "the calendar
+shows a `posted` item on the 12th" is worth nothing if the stub would have said `posted` to anything.
+
+So the route handler keeps rows and applies `PATCH` bodies with the backend's `exclude_unset`
+semantics — `Object.assign` does exactly that, because `JSON.parse` yields only the keys that were
+sent. That makes "only what changed was sent" observable from the *other end* rather than by
+inspecting the request. It deliberately does **not** enforce INV-1: the backend's tests cover the
+invariant in both directions, and a second implementation here would be testing the stub.
+
+### T058's second assertion is a test, not a comment
+
+"The journey completes with no drag gesture" is easy to write as a comment above a list of clicks. It
+is worth more as **the same journey performed entirely with the keyboard** — a keyboard cannot produce
+a drag, so a journey finished that way is one no drag was needed for.
+
+It also has a second job: it is the test that fails first if anyone re-registers dnd-kit's
+`KeyboardSensor`, because `Enter` on a chip would start a drag instead of opening the sheet. The T054
+amendment to R-003 now has a guard rather than only a paragraph.
+
+The first assertion — the URL never changes — is SC-002 read literally. "Zero navigations to a
+separate detail page" is a claim about the address bar, so it is asserted as one: a sheet is not a
+page; a route would be.
+
+### The find: `MONTH` is a control no automated test can click
+
+The third test switches month → week → month, and the second `view-month` click timed out with
+`<nextjs-portal> … intercepts pointer events`.
+
+This is the dev-overlay trap already recorded at the Phase 4 checkpoint — but recorded as a *hand-walk*
+problem, with the fix "use a production build". What T057 shows is that it is **also a CI fact**:
+`playwright.config.ts`'s `webServer` runs `next dev`, so the overlay is over the `MONTH` toggle in
+every pipeline too.
+
+It went unnoticed for a reason worth remembering: **no test before this one had ever clicked `MONTH`**.
+`view-week` is clickable, so `period-nav.spec.ts` exercises the toggle in one direction and stops.
+The gap was invisible because the half that works is the half every test happened to use.
+
+`dispatchEvent("click")` is the workaround here, with the reason at the call site — the obstruction is
+a development artifact no creator will ever have, and the subject under test is what the toggle
+*does*. But the general problem stands and belongs in the Phase 5 checkpoint: **a control that no
+automated test can click is one restyle away from being broken with the suite still green.** The real
+fix is running the suite against `pnpm start`, which is a `playwright.config.ts` change with a cost
+(every run rebuilds) and is not T057's to make.
