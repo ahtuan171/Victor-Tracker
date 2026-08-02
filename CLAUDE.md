@@ -2,15 +2,47 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-02: **Phase 4 complete and checkpointed** — T001–T045 of 76
+## Status as of 2026-08-02: **Phase 5 complete and checkpointed** — T001–T058 of 76
 
-On `main`, **172 backend tests and 234 frontend tests passing, and nothing skipped.** Stage 1 planning
-is done and reviewed, the specs are on `main`, **the backend is a running application** — config, DB
-session, schema, a migration applied to a live Postgres, the auth primitives, the auth boundary, both
-auth endpoints, the seed script, `main.py`, and **`POST` and `GET /content-items` with the
-`scheduled`, `date_from` and `date_to` filters**. The **backend is fully covered**: auth over HTTP,
-the schema's deliberate absences, the uniform error shape, create-and-list, and the date range in both
-directions including boundary inclusivity.
+On `main`, **238 backend tests and 322 frontend tests passing, and nothing skipped.** Stage 1 planning
+is done and reviewed, the specs are on `main`, and **the whole of `/content-items` exists** — create,
+list with the `scheduled`/`date_from`/`date_to` filters, fetch-one, partial update, and delete. INV-1
+is enforced at the boundary in both directions (`platform_required` and `platform_locked` from one
+shared `check_invariant_1`), and a `DELETE` of a missing id answers **404, not an idempotent 204**.
+
+**User Story 3 is complete: an item can now change.** That is the line Phase 5 crossed — before it,
+nothing on an item could be edited at all. The **item sheet** (`components/item/ItemSheet.tsx`) is the
+single editing surface, carrying title, hook, platform, date and status; it **saves on an explicit tap
+and sends a diff**, which is what lets a title-only idea be given a platform *and* advanced in one
+request. Per-tap saves would make the first tap a guaranteed 409 and SC-012 unreachable. A 409 **names
+the control that resolves it and moves focus there**. Chips are tappable **and draggable** — day cells,
+week sections and the backlog strip are the drop targets, all calling the same `updateItem`. Deleting
+takes three deliberate taps and lands in a focus-trapped confirmation whose default focus is
+`KEEP ITEM`.
+
+**The Phase 5 checkpoint was done on 2026-08-02, and its three findings are fixed.** All three gates
+ran: **21/21 hand-walk checks** at 375px on a production build against a live stack with nothing
+stubbed (V9 placed five ideas onto five days in **4.9s** against a 60s budget), the `reviewer` agent
+over T046–T058 returned **one LOW finding**, and `/speckit-analyze` found one HIGH and one MEDIUM.
+Results are in `tasks.md` under Phase 5; the narrative is in the build log.
+
+**The HIGH is the Phase 4 CRITICAL's pattern for the second phase running, and it is the thing to
+watch for.** `contracts/openapi.yaml` said *"A drag and a tap produce the identical request with one
+field set (FR-014a, **FR-015a**)"* — citing FR-015a as authority for a claim the amended FR-015a
+explicitly denies (*"Status is not draggable"*). True for a date, false for a status. **The contract is
+where an overturned decision survives longest**: it is the artifact least often opened while building a
+surface, and the one that outranks code when someone does open it. Grep the claim, not the file.
+
+**Two things worth knowing before touching Phase 6:**
+
+- **`reload()` still has no caller**, for the third time. Predicted for T044 (navigation issues no
+  request), plausible for T051 (an optimistic edit reconciles against the `PATCH` response). Both
+  predictions assumed a write implies a refetch, which is exactly what R-007 rejects.
+- **The `MONTH` toggle is a control no automated test can click.** Next's dev overlay covers it at
+  375px and `playwright.config.ts` runs `next dev`, so this holds **in CI**, not only in a hand-walk.
+  It went unnoticed until T057 because no test had ever clicked it — `WEEK` works, so the toggle was
+  only exercised in the direction that does. `pipeline.spec.ts` uses `dispatchEvent`. The real fix
+  (running the suite against `pnpm start`) rebuilds every run and belongs with **T069**.
 
 **User Story 1 is complete: a creator can sign in, capture an idea, and find it in the backlog.**
 The proxy at
@@ -83,18 +115,18 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | Part | State |
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
-| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T045 ticked — Phases 3 and 4 both closed with their checkpoints**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
-| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. `GET`/`PATCH`/`DELETE` by id arrive at T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
+| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T058 ticked — Phases 3, 4 and 5 all closed with their checkpoints**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
+| `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
-| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, extended at T036 with the date range — further extensions at T048, T059, T063). **172 passing.** `test_transitions.py` arrives at T046. |
-| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `items.ts` (T032, `groupByScheduledDate` at T042, `savedSince` and `countOverdue` at T044–T045), `period.ts` (T044), `status.ts` (T038), `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** — surfaces, ink, brand, status ramp, overdue, elevation, focus, plus `.notch-card` / `.notch-sheet` / `.web-grain`; `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027), `app/(app)/calendar/page.tsx` guarding it again and rendering `components/calendar/CalendarShell.tsx` (T033). `components/capture/CaptureSheet.tsx` (T034) on shadcn's `Sheet`, `components/backlog/BacklogDrawer.tsx` (T035, chips at T041), `components/item/` — `StatusCue`, `PlatformCue` (T039), `ItemChip` (T040, overdue border at T045) — and `components/calendar/MonthGrid.tsx` + `DayCell.tsx` (T042), `WeekList.tsx` (T043), `PeriodNav.tsx` (T044). **234 Playwright tests passing across four projects, none skipped** — `contract`, `proxy`, `client` (the browser-side `lib/` modules), `mobile-375`. |
+| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal). **238 passing.** |
+| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `items.ts` (T032, `groupByScheduledDate` at T042, `savedSince` and `countOverdue` at T044–T045), `period.ts` (T044), `status.ts` (T038), `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** — surfaces, ink, brand, status ramp, overdue, elevation, focus, plus `.notch-card` / `.notch-sheet` / `.web-grain`; `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027), `app/(app)/calendar/page.tsx` guarding it again and rendering `components/calendar/CalendarShell.tsx` (T033). `components/capture/CaptureSheet.tsx` (T034) on shadcn's `Sheet`, `components/backlog/BacklogDrawer.tsx` (T035, chips at T041), `components/item/` — `StatusCue`, `PlatformCue` (T039), `ItemChip` (T040, overdue border at T045) — and `components/calendar/MonthGrid.tsx` + `DayCell.tsx` (T042), `WeekList.tsx` (T043), `PeriodNav.tsx` (T044). **Phase 5 added `components/item/ItemSheet.tsx` (T052–T053, the single editing surface) and `DeleteConfirm.tsx` (T056), plus the `@dnd-kit` drag path in `CalendarShell`/`DayCell`/`WeekList`/`BacklogDrawer` (T054–T055)**; `lib/items.ts` gained `itemWithChanges`, `changesBetween`, `itemChanged`, `itemRemoved`, `itemRestored`, and `updateItem`/`deleteItem` on the store (T051, T056). **322 Playwright tests passing across four projects, none skipped** — `contract`, `proxy`, `client` (the browser-side `lib/` modules), `mobile-375`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service now has real pages to serve as of T025–T027, but has not been run. |
 | `.gitlab-ci.yml` | **Green end to end** on pipeline #5: `build → test → review` all pass, both `deploy` jobs `manual` as designed. Three earlier pipelines were red on config that had only ever been syntax-checked. The `test:backend` gap is now **closed by evidence**: the job still runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `CreatorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
 | Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `CreatorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
 | `docs/` | Does not exist. Correct — T076 creates it. |
-| GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **MRs !1–!4 merged T025–T028; !7–!13 the docs sweep and T029–T035; !14–!21 the Phase 3 checkpoint and T036–T042; !22–!24 T043–T045 and the Phase 4 checkpoint**, each behind a green pipeline. Still open: no issues imported. |
+| GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **MRs !1–!4 merged T025–T028; !7–!13 the docs sweep and T029–T035; !14–!21 the Phase 3 checkpoint and T036–T042; !22–!24 T043–T045 and the Phase 4 checkpoint; !25–!33 T046–T058 and the Phase 5 checkpoint**, each behind a green pipeline. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 — the daemon does not survive a reboot, so start Docker Desktop first every session. |
 
@@ -166,22 +198,24 @@ and neither is duplicated here.
    `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
    been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
    The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Continue at T046** — Phase 5 (US3), the first phase that makes an item *change*. T046 tests INV-1
-   in both directions, T047 the lossless reversal, T048 partial-update semantics; then T049's `PATCH`,
-   which is **`check_invariant_1`'s second caller — do not write a parallel check there**
-   (`backend/AGENTS.md`). Then the Phase 5 checkpoint: quickstart V4, V5, V7, V8, V9.
+2. **Continue at T059** — Phase 6 (US4), the platform filter. T059 tests the `platform` query
+   parameter, T060 adds it to `GET /content-items`, T061 builds the filter row `CalendarShell` already
+   reserves a place for, T062 the filtered empty state. Then the Phase 6 checkpoint: quickstart V3 and
+   V6 again, plus SC-005's one-second filter budget.
 
-   **Three things already written down that Phase 5 will otherwise rediscover.** T052 and T054 must
-   **skip rows with `isPending`** — the id does not exist yet and a `PATCH` on it 404s; the chip
-   already exposes `aria-busy` for it. T054 must **restore the full drawer copy** T035 deliberately
-   trimmed ("Undated ideas, newest first. Drag one onto a day to schedule it."). And the drag ghost is
-   a dashed border on **all four sides** while overdue is dashed **left only** — `overdue.spec.ts`
-   asserts `borderTopStyle === "solid"` to keep them apart.
+   **Two things already written down that Phase 6 will otherwise rediscover.** T061 **must not** send
+   `date_from`/`date_to` — the calendar's read stays unparameterised, because a ranged read returns no
+   undated rows and empties the backlog drawer, which narrows the same state. `month-grid.spec.ts` and
+   `period-nav.spec.ts` both guard this. And the filter is a **client-side narrowing of loaded state**,
+   like `selectBacklog` and `groupByScheduledDate`; the endpoint's `platform` parameter exists for a
+   caller that wants only one platform, and this surface is not one.
 
    Run all three checkpoint gates every time. At Phase 3 the hand-walk found what the suite
-   structurally cannot; at Phase 4 `/speckit-analyze` found a live constitution IV violation that a
-   **clean** `reviewer` pass did not, because it reads artifacts against each other rather than
-   counting citations.
+   structurally cannot; at Phase 4 and again at Phase 5 `/speckit-analyze` found a stale claim in
+   `contracts/openapi.yaml` that a `reviewer` pass did not, because it reads artifacts against each
+   other rather than counting citations; at Phase 5 the `reviewer` found a **missing default** on a
+   path no assertion reached, which neither of the other two gates could see.
+
 3. **Every task from here goes through a merge request.** `main` refuses direct pushes and the
    pipeline gates the merge. The flow used for every task since T025:
 
@@ -235,7 +269,7 @@ and neither is duplicated here.
    Note T035 changed one line of export copy on purpose — the drawer does not promise a drag that
    does not exist until T054. **Screenshot at 375px after any restyle** — a
    misspelled Tailwind class fails no check, and use a port other than 3100.
-10. **Import `tasks.md` as GitLab issues** — T001–T045 created and closed immediately, so later
+10. **Import `tasks.md` as GitLab issues** — T001–T058 created and closed immediately, so later
     `closes #N` references do not skew. `/speckit-taskstoissues` is GitHub-only and will abort; use
     `glab issue create` or the web UI. Do not try to make that command work.
 
@@ -247,7 +281,7 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is **172 backend tests and 234 frontend tests, none
+**`frontend/AGENTS.md`**. Current green state is **238 backend tests and 322 frontend tests, none
 skipped**, with `pnpm typecheck` and `pnpm lint` both silent.
 
 `pnpm dev` serves the proxy for real — `/api/auth/login` and `/api/auth/logout` work against a running
@@ -258,10 +292,11 @@ start` instead**, plus `API_BASE_URL` and `SESSION_COOKIE_SECURE=false` — the 
 
 Real now: `/login`, `/` (which redirects), and **`/calendar`** — header with an `N overdue` count,
 **month grid**, **week list**, **period navigation**, backlog drawer, capture sheet, bottom action
-band. **A signed-in creator can capture an idea, find it in the backlog, move between months and
-weeks, and see every dated item with its status, platform, and overdue state legible without opening
-it.** What no surface can do yet: **change anything on an item** — no status, no platform, no date, no
-delete. That is all Phase 5, starting at T046. `docker compose up frontend` has still never been run.
+band, **item sheet**, **delete confirmation**, and **drag-to-schedule**. **A signed-in creator can capture an idea, find it in the backlog, move between months and
+weeks, see every dated item with its status, platform and overdue state legible without opening it,
+and — since Phase 5 — open it and change every one of those fields, drag it onto a day or back to the
+backlog, and delete it behind a confirmation.** What no surface can do yet: **filter by platform**
+(T061) and **carry a published link** (T064). `docker compose up frontend` has still never been run.
 
 `glab` is installed and authenticated, and `origin` exists — the whole MR flow in step 3 above works.
 The binary's path is non-standard and not on the PATH of a shell that predates the install; see
