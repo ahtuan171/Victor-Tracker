@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { useDroppable } from "@dnd-kit/core";
+
 import { ItemChip } from "@/components/item/ItemChip";
 import type { ContentItem } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
@@ -47,12 +49,18 @@ export function DayCell({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  // The cell is the drop target, and its id **is** the date — so `onDragEnd` in `CalendarShell`
+  // translates a drop into `{ scheduled_date }` with no lookup table to keep in step.
+  const { setNodeRef, isOver } = useDroppable({ id: date });
+
   const overflowing = items.length > VISIBLE_CHIPS;
   const visible = expanded || !overflowing ? items : items.slice(0, VISIBLE_CHIPS);
   const hidden = items.length - visible.length;
 
   return (
     <div
+      ref={setNodeRef}
+      data-over={isOver ? "" : undefined}
       // `border-hairline/60` rather than the full hairline: 42 cells of grid rule at full strength
       // reads as a table, and the export draws the internal rules lighter than its outer ones.
       className={cn(
@@ -60,6 +68,9 @@ export function DayCell({
         // Adjacent-month days are dimmer but present — they carry real items, and hiding those would
         // put an item on no visible day at all in the week it belongs to.
         inPeriod ? "bg-surface-1" : "bg-surface-0",
+        // The cell under the finger. Solid, not dashed — dashed is the chip's own language for
+        // overdue and for the ghost, and a third dashed thing would stop meaning anything.
+        isOver && "bg-brand-sunk ring-brand ring-2 ring-inset",
       )}
       data-date={date}
       data-in-period={inPeriod ? "" : undefined}
@@ -76,13 +87,7 @@ export function DayCell({
       </span>
 
       {visible.map((item) => (
-        <ItemChip
-          key={item.id}
-          item={item}
-          size="micro"
-          today={today}
-          onOpen={onOpenItem}
-        />
+        <ItemChip key={item.id} item={item} size="micro" today={today} onOpen={onOpenItem} />
       ))}
 
       {hidden > 0 ? (

@@ -1561,3 +1561,74 @@ Two smaller decisions:
 Colour does carry the label's emphasis, and that is safe here rather than an SC-004 problem: the
 message says which control and why in words, and focus has already moved there. Screenshotted at
 375px — PLATFORM in brand red, the instruction beneath, the fix one column right.
+
+## T054 + T055 — the drag path, and a spec that had been overtaken by a later decision
+
+One merge request for two tasks, and it is the recorded exception rather than a slip: a drag whose
+sensor has no activation constraint **silently reschedules items a creator was only trying to scroll
+past**, so shipping T054 alone would put a data-loss hazard on `main` for the length of one MR. Same
+shape as T043–T044 — the second task is the first one's safety, not a follow-up.
+
+9 new tests. **289 → 298 frontend, none skipped.**
+
+### What is automated, and what is deliberately not
+
+R-003 says outright that the E2E flow drives **taps**, because drag automation is the flakiest thing
+in a browser suite and a flaky gate gets disabled — which would violate principle VI. So the *journey*
+is not dragged. What is asserted is what a hand-walk cannot check cheaply: the wiring, the activation
+constraint (invisible to a walkthrough that happens not to swipe over a chip), and **one** deliberate
+drag, because it is the only way to assert that a drop and a tap produce the *same request*. Quickstart
+V4 stays the gate for how it feels on a finger.
+
+### The default collision detection scheduled the wrong day
+
+dnd-kit intersects the **dragged overlay's rectangle** with the droppables. The overlay is a `full`
+chip; a day cell is 53px wide. So the ghost overlaps three or four days at once and the first
+intersection wins — a drag aimed at the 12th scheduled the 13th, and the test caught it on the first
+run.
+
+`pointerWithin` is the fix and it is the right rule anyway: the drop target is the cell **under the
+finger**, which is the only rule a creator can predict. It also returns nothing outside every
+droppable, so a drop into empty space is correctly no change rather than a nearest-neighbour guess.
+
+Worth keeping: this is a case where the *bigger* affordance (a readable full-size ghost) made the
+*smaller* target ambiguous. Rectangle-based collision is fine when the dragged thing is the size of
+what it lands on, and wrong the moment it is not.
+
+### The find: R-003 asked for something T052 had already made impossible
+
+R-003 says register `PointerSensor` **and `KeyboardSensor`**. dnd-kit's keyboard activation codes are
+`Space` and `Enter` — verified in `node_modules`, not assumed. And **T052 made the item chip a
+`<button>`**, because tapping it opens the sheet.
+
+So registering the sensor makes `Enter` on a focused chip start a drag instead of opening the sheet:
+the **primary** editing path becomes unreachable from a keyboard in order to make the **secondary**
+one reachable. That is exactly backwards, and R-003 itself designates the tap path the primary one.
+
+Checked against the requirements rather than settled on taste, because `specs/` outranks code:
+
+- **FR-015b** — every date and status change reachable *without a pointer-drag gesture*. Satisfied by
+  the sheet's date input.
+- **SC-011** — the whole `idea → posted` journey completable without a single drag. Same.
+
+Neither asks for a *drag performed by keyboard*. So the spec is what is wrong, and it was amended:
+`research.md` R-003 carries the amendment with its reasoning, `tasks.md` T054's line carries it too,
+and `ItemChip` strips dnd-kit's `onKeyDown` from the listeners it spreads so the button's own
+behaviour is what runs. A test asserts `Enter` opens the sheet, which is the whole amendment in one
+line.
+
+**Three artifacts in one merge request, deliberately** — this is the Phase 4 CRITICAL's lesson applied
+before it could bite rather than nine tasks later.
+
+### Smaller things
+
+- `useDraggable({disabled})` still emits `role="button"`, `tabindex="0"` and `aria-disabled`, so the
+  attributes are spread **only** on a row that can be dragged. A pending row is not a disabled button;
+  it is not yet a control.
+- A drop back on the item's own day returns early. A no-op is not an empty `PATCH`, which the backend
+  refuses with a 422 — a creator who picks a chip up and changes their mind must not see an error.
+- The drawer's copy is restored to the export's full line now that the drag it promises exists.
+
+Screenshotted at 375px mid-drag: the ghost dashed on **all four** sides, the target cell in a solid
+ring, the source row dimmed in place. The four-versus-left distinction is what `overdue.spec.ts`
+guards with `borderTopStyle === "solid"`.

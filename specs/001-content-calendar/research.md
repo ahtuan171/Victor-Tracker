@@ -124,7 +124,8 @@ while FR-014a requires a drag path as well. Naively that is two implementations 
 **Decision**: one mutation function per field change, with two triggers — and **drag applies to
 scheduling only**.
 
-- **Drag — dates only**: `@dnd-kit/core`, with both `PointerSensor` and `KeyboardSensor` registered.
+- **Drag — dates only**: `@dnd-kit/core`, with a `PointerSensor`. ~~and a `KeyboardSensor`~~ —
+  **amended at T054, see the note below.**
   Draggables are item chips; the only droppables are day cells and the backlog drawer.
 - **Tap — everything**: tapping a chip opens a shadcn `Sheet` anchored to the bottom of the viewport,
   carrying controls for title, hook, **platform**, date, status, and published link. This is the single
@@ -148,8 +149,27 @@ scrolling wins the gesture until the constraint is met. A long-press activation 
 rejected: it collides with FR-020's requirement that destructive actions not sit next to a common
 gesture, and with the browser's own long-press context menu.
 
+**Amendment (T054, 2026-08-02) — no `KeyboardSensor` is registered.**
+
+This decision collides with one taken later. **T052 made the item chip a `<button>`**, because tapping
+it opens the item sheet — and dnd-kit's keyboard activation codes are `Space` and `Enter`, which are a
+button's own activation keys. Registering the sensor means `Enter` on a focused chip starts a drag
+instead of opening the sheet, so the **primary** editing path becomes unreachable from a keyboard in
+order to make the **secondary** one reachable. That is the wrong trade.
+
+The requirements are unaffected, which is why this is an amendment and not a gap:
+
+- **FR-015b** asks that every date and status change be reachable *without a pointer-drag gesture*.
+  The item sheet's date input and status radios satisfy it entirely.
+- **SC-011** asks that the whole `idea → posted` journey be completable without a single drag. Same.
+
+Neither asks for a *drag* performed by keyboard. This section already designates the tap path the
+primary one and the drag an accelerator; the amendment simply stops the accelerator from eating the
+primary path's keys. `ItemChip` strips dnd-kit's `onKeyDown` from the listeners it spreads, so the
+button's own behaviour is what runs. `tasks.md` T054 is amended in the same merge request.
+
 **Rationale for `@dnd-kit`**: pointer-event based, so touch works without a separate backend; ships a
-`KeyboardSensor`, so even the drag path is keyboard-reachable; and it does not require pulling a DOM
+a `KeyboardSensor`, which this module in the end does not use (see the amendment); and it does not require pulling a DOM
 node out of its container — which matters when the container is a 375px grid that scrolls inside itself
 per FR-021.
 

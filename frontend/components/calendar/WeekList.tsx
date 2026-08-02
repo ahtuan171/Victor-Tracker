@@ -1,5 +1,7 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
+
 import { ItemChip } from "@/components/item/ItemChip";
 import type { ContentItem } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
@@ -101,9 +103,18 @@ function DaySection({
 }) {
   const isToday = day.date === today;
 
+  // A week section is a day, so it is a drop target on the same terms as a month grid cell — FR-014
+  // says "from the calendar and backlog views", not "from the month view".
+  const { setNodeRef, isOver } = useDroppable({ id: day.date });
+
   return (
     <section
-      className="border-hairline/60 border-b py-3.5 last:border-b-0"
+      ref={setNodeRef}
+      className={cn(
+        "border-hairline/60 border-b py-3.5 last:border-b-0",
+        isOver && "bg-brand-sunk ring-brand rounded-sm ring-2 ring-inset",
+      )}
+      data-over={isOver ? "" : undefined}
       data-date={day.date}
       data-today={isToday ? "" : undefined}
       data-testid="day-section"
