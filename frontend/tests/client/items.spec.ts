@@ -10,6 +10,7 @@ import {
   pendingItemInserted,
   pendingItemReconciled,
   pendingItemRolledBack,
+  groupByScheduledDate,
   selectBacklog,
   type ItemsState,
 } from "@/lib/items";
@@ -229,5 +230,44 @@ test.describe("selectBacklog", () => {
     selectBacklog(items);
 
     expect(items.map((each) => each.id)).toEqual([2, 1]);
+  });
+});
+
+test.describe("groupByScheduledDate", () => {
+  test("indexes dated items by their day", () => {
+    const grouped = groupByScheduledDate([
+      item(3, { scheduled_date: "2026-03-17" }),
+      item(2, { scheduled_date: "2026-03-01" }),
+      item(1, { scheduled_date: "2026-03-17" }),
+    ]);
+
+    expect([...grouped.keys()].sort()).toEqual(["2026-03-01", "2026-03-17"]);
+    // Insertion order inside a day is the server's order — newest-created first — because the grid
+    // shows only the first two chips and a remainder count, so *which* two is a product decision.
+    expect(grouped.get("2026-03-17")!.map((each) => each.id)).toEqual([3, 1]);
+  });
+
+  test("and it is the exact complement of selectBacklog", () => {
+    const items = [
+      item(3, { scheduled_date: "2026-03-17" }),
+      item(2),
+      item(1, { scheduled_date: "2026-03-01" }),
+    ];
+
+    // US2 scenario 4 — "no item appears in both" — as a partition rather than as two filters that
+    // happen to agree. Every item is in exactly one side, and nothing is lost between them.
+    const dated = [...groupByScheduledDate(items).values()].flat().map((each) => each.id);
+    const undated = selectBacklog(items).map((each) => each.id);
+
+    expect([...dated, ...undated].sort()).toEqual([1, 2, 3]);
+    expect(dated.filter((id) => undated.includes(id))).toEqual([]);
+  });
+
+  test("a day nobody scheduled is simply absent", () => {
+    // The grid asks for 42 days and takes what it finds, so an empty map entry per empty day would be
+    // 42 allocations to say nothing. `undefined` is the answer, and `MonthGrid` shares one frozen
+    // empty array for it.
+    expect(groupByScheduledDate([item(1)]).get("2026-03-17")).toBeUndefined();
+    expect(groupByScheduledDate([]).size).toBe(0);
   });
 });

@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 
 import { BacklogDrawer } from "@/components/backlog/BacklogDrawer";
+import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
 import { today, type DateOnly } from "@/lib/dates";
 import { useContentItems } from "@/lib/items";
@@ -16,8 +17,8 @@ import { useContentItems } from "@/lib/items";
  * a **content region**; and a **bottom action band** holding the primary actions in thumb reach.
  *
  * What T033 built was the frame and the data load — deliberately not what goes inside it. The capture
- * sheet arrived at T034 and the backlog drawer at T035. Still absent, each with a place reserved
- * below and a task that fills it: the month grid (T042), the week list (T043), period navigation
+ * sheet arrived at T034, the backlog drawer at T035, and the month grid at T042. Still absent, each
+ * with a place reserved below and a task that fills it: the week list (T043), period navigation
  * (T044) and the platform filter row (T061). Building any of them here because the export draws them
  * would be letting a picture reorder the task board.
  *
@@ -81,14 +82,21 @@ export function CalendarShell() {
         ) : null}
 
         {/*
-         * The month grid (T042) and the week list (T043) render here. The backlog drawer is *not*
-         * in this region — it is anchored to the bottom of the surface, below.
+         * The month grid (T042). The week list (T043) becomes the alternative rendered here, and
+         * T044's toggle chooses between them. The backlog drawer is *not* in this region — it is
+         * anchored to the bottom of the surface, below.
+         *
+         * `period === null` until the browser's clock has been read, so there is nothing to draw yet
+         * — a grid built from a server-side "today" would be the wrong month for a moment, which is
+         * the whole reason the period is read after mount (research.md R-006 addendum).
          */}
-        <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
-          {status === "loading"
-            ? "Loading your items…"
-            : "The month grid arrives at T042. Undated ideas are in the backlog below."}
-        </p>
+        {period === null ? (
+          <p className="text-ink-mid px-4 py-6 text-sm" data-testid="calendar-placeholder">
+            {status === "loading" ? "Loading your items…" : ""}
+          </p>
+        ) : (
+          <MonthGrid period={period} items={items} />
+        )}
       </main>
 
       {/*

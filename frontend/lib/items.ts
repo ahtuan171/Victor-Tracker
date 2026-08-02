@@ -205,6 +205,42 @@ export function selectBacklog(items: readonly ContentItem[]): readonly ContentIt
   return items.filter((item) => item.scheduled_date === null);
 }
 
+/**
+ * Dated items, indexed by the day they fall on (T042, FR-012).
+ *
+ * The month grid's counterpart to `selectBacklog`, and together the two are a **partition**: every
+ * item is in exactly one of them, which is US2 scenario 4 ("no item appears in both") expressed as
+ * code rather than as two filters that happen to agree today.
+ *
+ * A `Map` keyed by `YYYY-MM-DD` rather than a scan per cell: the grid draws 42 cells and would
+ * otherwise walk the whole list 42 times. Insertion order within a day is the server's order —
+ * newest-created first — because `filter`/`push` preserve it and the endpoint's ordering is total
+ * (`created_at DESC, id DESC`).
+ *
+ * **This does not narrow to the visible month.** The grid asks for the days it draws, including the
+ * adjacent-month days in its first and last weeks, and takes what it finds. That is the shape the
+ * Phase 3 checkpoint's amendment to T042 requires: the calendar loads every item in one
+ * unparameterised read and narrows here, because a `date_from`/`date_to` read would return no undated
+ * rows and silently empty the backlog drawer, which reads from the same state.
+ */
+export function groupByScheduledDate(
+  items: readonly ContentItem[],
+): ReadonlyMap<string, readonly ContentItem[]> {
+  const byDay = new Map<string, ContentItem[]>();
+
+  for (const item of items) {
+    if (item.scheduled_date === null) continue;
+    const day = byDay.get(item.scheduled_date);
+    if (day === undefined) {
+      byDay.set(item.scheduled_date, [item]);
+    } else {
+      day.push(item);
+    }
+  }
+
+  return byDay;
+}
+
 // --- The hook -------------------------------------------------------------------------------
 
 export interface ContentItemsStore extends ItemsState {
