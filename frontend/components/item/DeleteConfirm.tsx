@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ApiError, type ContentItem } from "@/lib/api";
+import type { DateOnly } from "@/lib/dates";
 
 /**
  * The delete confirmation (T056, FR-004, FR-020, SC-007, spec Edge Cases).
@@ -49,11 +50,22 @@ import { ApiError, type ContentItem } from "@/lib/api";
  */
 export function DeleteConfirm({
   item,
+  today,
   onOpenChange,
   onDelete,
 }: {
   /** The item to delete, or null when the dialog is closed. */
   readonly item: ContentItem | null;
+  /**
+   * The creator's own calendar day, so the chip below can carry its overdue border.
+   *
+   * **Required, not defaulted**, and the Phase 5 `reviewer` pass is why. `ItemChip` defaults `today`
+   * to `null` and `isOverdue(item, null)` is false, so omitting it silently drops the overdue cue —
+   * on the one surface whose entire justification is "check it is the right one before destroying
+   * it", and for a dated item, which this dialog can certainly hold. Nothing failed; the border
+   * simply was not drawn.
+   */
+  readonly today: DateOnly | null;
   readonly onOpenChange: (open: boolean) => void;
   /** `deleteItem` from `useContentItems`. Rejects with an `ApiError` this dialog renders. */
   readonly onDelete: (item: ContentItem) => Promise<void>;
@@ -118,13 +130,14 @@ export function DeleteConfirm({
         </AlertDialogDescription>
 
         {/*
-         * The item, drawn as it is drawn everywhere else. `onOpen` is a no-op: inside a confirmation
+         * The item, drawn as it is drawn everywhere else — including its overdue border, which is
+         * why `today` is threaded in. `onOpen` is a no-op: inside a confirmation
          * this is the subject, not a control — opening the editing sheet from here would put two
          * modal surfaces on screen with the destructive one behind.
          */}
         {item === null ? null : (
           <div className="mb-4.5" data-testid="delete-confirm-item">
-            <ItemChip item={item} size="full" onOpen={noop} />
+            <ItemChip item={item} size="full" today={today} onOpen={noop} />
           </div>
         )}
 

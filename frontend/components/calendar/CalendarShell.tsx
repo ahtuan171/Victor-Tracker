@@ -306,6 +306,7 @@ export function CalendarShell() {
 
         <DeleteConfirm
           item={deletingItem}
+          today={today}
           onOpenChange={(open: boolean) => {
             if (!open) setDeletingItem(null);
           }}

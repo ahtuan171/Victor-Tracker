@@ -710,6 +710,40 @@ second step would not make an accidental tap less accidental.
 
 **Checkpoint**: the pipeline works end to end. Run quickstart V4, V5, V7, V8, and V9.
 
+**Done 2026-08-02. All three gates ran; three findings, all fixed in the checkpoint's own merge
+request.**
+
+**1. Hand-walk V4, V5, V7, V8, V9 - 21/21 checks passed.** At 375px, on a **production build**
+(`pnpm build && pnpm start`, with `API_BASE_URL` and `SESSION_COOKIE_SECURE=false`), against a live
+stack with **nothing stubbed**: browser to proxy to FastAPI to Postgres, signed in as the seeded
+creator. The whole of V4 works - a title-only capture given a platform, a date, and `idea` to `draft`
+to `posted`, with the URL never changing (SC-002) - and the drag half produced the same scheduled date
+as the tap half. V7's confirmation is focused on `KEEP ITEM` and `Escape` deletes nothing. V8's
+changes survived a reload *and* a fresh sign-in. **V9 placed five ideas onto five days in 4.9s**
+against SC-008's 60s budget. V5 is `test_transitions.py`, 19 passing.
+
+**2. `reviewer` agent over T046-T058: one LOW finding** (F2 below). It verified the four gates itself
+rather than taking them on trust, traced `check_invariant_1`'s two 409 paths, the
+`changesBetween`/`itemWithChanges` inverse, `itemRestored`'s insertion index, and `ItemSheet`'s
+adjust-state-during-render pattern, and confirmed no T061/T064/T065 work had been built early.
+
+**3. `/speckit-analyze`: 46 requirements, 76 tasks.** Every requirement Phase 5 touches is cited by at
+least one task. One HIGH finding (F1) and one MEDIUM (F3).
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| F1 | HIGH | `contracts/openapi.yaml`'s `PATCH` description said *"A drag and a tap produce the identical request with one field set (FR-014a, **FR-015a**)"* - citing FR-015a as authority for a claim the amended **FR-015a explicitly denies** (*"Status is not draggable"*). True for a date, false for a status. **The Phase 4 CRITICAL's pattern exactly**: the contract was the last artifact still asserting an overturned decision, and `specs/` outranks code | Paragraph split in two - two entry points for a date, one for a status - naming the post-review amendment and its reason (no drop target at 375px without the scroll FR-021 forbids; lanes are a second core capability under principle III). Grepped across `specs/` and both `AGENTS.md`: this was the only occurrence |
+| F2 | LOW | `DeleteConfirm.tsx` rendered its `ItemChip` **without `today`**. `ItemChip` defaults it to `null` and `isOverdue(item, null)` is false, so an overdue item lost its dashed border in the delete dialog - silently, with nothing failing. On the one surface whose stated justification is *"check it is the right one before destroying it"*, and for exactly the item most likely to be deleted | `today` threaded from `CalendarShell` and made a **required** prop, so a future surface cannot omit it the same way. A test asserts the computed `borderLeftStyle`/`borderTopStyle` pair, and was verified red before the fix |
+| F3 | MEDIUM | quickstart **V4 step 2 asked the creator to paste a published link** - but the link field is **T064 (US5, Phase 7)** and this checkpoint makes V4 a **Phase 5** gate, so the gate could not be completed at the phase that runs it. FR-019 was already absent from V4's own *Proves* list | Step reduced to what V4 actually proves, with the link pointed at V8 and the reason recorded inline |
+
+**One thing recorded rather than fixed, because the fix has a cost that is not this task's to pay.**
+The `MONTH` toggle is a control **no automated test can click**: Next's dev overlay covers it at 375px
+and `playwright.config.ts`'s `webServer` runs `next dev`, so this holds in CI and not only in a
+hand-walk. It went unnoticed until T057 because no test had ever clicked it - `WEEK` is clickable, so
+the toggle was only ever exercised in the direction that works. `pipeline.spec.ts` uses
+`dispatchEvent("click")` with the reason at the call site. **The real fix is running the suite against
+`pnpm start`**, which rebuilds on every run; T069's overlay audit is where that belongs.
+
 **V8 added 2026-07-31** by the Phase 2 `/speckit-analyze` pass. SC-009 and FR-023 — "every change
 made in the previous session is still present after a reload" — were validated by **no checkpoint at
 all**, only by T072 at the very end of Polish. This is the phase that introduces editing every field,

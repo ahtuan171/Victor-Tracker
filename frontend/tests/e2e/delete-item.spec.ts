@@ -169,6 +169,31 @@ test("the dialog shows the item itself, not just its title (FR-018)", async ({ p
   await expect(page.getByTestId("delete-confirm-message")).toContainText("no trash and no undo");
 });
 
+test("an overdue item still reads as overdue in the confirmation", async ({ page, baseURL }) => {
+  // The Phase 5 `reviewer` finding. `ItemChip` defaults `today` to null and `isOverdue(item, null)`
+  // is false, so a dialog that forgot to pass it dropped the overdue border silently — nothing
+  // failed, the border simply was not drawn. On the one surface whose whole justification is "check
+  // it is the right one before destroying it", and for exactly the item a creator is most likely to
+  // be deleting: one whose day has passed.
+  await open(page, baseURL, { items: [anItem({ scheduled_date: "2026-07-28" })] });
+
+  await page.locator('[data-date="2026-07-28"]').getByTestId("item-chip").first().click();
+  await expect(page.getByTestId("item-save")).toBeVisible();
+  await page.getByTestId("item-delete").click();
+  await expect(page.getByTestId("delete-confirm")).toBeVisible();
+
+  const chip = page.getByTestId("delete-confirm-item").getByTestId("item-chip");
+  await expect(chip).toHaveAttribute("data-overdue", "");
+
+  // The *computed* style, and the top edge specifically: dashing all four sides is how the drag
+  // ghost is drawn, so asserting "dashed somewhere" would pass on the wrong treatment.
+  const border = await chip.evaluate((node) => ({
+    left: getComputedStyle(node).borderLeftStyle,
+    top: getComputedStyle(node).borderTopStyle,
+  }));
+  expect(border).toEqual({ left: "dashed", top: "solid" });
+});
+
 test("the item leaves the surface immediately, without waiting for the server", async ({
   page,
   baseURL,
