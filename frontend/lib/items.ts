@@ -52,6 +52,7 @@ import {
   type ContentItemCreate,
   type ContentItemUpdate,
   type ListContentItemsParams,
+  type Platform,
 } from "./api";
 import { isBeforeDateOnly, nowInstant, type DateOnly } from "./dates";
 
@@ -369,6 +370,46 @@ function sortsBefore(a: ContentItem, b: ContentItem): boolean {
  */
 export function selectBacklog(items: readonly ContentItem[]): readonly ContentItem[] {
   return items.filter((item) => item.scheduled_date === null);
+}
+
+/**
+ * The platform filter: every item, or only the ones targeting one platform (T061, FR-016, US4).
+ *
+ * `null` means "all" and returns the array unchanged — the same identity, not a copy, so a filter
+ * that is off costs nothing on every render of every surface.
+ *
+ * ## Unplatformed items are excluded, and that is a stated requirement
+ *
+ * US4 scenario 4: with a filter active, items with no platform are hidden, "and the creator can still
+ * reach them by clearing the filter". So this is not a near-miss of `item.platform === platform` — it
+ * *is* that comparison, and `null === "tiktok"` is false. The scenario matters because the opposite
+ * reading is tempting: an unplatformed idea is not "not TikTok", it is "not decided yet", and a
+ * kinder filter might keep it visible. The spec says no, and the endpoint's `platform` parameter
+ * (T060) answers the same way, so the two narrowings agree by construction rather than by accident.
+ *
+ * The way back is the filter control itself, which is why T062's empty state names the active filter
+ * and offers to clear it: an unplatformed idea behind a filter with no visible way out is an idea the
+ * creator has lost.
+ *
+ * ## This is a narrowing of loaded state, never a request
+ *
+ * The third selector to say so, and the reason is the same one that keeps the calendar's read
+ * unparameterised (R-007, and the Phase 3 amendment recorded in `tasks.md`): every parameter on
+ * `GET /content-items` bounds what the *server* returns, and the drawer reads the same state the grid
+ * does. Sending `platform` would narrow both to the server's answer and cost a round trip per toggle,
+ * which is what SC-005's one-second budget rejects — on Render's free tier the first request of the
+ * day can take tens of seconds. The endpoint's parameter exists for a caller that wants only one
+ * platform; this surface is not one.
+ *
+ * Ordering needs no sort for the same reason `selectBacklog` needs none: the array is already in the
+ * server's total order and `filter` preserves it.
+ */
+export function selectByPlatform(
+  items: readonly ContentItem[],
+  platform: Platform | null,
+): readonly ContentItem[] {
+  if (platform === null) return items;
+  return items.filter((item) => item.platform === platform);
 }
 
 /**
