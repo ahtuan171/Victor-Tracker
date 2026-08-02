@@ -1198,3 +1198,70 @@ surface produces the empty-array combinations: it is a fact about the frontend a
 not an accident of it being unbuilt. `contracts/openapi.yaml` declares both parameters, so they ship
 tested with a caller that does not yet need them — an endpoint ignoring its own contract is the drift
 this project exists to avoid.
+
+## T038–T042 — the cues, the chip, and the grid
+
+Phase 4's frontend half, five merge requests in a straight line: !15, !16, !18, !19, !20. The chain is
+linear because each task is the previous one's only consumer — the mapping has no shape until the cues
+render it, the cues have no home until the chip composes them, and the chip has no surface until the
+drawer and the grid draw it. The backend half (T036–T037) ran alongside it in a worktree and merged as
+!17; the two touched disjoint trees and never met.
+
+### Two sizes became three, because the export drew three
+
+T038 and T040 were written for a `micro` chip and a `full` one. Opening the export's `1c` panel to
+build T041's peek strip showed a third: 12px cue, bounded title, 18px monogram, one clipped row. The
+strip is the backlog view that is on screen whenever the calendar is, so FR-017's "in both calendar
+and backlog views" applies to it — it is not a summary of the drawer, it *is* the drawer, collapsed.
+`CueSize` in `lib/status.ts` now names all three, which is what stops the chip and the two cues from
+each having their own opinion about how many there are.
+
+### The half-filled disc
+
+`draft` is a circle filled to its vertical midline. Three ways to draw it: an absolutely-positioned
+inner element (two nodes per chip, on a surface that renders up to eight), an SVG path (a path where a
+`border-radius` does), or a hard-stopped linear gradient (one node, one declaration). The gradient
+also greys out correctly, which is the only property SC-004 is actually about. It reads
+`var(--color-status-draft)` rather than a hex, because `app/globals.css` is the only file in this
+project allowed to contain a colour and these tokens are shared by all four modules.
+
+### T039 and T040 shipped with no tests, on purpose
+
+There is no renderer in this project — `tech-defaults.md` rules out Jest and RTL at v0.1 — so a
+component cannot be exercised in isolation, and a component's first test is the first surface that
+renders it. T041 is that surface, and its four DOM assertions cover both. The alternative was adding
+`@playwright/experimental-ct-react` for two components, which is a testing toolchain arriving for the
+smallest thing in the phase. The seam was stated in both MRs rather than left for a reviewer to find,
+in the same shape as T027's guard tests waiting for T033.
+
+### The grid, and the test that guards the amendment
+
+T042 built `MonthGrid` and `DayCell`: a seven-column CSS Grid over a **fixed 42-day span** from the
+Monday on or before the 1st. Fixed, not the month's own length, because a grid that is five rows in
+one month and six in the next moves the backlog drawer and the action band up and down as T044
+navigates — on a phone that is the difference between a thumb target that stays put and one that does
+not. The cost is a row of adjacent-month days at each end, which are drawn dimmer and hold real items:
+an item on the 27th of last month is genuinely in the week on screen.
+
+The Phase 3 checkpoint's amendment — no `date_from`/`date_to` on the calendar's read — is now a
+**test** rather than a paragraph: `month-grid.spec.ts` asserts the request URL carries neither
+parameter. That form was chosen deliberately. A stub answers a ranged request with its entire fixture,
+so an assertion on the rendered grid would have stayed green through exactly the regression the
+amendment exists to prevent, and the empty backlog would have shown up in a browser weeks later.
+
+The day-cell overflow expands **in place**. The spec's edge case asks for the remainder to be
+reachable; a day sheet would be a second surface competing with T052's item sheet for the same tap,
+and a route change would break SC-002. Two chips before the count, because a third takes six rows past
+a 667px screen.
+
+### What the screenshots showed
+
+375px, port 3400, against a live stack with real fixtures — including a day carrying four items so the
+overflow was on screen. The grid fits without scrolling: header, six rows, peek strip, action band.
+The greyscale pass is the one that matters — outline, half, solid-with-check stay separable with every
+colour removed, which is V3's assertion made at the surface it is about rather than on a design panel.
+
+One environment note, twice in one session: **Docker Desktop's daemon does not survive whatever
+stopped it**, and the symptom mid-task is a screenshot script timing out on a login page that cannot
+reach FastAPI. Starting Docker Desktop and re-running `docker compose up -d db backend` is the fix; it
+costs about ninety seconds and is the first thing to check when a real-stack script hangs.

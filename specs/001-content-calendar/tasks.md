@@ -401,11 +401,11 @@ readable without opening it — in the grid *and* in the backlog drawer.
 ### Implementation for User Story 2
 
 - [x] T037 [US2] Add `date_from` and `date_to` filtering to `GET /content-items` in `backend/app/api/content_items.py` (FR-013)
-- [ ] T038 [P] [US2] Implement the status and platform cue mapping in `frontend/lib/status.ts` per research.md R-005 — outline, half-filled, and solid-with-check for the three statuses, and T/I/Y monogram badges for platforms, against placeholder tokens pending the stage-2 design export
-- [ ] T039 [US2] Build the cue components in `frontend/components/item/StatusCue.tsx` and `frontend/components/item/PlatformCue.tsx`, consuming `lib/status.ts` (FR-017, FR-018, SC-004)
-- [ ] T040 [US2] Build the item chip in `frontend/components/item/ItemChip.tsx` combining title, status cue, and platform cue at a size that fits a 375px day cell
-- [ ] T041 [US2] Use `ItemChip` in the backlog drawer as well as the grid, so status and platform are legible in both — FR-017 covers the backlog explicitly, and a `posted` item with no date legitimately lives there
-- [ ] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, **spanning** the full six weeks the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004). **Amended 2026-08-01 — this task no longer "queries" that span**; see the note below
+- [x] T038 [P] [US2] Implement the status and platform cue mapping in `frontend/lib/status.ts` per research.md R-005 — outline, half-filled, and solid-with-check for the three statuses, and T/I/Y monogram badges for platforms, against placeholder tokens pending the stage-2 design export
+- [x] T039 [US2] Build the cue components in `frontend/components/item/StatusCue.tsx` and `frontend/components/item/PlatformCue.tsx`, consuming `lib/status.ts` (FR-017, FR-018, SC-004)
+- [x] T040 [US2] Build the item chip in `frontend/components/item/ItemChip.tsx` combining title, status cue, and platform cue at a size that fits a 375px day cell
+- [x] T041 [US2] Use `ItemChip` in the backlog drawer as well as the grid, so status and platform are legible in both — FR-017 covers the backlog explicitly, and a `posted` item with no date legitimately lives there
+- [x] T042 [US2] Build the month grid in `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx` as a seven-column CSS Grid from `date-fns` primitives, **spanning** the full six weeks the grid displays including adjacent-month days, with overflow shown as a remainder count that stays reachable (FR-013, FR-021, spec Edge Cases, research.md R-004). **Amended 2026-08-01 — this task no longer "queries" that span**; see the note below
 - [ ] T043 [US2] Build the week view in `frontend/components/calendar/WeekList.tsx` as a vertical list of seven day sections — not seven columns, which cannot hold readable chips at 375px (FR-021, research.md R-004)
 - [ ] T044 [US2] Build period navigation in `frontend/components/calendar/PeriodNav.tsx` with a month/week toggle and adjacent-period controls in thumb reach (FR-013, FR-022)
 - [ ] T045 [US2] Add the derived overdue treatment to `ItemChip`: a left border when `scheduled_date` has passed and status is not `posted`, computed client-side from `dates.today()` and never during server rendering (spec Edge Cases, research.md R-006 addendum)
@@ -463,6 +463,40 @@ Three things the task lines do not imply:
   undated item exists. Related: `date` accepts `2026-09-01T00:00:00Z` and refuses
   `2026-09-01T12:00:00Z`, a safe pair characterised rather than tightened away, and the pair of tests
   that would notice if either bound were ever retyped as a `datetime` (FR-012a).
+
+**T038–T042 result (2026-08-01/02)**: done, one merge request each — **!15, !16, !18, !19, !20** —
+each behind a green pipeline. Frontend suite **143 → 167**, nothing skipped.
+
+The chain is deliberately linear because each task is the previous one's only consumer: the mapping
+(T038) has no shape until the cues render it, the cues have no home until the chip composes them, and
+the chip has no surface until the drawer and the grid draw it. Two consequences worth recording:
+
+- **T039 and T040 shipped with no test file of their own, and that is not an omission.** There is no
+  renderer in this project — `tech-defaults.md` rules out Jest and RTL at v0.1 — so a component's
+  first test is the first surface that renders it. **T041 is that surface**, and its four DOM tests
+  are what exercise both. The encoding underneath them was already covered by T038's nine.
+- **The export draws three chip sizes, not two.** `micro` for the 50px day cell, `peek` for the
+  drawer's collapsed strip, `full` for the expanded drawer and T043's week list. `CueSize` in
+  `lib/status.ts` names all three so the chip and both cues cannot disagree about how many exist.
+
+**T042's two decisions the task text does not imply:**
+
+- **The overflow expands the cell in place.** The spec's edge case requires the remainder to be
+  *reachable*, and a day sheet would be a new surface competing with T052's item sheet for the same
+  gesture. Expanding downward keeps FR-021 true (the grid grows inside its own scroll container) and
+  SC-002 true (no navigation). Two chips before the count, because a third pushes six rows past a
+  667px screen.
+- **The span is a fixed 42 days**, not the month's own length. A grid that is five rows in one month
+  and six in the next moves the drawer and the action band as the creator navigates at T044 — on a
+  phone that is a thumb target that will not stay still.
+
+**The amendment above is now enforced by a test**, not only by prose: `month-grid.spec.ts` asserts
+that the calendar's request URL contains no `date_from`/`date_to`. A stub answers a ranged request
+with its whole fixture, so asserting the rendered result could never have caught the regression.
+
+Verified at 375px against the real stack on port 3400 (never 3100), in colour and in greyscale: the
+three statuses stay separable with every colour removed, and the body does not scroll horizontally
+with a full month of dated items.
 
 **Checkpoint**: US1 and US2 both work independently. Run quickstart V3 and V6.
 

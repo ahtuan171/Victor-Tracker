@@ -10,8 +10,8 @@ import { expect, test, type Page } from "@playwright/test";
  * reach. The endpoint itself is covered by `backend/tests/test_content_items.py`, and the seam
  * between them is what quickstart V2 walks by hand.
  *
- * The grid is **not** tested here because it does not exist — T042 builds it and brings its own
- * tests. This file covers the frame that will hold it.
+ * The grid has its own file (`month-grid.spec.ts`) as of T042. This file covers the frame that holds
+ * it: the guard, the single load, the period read from the browser's clock, and thumb reach.
  */
 
 /** Matches `sessionCookieName()`'s default and `.env.example`. */
