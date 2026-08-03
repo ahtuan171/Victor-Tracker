@@ -1076,9 +1076,74 @@ red and the rest stayed green: dropping `noreferrer` reddened exactly the three 
 removing the scheme gate reddened exactly the `javascript:` test (and, first, **failed the build** on
 the now-unused import); adding a `status === "posted"` gate reddened the retained-link test and the
 two sheet-draft tests, which is correct — their fixtures are not `posted`.
-- [ ] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
+- [x] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
+
+**T066 result (2026-08-03)**: done, one merge request, frontend suite **373 → 381 passing**, nothing
+skipped; `pnpm typecheck` and `pnpm lint` silent. Screenshotted at 375px on the production build.
+
+**Built exactly to the four steps recorded above, and nothing was re-litigated.** The check runs in
+`ItemSheet.save()` before the request is built; the link field is marked (`aria-invalid`, a border)
+and takes focus through `focusFix`; **the draft is not touched**; and one save then carries everything
+once the link is fixed or cleared. Writing the resolution down before the code turned out to be the
+whole value of it — the symptom (a 422 that eats a status change) invites "send the link separately",
+which is the option T052 exists to forbid.
+
+**`focusFix` gained a third target.** It selected `button`, which is right for the two invariant codes
+— `platform_required` and `platform_locked` are resolved in the status and platform columns — and
+wrong for a link, which is resolved in a text field. It now selects `input, button`, first in document
+order. The link row's `<a>` (T065) is deliberately not matched: focusing the *open* control would be
+the wrong answer to "fix this link".
+
+**`linkRefused` is state set at the save, not derived from the draft.** Deriving it would mark the
+field on the first keystroke of a URL the creator is halfway through typing, which is the validating
+input this task is explicitly not building. `edit()` clears it, on the same rule T053 established: a
+refusal describes a save attempt that no longer matches the draft.
+
+**Green was not taken as evidence — three breaks, each reddening the right tests:**
+
+| Break | Result |
+|---|---|
+| `isValidPublishedUrl` accepts anything (the gate never refuses) | **5 red, 34 green.** The three that stayed green are the ones asserting the *non-refusal* path, which is correct |
+| The predicate made **stricter** than the contract (`^https?://.+`) | **1 red, 38 green** — exactly `is not stricter than the contract`. This is the direction no backend test can see, and the only test that can see it is this one |
+| `setDraft(item)` added to the refusal path (discard the edit) | **3 red, 36 green** — the survival test plus the two that save afterwards and expect the earlier edits still in the diff |
 
 **Checkpoint**: every user story is complete and independently functional.
+
+### Phase 7 checkpoint — done 2026-08-03, all three gates run
+
+**1. Hand-walk: quickstart V8 at 375px, production build, live stack, nothing stubbed — 21/21.**
+Browser → Next proxy → FastAPI → Postgres, with the seeded creator and no route interception. It
+proved what no automated run here can, because **every frontend test stubs the proxy**: the malformed
+link sent **0** `PATCH`es and kept the status, the platform *and* the date; the corrected link then
+sent exactly **1** carrying all four changes; the row was read back out of Postgres directly to
+confirm it. T065's control was checked for `href`, `target`, an exact `rel`, and the 44px floor
+(measured 44×44), and the month grid was confirmed to carry **no** control — the stated exclusion.
+Two failures during the walk were both the *script's*, not the product's, and are worth recording
+because each looked like a defect for a minute: an item dated 12 August is genuinely not in the 3–9
+August week, and an unscoped `item-published-link` locator matches the week-list row behind the sheet
+as well as the sheet's own.
+
+**2. `reviewer` over T064–T066 — one MEDIUM, confirmed and fixed.** Spec drift: none. It checked both
+of Phase 7's deliberate departures against every artifact and found the amendments had actually
+reached all of them.
+
+**3. `/speckit-analyze` — 46 requirements, 76 tasks, 100% citation coverage, one HIGH and one MEDIUM.**
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| C1 | HIGH | **FR-002a's "explicit sign-out" has no surface and no implementation task.** Backend route, client `logout()` and proxy cookie-clearing all exist; nothing calls them. FR-002a is cited only by **T018, a backend test**, so citation-based coverage read 100% over a requirement nothing implements. Two quickstart scenarios (V1.4, V8.1) instruct the creator to sign out | **T077** added to Phase 8. Neither quickstart step amended — both become walkable once it lands |
+| R2 | MEDIUM | **`isValidPublishedUrl` was stricter than the backend**, because it mirrored `^https?://` and 2048 but not `strip_whitespace=True` — and Pydantic strips *before* applying the pattern. So ` https://tiktok.com/…` was refused in the browser and **accepted** by the API. Verified against the running backend, and `<input type="url">` does not sanitise it away (Chromium keeps the whitespace in `value`, measured). Exactly the client-stricter-than-contract drift the function exists to prevent, and the realistic input — a link copied on a phone | Trim before both checks. Three tests added at both layers, verified by breaking: removing the trim reddens exactly those three. Root cause recorded in `frontend/AGENTS.md` |
+| A3 | MEDIUM | `contracts/openapi.yaml` gave `published_url` `format: uri` beside `pattern: "^https?://"` in all three schemas with **no description saying which is authoritative**, while neighbouring fields carried prose. T063 established by test that `format` is not enforced and a bare scheme is accepted; T066 now has a *client* depending on that reading, and the contract recorded none of it | Description added to all three schemas naming `pattern`/`maxLength` as enforced, `format` as annotation-only, and the whitespace stripping — with "a client MUST NOT be stricter than this" stated outright |
+
+**A3 is the contract's fifth consecutive checkpoint finding, and the first that is an *omission*.**
+Phase 4 CRITICAL, Phase 5 HIGH, Phase 6 MEDIUM and Phase 7's A3 are all `contracts/openapi.yaml`.
+The previous three were stale *claims*, which "grep the claim" finds. **A silence cannot be grepped**
+— what was missing was the sentence saying which of two co-located constraints is enforced, and the
+next agent reading `format: uri` would have tightened the client "for safety" and been *right* to,
+because `specs/` outranks code. R2 is what that mistake looks like when it has already happened.
+
+**R2 and A3 are the same defect at two altitudes**, which is why both were fixed in one merge request:
+the contract did not say what it enforced, and the client guessed a subset of it.
 
 ---
 
@@ -1096,6 +1161,30 @@ two sheet-draft tests, which is correct — their fixtures are not `posted`.
 - [ ] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then tag v0.1 and write `CHANGELOG.md` (workflow.md stages 6 and 7)
 - [ ] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV)
 - [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
+
+- [ ] T077 Add a sign-out control to `frontend/components/calendar/CalendarShell.tsx`'s action band, calling the `logout()` that already exists in `lib/api.ts`, and navigating to `/login` with `window.location.replace` (FR-002a)
+
+**Added at the Phase 7 checkpoint (2026-08-03) — finding C1.** FR-002a says a session "MUST end only
+on expiry or **an explicit sign-out**", and **nothing in the product can sign out.** The backend route
+has existed since T014, `lib/api.ts` has exported `logout()` since T023, and the proxy clears the
+cookie on the resulting 401 — but no surface calls any of it, so `logout()` joins `reload()` and
+`getContentItem()` as an exported client function with no caller.
+
+**Why no gate caught it for 76 tasks.** FR-002a *is* cited by a task, so a citation-based coverage
+check reports 100% — the citation is **T018, a backend test**. That is the exact failure mode
+`.claude/memory.md` records about coverage counting ("it checks whether a requirement is *cited* by a
+task, not whether the tasks compose into something that works"), and this is the second time it has
+been the thing that hid a gap.
+
+**It also makes two quickstart scenarios unwalkable as written**: V1 step 4 ("sign out while holding
+an already-expired token") and V8 step 1 ("sign out and back in"). V8 is a gate at both the Phase 5
+and Phase 7 checkpoints; the Phase 7 hand-walk substituted clearing the session cookie and said so.
+Both steps become performable once this task lands, so neither is amended.
+
+Scoped as a surface and nothing beneath it — the client function, the proxy behaviour and the backend
+route are all built and tested. `window.location.replace` rather than a router push, for the reason in
+`frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
+re-executed on soft navigations.
 
 ---
 

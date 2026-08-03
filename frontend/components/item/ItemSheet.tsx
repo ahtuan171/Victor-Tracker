@@ -19,6 +19,7 @@ import {
   changesBetween,
   hasChanges,
   isOverdue,
+  isValidPublishedUrl,
   PUBLISHED_URL_MAX_LENGTH,
 } from "@/lib/items";
 import { PLATFORM_CUES, STATUS_CUES } from "@/lib/status";
@@ -67,9 +68,11 @@ import { cn } from "@/lib/utils";
  * Never required: the prompt is a hint, nothing blocks a save, and `posted` with no link is a valid
  * item on both write paths (asserted in `backend/tests/test_content_items.py` at T063).
  *
- * **Validating the link is T066, not here**, and the shape it takes is recorded in `tasks.md` under
- * Phase 7: the contract's own `^https?://` and 2048 characters, checked before the request is built,
- * so the 422 that would discard an accompanying status change is never produced.
+ * **The link is validated here as of T066** — in `save()`, against the contract's own `^https?://`
+ * and 2048 characters, before the request is built, so the 422 that would discard an accompanying
+ * status change is never produced. The reasoning is at that call site and in `tasks.md` under Phase 7.
+ * (This paragraph said "validating the link is T066, **not here**" while T064 was the newest task;
+ * it is the same sentence, now describing the opposite file.)
  *
  * ## What this deliberately does not carry yet
  *
@@ -130,9 +133,19 @@ export function ItemSheet({
   /** Which invariant refused the last save, if it was one. Null for every other kind of failure. */
   const [errorCode, setErrorCode] = useState<InvariantCode | null>(null);
   const [saving, setSaving] = useState(false);
+  /**
+   * Whether the *last save attempt* was refused by the client-side link check (T066).
+   *
+   * State rather than a value derived from the draft, and that is the whole difference between this
+   * and a validating input: deriving it would mark the field on the first keystroke of a URL the
+   * creator is still halfway through typing. The check belongs at the save, which is the only moment
+   * the value is claimed to be finished.
+   */
+  const [linkRefused, setLinkRefused] = useState(false);
 
   const statusGroup = useRef<HTMLDivElement>(null);
   const platformGroup = useRef<HTMLDivElement>(null);
+  const linkField = useRef<HTMLDivElement>(null);
 
   /**
    * Reset the draft when the sheet opens on an item — React's documented "adjusting state when a prop
@@ -171,6 +184,7 @@ export function ItemSheet({
     // would have the sheet arguing with an edit the creator has already made.
     setError(null);
     setErrorCode(null);
+    setLinkRefused(false);
   }
 
   async function save(): Promise<void> {
@@ -180,6 +194,40 @@ export function ItemSheet({
     // (`minProperties: 1`) on purpose, so a no-op save must not become one.
     if (!dirty) {
       onOpenChange(false);
+      return;
+    }
+
+    /*
+     * T066 — the published link is checked **here, before the request is built**, and the resolution
+     * was decided in `tasks.md` before this code existed rather than discovered from the symptom.
+     *
+     * The conflict it settles: T052 fixed that one save is **one** `PATCH` carrying a diff, because
+     * SC-012 needs a title-only idea to gain a platform *and* advance in a single request. A
+     * malformed `published_url` makes the backend refuse the **whole body** with a 422 — so the
+     * accompanying status change dies with it, which is exactly what the spec's edge case forbids.
+     * One request cannot satisfy both, and the cheapest way to honour it is the same one T053 already
+     * applies to the 409: **do not produce the refusal.** Splitting the link into its own request was
+     * rejected because it destroys the one-save-one-request property T052 exists to establish.
+     *
+     * **The draft is not touched.** The status change and every other pending edit stay exactly as
+     * the creator made them; one save then carries all of it once the link is fixed or cleared. That
+     * is the whole of the requirement — "the item's status change is not lost as a result".
+     *
+     * The check is `isValidPublishedUrl`, which is the **contract's** `^https?://` and 2048 and not
+     * one character stricter. T063 pinned a bare `https://` as accepted on purpose; a client stricter
+     * than the contract refuses values the API stores happily, and no backend test can see it.
+     * Tightening this means amending `contracts/openapi.yaml` first.
+     */
+    if (current.published_url !== null && !isValidPublishedUrl(current.published_url)) {
+      setError(LINK_REFUSAL);
+      // Not an invariant code: no server was asked. `errorCode` stays null so T053's 409 handling
+      // does not claim a refusal it had no part in.
+      setErrorCode(null);
+      setLinkRefused(true);
+      // The same reach-the-fix path T053 built for the 409, pointed at the link. The sheet's body
+      // scrolls, so the field is routinely off screen when the save button is under the thumb —
+      // adjacency is not reachability.
+      focusFix(linkField);
       return;
     }
 
@@ -441,7 +489,7 @@ export function ItemSheet({
            * 500 rather than a 422 (the reason `PublishedUrl` exists in the backend since T030).
            */}
           <Field label="Published link" htmlFor={linkId}>
-            <div className="flex gap-2">
+            <div className="flex gap-2" ref={linkField}>
               <input
                 id={linkId}
                 type="url"
@@ -455,7 +503,16 @@ export function ItemSheet({
                   edit({ published_url: event.target.value === "" ? null : event.target.value })
                 }
                 placeholder="Add when posted"
-                className="border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 min-w-0 flex-1 rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none"
+                /*
+                 * Marked only after a save was refused (T066) — never while typing. `aria-invalid` is
+                 * the half that is announced; the border is the half that is seen, and neither is
+                 * colour alone at the message level because the sentence below says the same thing.
+                 */
+                aria-invalid={linkRefused || undefined}
+                className={cn(
+                  "border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 min-w-0 flex-1 rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none",
+                  linkRefused && "border-brand-hi",
+                )}
                 data-testid="item-link-input"
               />
 
@@ -614,8 +671,26 @@ function GroupLabel({
  * platform will do and the first is where a thumb already is.
  */
 function focusFix(group: React.RefObject<HTMLDivElement | null> | null): void {
-  group?.current?.querySelector("button")?.focus();
+  // `input, button` rather than `button` since T066: the two invariant codes are resolved in the
+  // status and platform columns, which hold buttons, and a refused link is resolved in a text field.
+  // First match in document order, which is the control in every case — the link row's `<a>` is not
+  // matched at all, and would be the wrong thing to focus if it were.
+  group?.current?.querySelector<HTMLElement>("input, button")?.focus();
 }
+
+/**
+ * What the creator is told when the link is refused before the request is built (T066).
+ *
+ * It names the rule and then says the thing the spec's edge case is actually about: **nothing else
+ * was lost.** A creator who has just advanced an item to `posted` and pasted a bad link needs to know
+ * the status change is still there, or they will redo it.
+ *
+ * The rule is stated as the contract states it, both halves, so the sentence cannot drift into
+ * describing a stricter check than the one that ran.
+ */
+const LINK_REFUSAL =
+  "A published link must start with http:// or https:// and be at most 2048 characters. " +
+  "Your other changes are still here — fix or clear the link, then save.";
 
 /**
  * One option in the status or platform column.
