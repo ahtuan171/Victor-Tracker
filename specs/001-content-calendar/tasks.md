@@ -1152,7 +1152,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 **Purpose**: what constitution principle V says may *not* be deferred, plus shipping.
 
 - [x] T067 [P] Add visible focus states to every interactive element in `frontend/components/` — structural under constitution principle V, not decoration
-- [ ] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases)
+- [x] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases) — **the calendar half lands in `components/calendar/FirstRun.tsx`, not in the page; see below**
 - [ ] T069 Audit the three routes and three overlay surfaces under `frontend/app/` at 375px for horizontal body scroll and fix any that scroll (FR-021, SC-003)
 - [ ] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases)
 - [ ] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001
@@ -1185,6 +1185,53 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T068 note (2026-08-03): three empty states, and half of this one already existed
+
+**T068 result (2026-08-03)**: done, one merge request, frontend suite **401 → 410 passing**, nothing
+skipped.
+
+**The file the task line names is the wrong file, and it is a wording slip rather than a decision.**
+`app/(app)/calendar/page.tsx` is a server component that checks the session cookie and renders
+`CalendarShell`; the content region it would have to write into is a client component, because
+R-007 puts every item read there. So the panel is `components/calendar/FirstRun.tsx`, wired into
+`CalendarShell`'s content region. Nothing about the requirement changes — the task line is amended
+above rather than silently satisfied elsewhere.
+
+**The backlog half was already standing, built at T035 from the same export panel.** `1k` is where
+the drawer's *"Empty. Everything you capture starts here — tap + Capture"* came from, and T062 later
+taught it to tell that state apart from "the filter is hiding your backlog". So this task added the
+calendar half and **pinned** the drawer half with assertions of its own — a requirement covered only
+by another task's tests is a requirement nothing pins the day that task's subject changes.
+
+**The condition is the account, and there are now three empty states that must not overlap.**
+
+| State | Condition | Surface |
+|---|---|---|
+| Nothing captured | `status === "ready" && items.length === 0` | `FirstRun`, **plus** the grid |
+| The filter hid everything | filter on, `visible.length === 0`, `items.length > 0` | `FilteredEmpty`, **instead of** the grid |
+| This period is empty | items exist, none in view | nothing — the period arrows are the answer |
+
+`status === "ready"` is half the first condition rather than a nicety: `items` is empty while the
+first read is in flight too, so `items.length === 0` alone tells every creator they have captured
+nothing for as long as their calendar takes to load — tens of seconds on Render's free tier.
+Verified by removing the guard, which turns exactly one test red.
+
+**This panel accompanies the grid where `FilteredEmpty` replaces it**, which is what the export
+draws (`1i` puts a dashed region where the grid would be; `1k` keeps the six-week grid and centres
+the message over it). Two independent reasons agree. The state asks the creator to capture an idea
+and then **drag it onto a day**, and a sentence about days with no days on screen explains nothing.
+And `month-grid.spec.ts` asserts the 42-cell span and `week-list.spec.ts` the seven sections
+**against an empty list**, because that is the cleanest fixture for a question about structure — a
+first-run state that removed the grid would force a decoy item into every one of those tests.
+
+**The one departure from the export, and it was measured.** `1k` points at capture by widening the
+band's button to `+ CAPTURE FIRST IDEA`. Swapping the label in the live band at 375px: `+ CAPTURE`
+is **97px, ending at x=359**; the longer label is **168px, ending at x=411 — 36px past the right
+edge** — with `scrollWidth > clientWidth` staying **`false`** the whole time, because the band clips
+rather than scrolls. That is T077's finding reproduced on a second control, and it is why
+`first-run.spec.ts` measures the band against the viewport instead of trusting the overflow check.
+The pointer moves into the copy instead, naming `+ Capture` by the label the creator can see.
 
 ### T067 note (2026-08-03): what "visible" turned out to require
 
