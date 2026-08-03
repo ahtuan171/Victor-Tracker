@@ -757,6 +757,38 @@ test.describe("isValidPublishedUrl", () => {
     expect(isValidPublishedUrl("javascript:https://ok.example.com")).toBe(false);
   });
 
+  test("surrounding whitespace is trimmed first, because the backend trims first", () => {
+    /*
+     * The Phase 7 `reviewer` finding. `PublishedUrl` is
+     * `StringConstraints(..., strip_whitespace=True)` and Pydantic strips *before* applying the
+     * pattern, so the API accepts these and stores them stripped — verified against the running
+     * backend. Without the trim the `^` anchor made a leading space a refusal here and an accepted
+     * value there: the client stricter than the contract, which is the one direction no backend test
+     * can see. It is also the realistic input, since a link copied on a phone routinely arrives with
+     * stray whitespace.
+     */
+    expect(isValidPublishedUrl(" https://www.tiktok.com/@c/video/1")).toBe(true);
+    expect(isValidPublishedUrl("https://www.tiktok.com/@c/video/1 ")).toBe(true);
+    expect(isValidPublishedUrl("  https://www.tiktok.com/@c/video/1\n")).toBe(true);
+  });
+
+  test("trimming does not rescue a value that is not a link", () => {
+    // The trim must not become a second way to be lenient — it mirrors one backend behaviour and
+    // nothing more.
+    expect(isValidPublishedUrl("   ")).toBe(false);
+    expect(isValidPublishedUrl(" javascript:alert(1) ")).toBe(false);
+    expect(isValidPublishedUrl(" not-a-url ")).toBe(false);
+  });
+
+  test("the length bound is measured after the trim, as the backend measures it", () => {
+    const prefix = "https://example.com/";
+    const at = prefix + "a".repeat(2048 - prefix.length);
+
+    // 2048 characters of link plus whitespace is still 2048 characters of link to the API.
+    expect(isValidPublishedUrl(`  ${at}  `)).toBe(true);
+    expect(isValidPublishedUrl(` ${at}a `)).toBe(false);
+  });
+
   test("bounds the length at the contract's 2048, inclusive", () => {
     const prefix = "https://example.com/";
     const at = prefix + "a".repeat(2048 - prefix.length);

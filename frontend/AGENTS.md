@@ -120,6 +120,18 @@ the sheet is still moving and a `boundingBox()` taken straight after reads a pos
 existed at rest. The symptom is an off-by-40 assertion that fails every run and looks like a layout
 bug. Use `toBeInViewport()` — it retries — or assert something that is not a coordinate.
 
+**A client-side mirror of a backend constraint must mirror *all* of it, and the half that gets
+forgotten is the normalisation.** `isValidPublishedUrl` copied the contract's `^https?://` and 2048
+faithfully and missed that `PublishedUrl` also carries `strip_whitespace=True` — and Pydantic strips
+**before** applying the pattern. So ` https://tiktok.com/…` was a refusal in the browser and an
+accepted value at the API, which is the client-stricter-than-the-contract drift that whole function
+exists to prevent. Two things made it survive review: `<input type="url">` does **not** sanitise the
+whitespace away (Chromium keeps it in `value` — measured, not assumed), and both "not stricter than
+the contract" tests only ever exercised the *bare scheme* looseness, so the second looseness had no
+test at all. Found by the Phase 7 `reviewer` pass. **When mirroring a constraint, read the whole
+annotation, not the part the contract happens to repeat** — and prefer verifying against the running
+API over reasoning about the validator.
+
 **A misspelled Tailwind class fails silently, and the design tokens made that worse.** Tailwind
 generates nothing for a name it does not recognise — no build error, no lint error, no test failure.
 `bg-surface-1` and `bg-surface1` are equally "valid" to every check in CI, and the second one renders

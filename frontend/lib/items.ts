@@ -477,9 +477,27 @@ export const PUBLISHED_URL_MAX_LENGTH = 2048;
  *
  * Deliberately not `new URL(...)`: the browser's parser rejects `https://` with nothing after it,
  * which the API accepts, so validating with it would make the client the stricter of the two.
+ *
+ * **The value is trimmed first, because the backend trims first.** `PublishedUrl` in
+ * `backend/app/api/content_items.py` is
+ * `StringConstraints(max_length=2048, pattern=r"^https?://", strip_whitespace=True)`, and Pydantic
+ * applies the strip *before* the pattern and the length — so ` https://tiktok.com/…\n` is **accepted**
+ * and stored stripped. Verified against the running API, not inferred.
+ *
+ * Without the trim the `^` anchor made a leading space a refusal here and an accepted value there:
+ * the client stricter than the contract, which is the exact drift this function exists to prevent
+ * and the one no backend test can see. It is also the realistic input — `test_a_pasted_link_is_
+ * stored_stripped` records that a link copied on a phone arrives with stray whitespace "far more
+ * often than not". Found by the Phase 7 checkpoint's `reviewer` pass; the two "not stricter than the
+ * contract" tests only exercised the bare-scheme looseness, never this one.
+ *
+ * The **untrimmed** value is still what gets sent. The backend is the authority on normalisation and
+ * the `PATCH` response reconciles the row, so trimming on the way out would be a second opinion about
+ * storage held in the wrong place.
  */
 export function isValidPublishedUrl(url: string): boolean {
-  return url.length <= PUBLISHED_URL_MAX_LENGTH && PUBLISHED_URL_PATTERN.test(url);
+  const value = url.trim();
+  return value.length <= PUBLISHED_URL_MAX_LENGTH && PUBLISHED_URL_PATTERN.test(value);
 }
 
 /**

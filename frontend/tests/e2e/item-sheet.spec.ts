@@ -885,4 +885,30 @@ test.describe("a malformed published link", () => {
       published_url: "https://",
     });
   });
+
+  test("a link pasted with stray whitespace is sent, not refused", async ({ page, baseURL }) => {
+    const stub = await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    /*
+     * The Phase 7 `reviewer` finding, at the layer the creator meets it. The backend's `PublishedUrl`
+     * carries `strip_whitespace=True` and Pydantic strips **before** the pattern, so this is accepted
+     * and stored stripped — checked against the running API. `<input type="url">` does **not**
+     * sanitise it away either: Chromium keeps the spaces in `value`, measured rather than assumed.
+     * So a link copied on a phone — which arrives with stray whitespace far more often than not —
+     * was a false refusal, the client being stricter than the contract.
+     *
+     * The untrimmed value is what gets sent: the backend owns normalisation, and its response
+     * reconciles the row.
+     */
+    await advanceAndPasteBadLink(page, " https://tiktok.com/@c/video/1 ");
+
+    expect(stub.patched).toHaveLength(1);
+    expect(stub.patched[0]).toEqual({
+      platform: "tiktok",
+      status: "posted",
+      published_url: " https://tiktok.com/@c/video/1 ",
+    });
+  });
 });

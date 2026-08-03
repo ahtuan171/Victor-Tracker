@@ -374,6 +374,21 @@ components:
           format: uri
           maxLength: 2048
           pattern: "^https?://"
+          description: |
+            The link to the live post, pasted by hand (FR-019). Retained when the item leaves
+            `posted`, and removable only by the creator sending an explicit null (FR-019a).
+
+            **`pattern` and `maxLength` are the enforced rules; `format` is annotation only.**
+            `format: uri` is a JSON Schema annotation that validators need not enforce, and this API
+            does not enforce it — so `https://` with nothing after it is **accepted**, deliberately
+            (pinned by `test_the_scheme_allowlist_does_not_check_the_rest_of_the_url`). A client
+            MUST NOT be stricter than this: `new URL()` and an `<input type="url">`'s native
+            validity both reject that value, and refusing what this API stores is drift no backend
+            test can see. Tightening the rule means amending this file first.
+
+            Surrounding whitespace is **stripped before** the pattern and the length are applied,
+            so a link pasted from a phone with a stray space or newline is accepted and stored
+            trimmed. A client mirroring this check must trim first for the same reason.
         created_at:
           type: string
           format: date-time
@@ -407,6 +422,21 @@ components:
           format: uri
           maxLength: 2048
           pattern: "^https?://"
+          description: |
+            The link to the live post, pasted by hand (FR-019). Retained when the item leaves
+            `posted`, and removable only by the creator sending an explicit null (FR-019a).
+
+            **`pattern` and `maxLength` are the enforced rules; `format` is annotation only.**
+            `format: uri` is a JSON Schema annotation that validators need not enforce, and this API
+            does not enforce it — so `https://` with nothing after it is **accepted**, deliberately
+            (pinned by `test_the_scheme_allowlist_does_not_check_the_rest_of_the_url`). A client
+            MUST NOT be stricter than this: `new URL()` and an `<input type="url">`'s native
+            validity both reject that value, and refusing what this API stores is drift no backend
+            test can see. Tightening the rule means amending this file first.
+
+            Surrounding whitespace is **stripped before** the pattern and the length are applied,
+            so a link pasted from a phone with a stray space or newline is accepted and stored
+            trimmed. A client mirroring this check must trim first for the same reason.
 
     ContentItemUpdate:
       type: object
@@ -434,6 +464,21 @@ components:
           format: uri
           maxLength: 2048
           pattern: "^https?://"
+          description: |
+            The link to the live post, pasted by hand (FR-019). Retained when the item leaves
+            `posted`, and removable only by the creator sending an explicit null (FR-019a).
+
+            **`pattern` and `maxLength` are the enforced rules; `format` is annotation only.**
+            `format: uri` is a JSON Schema annotation that validators need not enforce, and this API
+            does not enforce it — so `https://` with nothing after it is **accepted**, deliberately
+            (pinned by `test_the_scheme_allowlist_does_not_check_the_rest_of_the_url`). A client
+            MUST NOT be stricter than this: `new URL()` and an `<input type="url">`'s native
+            validity both reject that value, and refusing what this API stores is drift no backend
+            test can see. Tightening the rule means amending this file first.
+
+            Surrounding whitespace is **stripped before** the pattern and the length are applied,
+            so a link pasted from a phone with a stray space or newline is accepted and stored
+            trimmed. A client mirroring this check must trim first for the same reason.
 
     InvariantError:
       type: object
