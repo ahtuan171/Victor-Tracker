@@ -50,10 +50,23 @@ import { cn } from "@/lib/utils";
  * The optimistic update still makes the cue change immediately (US3 scenario 3) — that happens in
  * `updateItem`, one layer down, the moment save is tapped.
  *
+ * ## The published link (T064, FR-019, FR-019a)
+ *
+ * Always rendered, **prompted** only when the draft's status is `posted` and no link is set yet.
+ * "Prompted on the move to `posted`" is not "revealed on the move to `posted`", and the difference is
+ * FR-019a: a link is retained when the item leaves `posted` (FR-008a) and is **removable only by the
+ * creator editing it directly**. A field that disappeared below `posted` would leave a retained link
+ * with no control that can clear it — the requirement made unsatisfiable by hiding its own input.
+ *
+ * Never required: the prompt is a hint, nothing blocks a save, and `posted` with no link is a valid
+ * item on both write paths (asserted in `backend/tests/test_content_items.py` at T063).
+ *
+ * **Validating the link is T066, not here**, and the shape it takes is recorded in `tasks.md` under
+ * Phase 7: the contract's own `^https?://` and 2048 characters, checked before the request is built,
+ * so the 422 that would discard an accompanying status change is never produced.
+ *
  * ## What this deliberately does not carry yet
  *
- * - **The published link** is **T064** (US5), prompted on the move to `posted` and never required.
- *   The export draws it beside the date; the date takes the full width until then.
  * - **`DELETE ITEM`** arrived at **T056**. It opens `DeleteConfirm` and never deletes on its own:
  *   FR-020 forbids a destructive action one tap away, so this button's whole job is to be the *first*
  *   of two. It is below the save row and in the muted weight, which is where the export puts it.
@@ -92,6 +105,7 @@ export function ItemSheet({
   const titleId = useId();
   const hookId = useId();
   const dateId = useId();
+  const linkId = useId();
   const statusId = useId();
   const platformId = useId();
   const errorId = useId();
@@ -338,8 +352,17 @@ export function ItemSheet({
           </div>
 
           {/*
-           * The export puts the published link beside the date; that field is T064, so the date takes
-           * the row until then.
+           * The export puts the published link beside the date, both at `flex:1` in one row. T064
+           * **stacks them instead**, and it is the fourth knowing departure from the export — after
+           * the 44px options, `text-base` on inputs, and the filter row above the drawer. Like all
+           * three it is a reachability constraint rather than taste.
+           *
+           * The row the export drew no longer exists: T052 added a `CLEAR` button beside the date
+           * (SC-011 — without it the tap path can schedule but never unschedule), so the date half is
+           * already two controls. Half of 375px less the padding is ~165px; at the `text-base` 16px
+           * that iOS forces on us, that is about twenty characters of a value the contract lets run to
+           * **2048**. `.claude/rules/design.md` makes mobile-first "a hard constraint, not a
+           * preference" and the export "the starting point, not a drop-in".
            *
            * A native `<input type="date">` rather than a hand-built picker: it speaks `YYYY-MM-DD`
            * exactly — the format the column, the contract and `lib/dates.ts` all use — so no `Date` is
@@ -391,6 +414,56 @@ export function ItemSheet({
                 data-testid="item-overdue-note"
               >
                 Date has passed — overdue
+              </p>
+            ) : null}
+          </Field>
+
+          {/*
+           * The published link (T064, FR-019).
+           *
+           * `type="url"` is here for the **keyboard** — a phone offers `/` and `.com` — and for
+           * nothing else. Its native validity must never become the gate: the contract's only
+           * machine-checkable rule is `pattern: ^https?://`, and T063 pinned that the API accepts
+           * `https://` with nothing after it, which the browser's own URL validation rejects. Gating
+           * on `input.validity` would make the client refuse a value the server accepts, which is
+           * drift pointing the other way. Nothing submits — every button here is `type="button"` and
+           * there is no `<form>` — so the attribute stays inert. T066 does the checking, against the
+           * contract's pattern rather than the browser's opinion.
+           *
+           * `maxLength` is the contract's 2048 and is the one constraint worth enforcing at the
+           * keystroke: past it the column itself would refuse, and `String(2048)` overflowing is a
+           * 500 rather than a 422 (the reason `PublishedUrl` exists in the backend since T030).
+           */}
+          <Field label="Published link" htmlFor={linkId}>
+            <input
+              id={linkId}
+              type="url"
+              inputMode="url"
+              maxLength={2048}
+              value={current?.published_url ?? ""}
+              // Empty is how a cleared text input reports itself, and `null` is how the contract
+              // spells "clear this field" — the same edge conversion the title and hook do, so
+              // `changesBetween` never sees an empty string where FR-023 means a null.
+              onChange={(event) =>
+                edit({ published_url: event.target.value === "" ? null : event.target.value })
+              }
+              placeholder="Add when posted"
+              className="border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 w-full rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none"
+              data-testid="item-link-input"
+            />
+
+            {/*
+             * The prompt, and the whole of "prompted on the move to `posted` but never required".
+             * It is a sentence, not a gate: no `required`, no disabled save, and `posted` with no
+             * link is a valid item the backend stores happily. Shown only while the link is still
+             * empty — prompting for something already supplied is noise.
+             */}
+            {current?.status === "posted" && current.published_url === null ? (
+              <p
+                className="text-ink-mid mt-1.5 text-[11px] leading-relaxed"
+                data-testid="item-link-prompt"
+              >
+                Posted — add the link to the live post when you have it. Optional.
               </p>
             ) : null}
           </Field>

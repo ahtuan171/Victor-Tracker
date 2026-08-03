@@ -969,7 +969,66 @@ is enforced today is the second one — the status change is not lost — which 
 
 ### Implementation for User Story 5
 
-- [ ] T064 [US5] Add the published-link field to `frontend/components/item/ItemSheet.tsx`, prompted on the move to `posted` but never required (FR-019)
+- [x] T064 [US5] Add the published-link field to `frontend/components/item/ItemSheet.tsx`, prompted on the move to `posted` but never required (FR-019)
+
+**T064 result (2026-08-03)**: done, one merge request, frontend suite **349 → 356 passing**, nothing
+skipped; `pnpm typecheck` and `pnpm lint` silent. `lib/api.ts`, `itemWithChanges` and `changesBetween`
+already carried `published_url` from T023 and T051, so this task is the control and nothing below it.
+
+**"Prompted on the move to `posted`" is not "revealed on the move to `posted`", and the difference is
+a requirement rather than a preference.** The field is **always rendered**; only the hint is
+conditional. FR-008a retains a link when the item moves backward and FR-019a makes it removable *only*
+by the creator editing it directly — so a field that appeared with `posted` and vanished below it
+would strand a retained link with **no control able to clear it**. That is FR-019a made unsatisfiable
+by hiding its own input. One test states exactly this, and it was verified by breaking it: revealing
+the field only on `posted` turns that test red and leaves the other six green.
+
+**Fourth knowing departure from the design export, and the first where the export's own row no longer
+exists.** `1g` draws Date and `Published link` side by side at `flex:1`. T052 had already added a
+`CLEAR` button beside the date (SC-011 — without it the tap path can schedule but never unschedule),
+so the date half is two controls, and half of 375px less padding is ~165px. At the `text-base` 16px
+iOS forces, that is about twenty characters of a value the contract lets run to **2048**. Stacked
+full-width and measured on the production build at 375px: **41 characters of a real TikTok URL**. The
+other three departures — 44px options, 16px inputs, the filter row above the drawer — are all tap
+reachability; this one is legibility of the value itself, but the governing rule is the same
+(`.claude/rules/design.md`: mobile-first is a hard constraint, the export is "the starting point, not
+a drop-in").
+
+**The `type="url"` trap, which is T063's finding arriving on the client.** The attribute is there for
+the phone keyboard and nothing else, and its **native validity must never become the gate**: the
+contract's only machine-checkable rule is `pattern: "^https?://"`, and T063 pinned that the API
+accepts `https://` with nothing after it — which the browser's URL validation rejects. Gating on
+`input.validity` would make the client refuse a value the server accepts. That is drift in the
+direction that looks like extra safety, which is the harder one to notice.
+
+### T066's resolution, decided before its code exists
+
+**The conflict.** T052 fixed that one save is **one** `PATCH` carrying a diff, because SC-012 needs a
+title-only idea to gain a platform *and* advance in a single request. T066 requires that a rejected
+malformed link not discard the accompanying status change. A bad `published_url` makes the backend
+refuse the **whole** body with a 422, so the status change goes with it. One request cannot satisfy
+both — the resolution has to be chosen and written down rather than discovered in code.
+
+**Chosen: validate the link on the client, before the request is built.** Not a new principle — it is
+the one already recorded in `ItemSheet.tsx` for the 409 case: *"the cheapest way to honour it is to
+not produce the refusal."* The two alternatives were rejected for stated reasons: sending the link as
+its own request destroys the one-save-one-request property T052 exists to establish, and amending the
+spec would trade a satisfiable requirement for a weaker one to avoid twenty lines of work.
+
+**The exact form T066 implements**, so it cannot be re-litigated from the symptom:
+
+1. On save, if the draft's `published_url` is non-null and fails **the contract's own** `^https?://`
+   or exceeds 2048 characters, the request is **not sent**.
+2. The link field is marked and takes focus, through the existing `focusFix` path T053 built — the
+   sheet's body scrolls, so adjacency is not reachability.
+3. **The draft is untouched.** The status change and every other pending edit stay exactly as the
+   creator made them. Nothing is discarded, which is the whole of the spec's edge case.
+4. The creator fixes or clears the link, and **one** save then carries everything.
+
+**The check must match the contract exactly, and must not be tightened.** T063 characterised
+`https://` as accepted rather than fixing it, with the note that tightening is a
+`contracts/openapi.yaml` amendment first. A client that is stricter than the contract refuses values
+the API stores happily, and the failure is invisible from the backend suite.
 - [ ] T065 [US5] Surface the link from the grid and drawer on `posted` items as an external control carrying `rel="noopener noreferrer"`, so the calendar URL does not leak as a `Referer` to the platform (US5 scenario 3, constitution II)
 - [ ] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
 

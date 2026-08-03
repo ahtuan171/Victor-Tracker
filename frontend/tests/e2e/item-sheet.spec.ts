@@ -140,7 +140,7 @@ test("tapping an item in the week list opens the same sheet", async ({ page, bas
   await expect(page.getByTestId("item-title-input")).toHaveValue("Ring light review");
 });
 
-test("it carries every field FR-006a requires except the link, which is T064", async ({
+test("it carries every one of FR-006a's six fields, the link included since T064", async ({
   page,
   baseURL,
 }) => {
@@ -151,6 +151,7 @@ test("it carries every field FR-006a requires except the link, which is T064", a
   await expect(page.getByTestId("item-title-input")).toBeVisible();
   await expect(page.getByTestId("item-hook-input")).toBeVisible();
   await expect(page.getByTestId("item-date-input")).toBeVisible();
+  await expect(page.getByTestId("item-link-input")).toBeVisible();
 
   // Three statuses, both directions available at once (FR-007, FR-008), and three platforms with no
   // fourth (FR-010).
@@ -276,6 +277,126 @@ test("clearing the hook sends null rather than an empty string", async ({ page, 
   await expect(save(page)).toBeHidden();
 
   expect(stub.patched).toEqual([{ hook: null }]);
+});
+
+test.describe("the published link (T064, FR-019, FR-019a)", () => {
+  test("a link typed on the sheet reaches the request", async ({ page, baseURL }) => {
+    const stub = await stubApi(page, { items: [anItem({ status: "posted", platform: "tiktok" })] });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await page.getByTestId("item-link-input").fill("https://www.tiktok.com/@creator/video/123");
+    await save(page).click();
+    await expect(save(page)).toBeHidden();
+
+    expect(stub.patched).toEqual([
+      { published_url: "https://www.tiktok.com/@creator/video/123" },
+    ]);
+  });
+
+  test("an existing link is shown, and clearing it sends null rather than an empty string", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page, {
+      items: [anItem({ status: "posted", platform: "tiktok", published_url: "https://t.co/a" })],
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await expect(page.getByTestId("item-link-input")).toHaveValue("https://t.co/a");
+
+    await page.getByTestId("item-link-input").fill("");
+    await save(page).click();
+    await expect(save(page)).toBeHidden();
+
+    // FR-019a's second half: removable, but only by the creator editing it directly. An omitted key
+    // would mean "leave it alone", which is the opposite instruction.
+    expect(stub.patched).toEqual([{ published_url: null }]);
+  });
+
+  test("moving to posted prompts for the link without requiring it (FR-019)", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page, { items: [anItem({ platform: "tiktok", status: "draft" })] });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await expect(page.getByTestId("item-link-prompt")).toBeHidden();
+
+    await page.getByTestId("status-option-posted").click();
+    await expect(page.getByTestId("item-link-prompt")).toBeVisible();
+
+    // "Prompted" is a sentence, not a gate. The save goes through carrying the status alone, and the
+    // link is not in the body at all — `posted` with no link is a valid item (T063 asserts the same
+    // thing on both backend write paths).
+    await save(page).click();
+    await expect(save(page)).toBeHidden();
+    expect(stub.patched).toEqual([{ status: "posted" }]);
+  });
+
+  test("the prompt goes away once a link is there", async ({ page, baseURL }) => {
+    await stubApi(page, { items: [anItem({ platform: "tiktok", status: "posted" })] });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await expect(page.getByTestId("item-link-prompt")).toBeVisible();
+    await page.getByTestId("item-link-input").fill("https://t.co/a");
+    await expect(page.getByTestId("item-link-prompt")).toBeHidden();
+  });
+
+  test("the field stays reachable below posted, or FR-019a's retained link could never be removed", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page, {
+      items: [anItem({ status: "posted", platform: "tiktok", published_url: "https://t.co/a" })],
+    });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    // FR-008a keeps the link when the item moves backward, so the control that clears it has to
+    // survive the same move. A field revealed *by* `posted` would strand the retained value with
+    // nothing able to edit it — the requirement made unsatisfiable by hiding its own input.
+    await page.getByTestId("status-option-draft").click();
+    await expect(page.getByTestId("item-link-input")).toHaveValue("https://t.co/a");
+
+    await page.getByTestId("item-link-input").fill("");
+    await save(page).click();
+    await expect(save(page)).toBeHidden();
+
+    expect(stub.patched).toEqual([{ status: "draft", published_url: null }]);
+  });
+
+  test("the link rides along with a status change in ONE request", async ({ page, baseURL }) => {
+    const stub = await stubApi(page, { items: [anItem({ platform: "tiktok", status: "draft" })] });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await page.getByTestId("status-option-posted").click();
+    await page.getByTestId("item-link-input").fill("https://t.co/a");
+    await save(page).click();
+    await expect(save(page)).toBeHidden();
+
+    // The property T066 must not break: one save is one request. Splitting the link out would make
+    // the link and the status two writes that can half-succeed.
+    expect(stub.patched).toEqual([{ status: "posted", published_url: "https://t.co/a" }]);
+  });
+
+  test("the contract's 2048 is enforced at the keystroke", async ({ page, baseURL }) => {
+    await stubApi(page, { items: [anItem({ status: "posted", platform: "tiktok" })] });
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    const link = page.getByTestId("item-link-input");
+    await expect(link).toHaveAttribute("maxlength", "2048");
+
+    // Past the contract's length the column itself refuses, and `String(2048)` overflowing is a 500
+    // rather than a 422 — which is why `PublishedUrl` has existed in the backend since T030.
+    await link.fill(`https://t.co/${"a".repeat(2100)}`);
+    expect((await link.inputValue()).length).toBe(2048);
+  });
 });
 
 test("saving with nothing changed closes without a request", async ({ page, baseURL }) => {
