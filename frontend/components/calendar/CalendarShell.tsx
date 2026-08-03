@@ -14,6 +14,7 @@ import {
 } from "@dnd-kit/core";
 
 import { BACKLOG_DROP_ID, BacklogDrawer } from "@/components/backlog/BacklogDrawer";
+import { FirstRun } from "@/components/calendar/FirstRun";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { PeriodNav } from "@/components/calendar/PeriodNav";
 import { WeekList } from "@/components/calendar/WeekList";
@@ -309,15 +310,32 @@ export function CalendarShell() {
              * arrows already answer it. See `FilteredEmpty.tsx`.
              *
              * `items.length > 0` keeps it away from the genuinely empty account — a creator with no
-             * items at all should meet the drawer's first-run copy pointing at `+ CAPTURE`, not a
-             * message about a filter that is not why their calendar is empty.
+             * items at all meets T068's first-run panel and the drawer's matching copy, both
+             * pointing at `+ CAPTURE`, rather than a message about a filter that is not why their
+             * calendar is empty.
              */
           platform !== null && visible.length === 0 && items.length > 0 ? (
             <FilteredEmpty platform={platform} onClear={() => setPlatform(null)} />
-          ) : view === "month" ? (
-            <MonthGrid period={period} today={today} items={visible} onOpenItem={openItem} />
           ) : (
-            <WeekList period={period} today={today} items={visible} onOpenItem={openItem} />
+            <>
+              {/*
+               * The first-run state (T068, spec Edge Cases). It sits **above** the view rather than
+               * in place of it — see `FirstRun.tsx` for why this one accompanies the grid where the
+               * filtered one replaces it.
+               *
+               * **`status === "ready"` is half the condition, not a nicety.** `items` is empty while
+               * the first read is in flight too, so `items.length === 0` alone tells every creator
+               * they have captured nothing for as long as their calendar takes to load — which on
+               * Render's free tier is the tens of seconds R-007 is written around.
+               */}
+              {status === "ready" && items.length === 0 ? <FirstRun /> : null}
+
+              {view === "month" ? (
+                <MonthGrid period={period} today={today} items={visible} onOpenItem={openItem} />
+              ) : (
+                <WeekList period={period} today={today} items={visible} onOpenItem={openItem} />
+              )}
+            </>
           )}
         </main>
 
