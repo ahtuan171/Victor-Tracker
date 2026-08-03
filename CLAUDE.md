@@ -2,114 +2,84 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-02: **Phase 5 complete and checkpointed** — T001–T058 of 76
+## Status as of 2026-08-03: **all five user stories built** — T001–T070, T073, T075, T077 of 77
 
-On `main`, **238 backend tests and 322 frontend tests passing, and nothing skipped.** Stage 1 planning
-is done and reviewed, the specs are on `main`, and **the whole of `/content-items` exists** — create,
-list with the `scheduled`/`date_from`/`date_to` filters, fetch-one, partial update, and delete. INV-1
-is enforced at the boundary in both directions (`platform_required` and `platform_locked` from one
-shared `check_invariant_1`), and a `DELETE` of a missing id answers **404, not an idempotent 204**.
+On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** Phases 3–7 are
+each closed with their three-gate checkpoint. **Only four tasks remain, and two of them are blocked on
+a human**: T071 and T072 (deployment, below), T074 (drift pass, `CHANGELOG.md`, tag) and T076 (retro).
 
-**User Story 3 is complete: an item can now change.** That is the line Phase 5 crossed — before it,
-nothing on an item could be edited at all. The **item sheet** (`components/item/ItemSheet.tsx`) is the
-single editing surface, carrying title, hook, platform, date and status; it **saves on an explicit tap
-and sends a diff**, which is what lets a title-only idea be given a platform *and* advanced in one
-request. Per-tap saves would make the first tap a guaranteed 409 and SC-012 unreachable. A 409 **names
-the control that resolves it and moves focus there**. Chips are tappable **and draggable** — day cells,
-week sections and the backlog strip are the drop targets, all calling the same `updateItem`. Deleting
-takes three deliberate taps and lands in a focus-trapped confirmation whose default focus is
-`KEEP ITEM`.
+**The product is feature-complete for v0.1 and has never been deployed.** A signed-in creator can
+capture an idea, find it in the backlog, move between months and weeks, read every dated item's
+status, platform and overdue state without opening it, open it and change every field, drag it onto a
+day or back to the backlog, filter by platform, paste a published link and open the live post, delete
+behind a three-tap confirmation, and sign out. What no surface does: anything belonging to the other
+three modules.
 
-**The Phase 5 checkpoint was done on 2026-08-02, and its three findings are fixed.** All three gates
-ran: **21/21 hand-walk checks** at 375px on a production build against a live stack with nothing
-stubbed (V9 placed five ideas onto five days in **4.9s** against a 60s budget), the `reviewer` agent
-over T046–T058 returned **one LOW finding**, and `/speckit-analyze` found one HIGH and one MEDIUM.
-Results are in `tasks.md` under Phase 5; the narrative is in the build log.
+**The one thing blocking progress is not in this repository.** T071 needs a Render account and a
+Vercel account and their deploy hooks — `RENDER_DEPLOY_HOOK_URL` and `VERCEL_DEPLOY_HOOK_URL`. The
+project currently has **no CI variables at all**, and both `deploy` jobs fail loudly by design while
+they are missing, because a green deploy job that deployed nothing is worse than a red one. T072 (walk
+V1–V9 against the deployed environment, and measure the first load of the day against SC-001 to see
+whether Render's spin-down is a real problem) cannot start until that exists.
 
-**The HIGH is the Phase 4 CRITICAL's pattern for the second phase running, and it is the thing to
-watch for.** `contracts/openapi.yaml` said *"A drag and a tap produce the identical request with one
-field set (FR-014a, **FR-015a**)"* — citing FR-015a as authority for a claim the amended FR-015a
-explicitly denies (*"Status is not draggable"*). True for a date, false for a status. **The contract is
-where an overturned decision survives longest**: it is the artifact least often opened while building a
-surface, and the one that outranks code when someone does open it. Grep the claim, not the file.
+**T074's tag was deliberately split off, on the human's instruction (2026-08-03).** Its drift pass and
+`CHANGELOG.md` can run now; **the v0.1 tag waits until after T072**, because tagging a release that no
+deployment corresponds to is backwards. Recorded in `tasks.md` under T074 rather than left as a
+private decision.
 
-**Two things worth knowing before touching Phase 6:**
+### The one pattern that has cost the most, four checkpoints running
 
-- **`reload()` still has no caller**, for the third time. Predicted for T044 (navigation issues no
-  request), plausible for T051 (an optimistic edit reconciles against the `PATCH` response). Both
-  predictions assumed a write implies a refetch, which is exactly what R-007 rejects.
-- **The `MONTH` toggle cannot be clicked by a *local* test run** — Next's dev overlay covers it at
-  375px. **Corrected 2026-08-03: this does not hold in CI.** `playwright.config.ts` runs
-  `process.env.CI ? "pnpm start" : "pnpm dev"`, so the pipeline exercises the production bundle and
-  has no overlay; the obstruction is a local-run artifact, exactly as the *Phase 4* record said
-  before T057 widened it to "a CI fact". `pipeline.spec.ts` still needs its `dispatchEvent` for the
-  local run. There is no "real fix" owed by **T069** — CI already runs the suite against
-  `pnpm start`. The lesson that does survive is the one about coverage, not about environments: the
-  toggle went unexercised in one direction because `WEEK` works, and **the half that works is the
-  half every test happens to use.**
+**An amendment applied to one artifact is not applied — and `specs/` outranks code, so a stale spec
+gets *obeyed* where stale code gets caught by a test.** Every checkpoint from Phase 4 to Phase 7 found
+an instance, all four in `contracts/openapi.yaml`: it is the artifact least often opened while
+building a surface and the one that wins when someone does open it. **Grep the claim across `specs/`
+and both `AGENTS.md`, and fix every artifact in the same merge request.**
 
-**User Story 1 is complete: a creator can sign in, capture an idea, and find it in the backlog.**
-The proxy at
-`app/api/[...path]/route.ts` was verified against a live FastAPI, not only a stub. `lib/api.ts`
-carries hand-written types from the contract (no codegen is installed — "generate" means "write by
-hand"), four operations, one `fetch`, and one 401 handler exempting the two `/auth/*` endpoints. On
-top of that sit a **login page**, a **root route that redirects**, a **session guard** on the `(app)`
-group checked twice, **`lib/dates.ts`**, **`lib/items.ts`** (the shared item state R-007 asks for),
-the **`/calendar` shell**, the **capture sheet**, and the **backlog drawer**.
+Three refinements the later instances added, each of which cost something to learn:
 
-**Stage 2 (Design) closed on 2026-08-01.** The Claude Design export is in `design/content-calendar/`,
-the data-shape audit ran **clean**, and its tokens are installed in `frontend/app/globals.css`.
-`/login`, the calendar shell and the capture sheet are built from it. The remaining surfaces were
-**not** built — each is built from that export at its own task.
+- **A grep that comes back split is resolved by the *executable* artifact, never by counting.** T057
+  re-derived the dev-overlay obstruction from a symptom, concluded `playwright.config.ts` "runs
+  `next dev`" **without opening it**, and wrote the widened claim into four files. The config reads
+  `` `${process.env.CI ? "pnpm start" : "pnpm dev"}` `` — CI has never had the overlay. Four artifacts
+  said one thing, one said the other, and the majority was wrong. **A false claim in `specs/` does not
+  sit inert: it allocated work to T069 that did not exist.**
+- **Grep finds a wrong sentence; it cannot find an absent one.** Phase 7's A3 was the contract failing
+  to say which of `format: uri` and `pattern` it enforced — and R2, the client guessing a subset, was
+  that same silence after it had already caused a defect.
+- **The load-bearing half of a rule is the *reason*, not the conclusion.** Phase 6's finding had a
+  true conclusion and a wrong reason, which read literally licensed exactly the thing it forbade.
 
-**User Story 2 is complete: the plan is legible at a glance.** `GET /content-items` takes a date
-range (T036–T037); `lib/status.ts` maps status and platform to their cues (T038); `StatusCue`/
-`PlatformCue` draw them (T039); `ItemChip` composes them at **three** sizes (T040); the backlog drawer
-renders chips in both its states (T041); `/calendar` draws a real **month grid** — a fixed six-week
-span, adjacent-month days included, a `+N more` that expands a busy day in place (T042); a **week
-list** of seven vertical sections with no chip cap (T043); **period navigation** — month/week toggle
-and adjacent-period arrows in the action band, over the new `lib/period.ts` (T044); and the **overdue
-treatment**, a dashed left border plus an `N overdue` count in the header (T045).
+### Other durable lessons
 
-**The Phase 4 checkpoint was done on 2026-08-02, and its findings are fixed.** All three gates ran:
-V3 and V6 were walked at 375px against a live stack with **nothing stubbed** — 21 checks, all three
-statuses separable in greyscale at both chip sizes — the **`reviewer` agent** over T036–T045 came back
-**clean**, and `/speckit-analyze` found **one CRITICAL**. Results are in `tasks.md` under Phase 4; the
-narrative is in the build log.
-
-**What that CRITICAL was, because it is the pattern to watch for.** `contracts/openapi.yaml` still
-carried the sentence the *Phase 3* amendment had overturned — "Calendar reads pass a date range" — and
-contradicted itself four lines below. The resolution had been applied to `tasks.md` only, leaving the
-contract and `research.md` R-007 asserting the opposite of the built code. **T061's platform filter
-reads that exact paragraph**, and `specs/` outranks code, so the next agent would have been *right* to
-send a date range and empty the backlog. All three artifacts now agree. The lesson generalises: **an
-amendment applied to one artifact is not applied.** Grep the claim, not the file you happened to open.
-
-**Two things settled at this checkpoint:**
-
-- **The calendar's read stays unparameterised**, and it is now **tested** rather than written down —
-  `month-grid.spec.ts` asserts the request URL carries no bounds, `period-nav.spec.ts` asserts the
-  request count stays at one across three navigations. `date_from`/`date_to` bound `scheduled_date`,
-  so a ranged read returns no undated rows and the drawer narrows that same state.
-- **`itemsLoaded`'s hole is closed** (`savedSince` — a narrow allowance, not a merge-by-id), but *not*
-  by the task predicted to close it. **T044 does not call `reload()` at all**: navigating a period
-  issues no request. `reload()` still has no caller.
+- **Green on the day you wrote the test is not evidence.** Break the implementation and confirm the
+  *right* test goes red. Do not use `if (false && x !== null)` — a literal `false` destroys TypeScript
+  narrowing; break the predicate or reorder the operands.
+- **The half that works is the half every test happens to use.** No test clicked `MONTH` before T057
+  because `WEEK` works. Same shape as Phase 7's R2, where both "not stricter than the contract" tests
+  only ever exercised the bare-scheme looseness and never whitespace.
+- **A hand-walk still finds what the suite structurally cannot.** Every automated frontend test stubs
+  the proxy, because CI has no FastAPI behind it — so a green suite is evidence about the frontend in
+  isolation, never about the seam. Walk the quickstart at every checkpoint.
+- **Run all three checkpoint gates every time.** Each has found something the other two could not: the
+  hand-walk at Phase 3, `/speckit-analyze` at Phases 4–6 (it reads artifacts against each other, which
+  a code review cannot), the `reviewer` agent at Phases 5 and 7 (a missing default, and R2).
+- **`reload()` still has no caller**, now for the **fifth** time — predicted at T044, T051, T070 and
+  twice besides. Every prediction assumed a write implies a refetch, which is exactly what R-007
+  rejects. `getContentItem()` has none either, and both are correct as they are.
 
 **The merge gate is real, and T025 is where it became real.** `only_allow_merge_if_pipeline_succeeds`
 is `true` and `main`'s allowed-to-push is **no one** — both read back from the GitLab API rather than
-taken on trust. Every task from T025 on has gone through an MR behind a green pipeline — **!1–!4** for
-T025–T028, **!7–!13** for the docs sweep and T029–T035, **!14–!21** for the Phase 3 checkpoint and
-T036–T042, and **!22–!24** for T043–T045 and this checkpoint. **The local `--no-ff` flow is over; do
-not use it again.** Everything from the stage-1 fast-forward through T024 — 25 merges — stays a
-knowing constitution VI exception, and `T076` records that range. See `.claude/memory.md`.
+taken on trust. **The local `--no-ff` flow is over; do not use it again.** Everything from the stage-1
+fast-forward through T024 — **25 merges** — stays a knowing constitution VI exception, and `T076`
+records that range (pinned at `caca814~4`). There is **no second exception**: when the free-tier CI
+quota ran out on 2026-08-02 the answer was a project-owned runner, which does not draw on the shared
+quota, so the gate held. See `.claude/memory.md` and `CLAUDE.local.md`.
 
-**Three merge requests have carried two tasks, and each is a stated deviation rather than a slip.**
+**Seven merge requests have carried two tasks, and each is a stated deviation rather than a slip.**
 `tasks.md` asks for both "tests must fail first" and "one MR per task", and the two collide whenever a
 task's entire subject is the next task — an MR carrying it alone would be red, which the gate refuses.
-T029–T031 (**41 tests, 41 failures** against a codebase with no `content_items.py`), T036–T037, and
-T043–T044 (a week list with no way to reach another week is half a feature). All three are recorded in
-`tasks.md` and the build log. **The pattern is the exception, not a licence** — the default is one
-task, one MR.
+All are recorded in `tasks.md` and the build log. **The pattern is the exception, not a licence** —
+the default is one task, one MR.
 
 Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The constitution lives at
 `.specify/memory/constitution.md` — there is no root `constitution.md`.
@@ -119,18 +89,18 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | Part | State |
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
-| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**76 tasks, 8 phases; T001–T058 ticked — Phases 3, 4 and 5 all closed with their checkpoints**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
+| `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**77 tasks, 8 phases; T001–T070 plus T073, T075 and T077 ticked — Phases 3–7 all closed with their checkpoints. T077 was *added* at the Phase 7 checkpoint**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
-| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal). **238 passing.** |
-| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts` (T021), `session.ts` (T022, T027), `api.ts` (T023–T024), `dates.ts` (T028), `items.ts` (T032, `groupByScheduledDate` at T042, `savedSince` and `countOverdue` at T044–T045), `period.ts` (T044), `status.ts` (T038), `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** — surfaces, ink, brand, status ramp, overdue, elevation, focus, plus `.notch-card` / `.notch-sheet` / `.web-grain`; `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes**: `app/login/` (T025), `app/page.tsx` redirecting rather than scaffolding (T026), `app/(app)/layout.tsx` guarding the group (T027), `app/(app)/calendar/page.tsx` guarding it again and rendering `components/calendar/CalendarShell.tsx` (T033). `components/capture/CaptureSheet.tsx` (T034) on shadcn's `Sheet`, `components/backlog/BacklogDrawer.tsx` (T035, chips at T041), `components/item/` — `StatusCue`, `PlatformCue` (T039), `ItemChip` (T040, overdue border at T045) — and `components/calendar/MonthGrid.tsx` + `DayCell.tsx` (T042), `WeekList.tsx` (T043), `PeriodNav.tsx` (T044). **Phase 5 added `components/item/ItemSheet.tsx` (T052–T053, the single editing surface) and `DeleteConfirm.tsx` (T056), plus the `@dnd-kit` drag path in `CalendarShell`/`DayCell`/`WeekList`/`BacklogDrawer` (T054–T055)**; `lib/items.ts` gained `itemWithChanges`, `changesBetween`, `itemChanged`, `itemRemoved`, `itemRestored`, and `updateItem`/`deleteItem` on the store (T051, T056). **322 Playwright tests passing across four projects, none skipped** — `contract`, `proxy`, `client` (the browser-side `lib/` modules), `mobile-375`. |
+| `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |
+| `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts`, `session.ts`, `api.ts`, `dates.ts`, `items.ts`, `period.ts`, `status.ts`, `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** plus `.notch-card` / `.notch-sheet` / `.web-grain` and **`.focus-ring` / `.focus-ring-inset`** (T067 — the one focus indicator, `outline` never a `ring-*`, because a ring on a brand-filled control is red on red); `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes**: `app/login/`, `app/page.tsx` redirecting, `app/(app)/layout.tsx` guarding the group, `app/(app)/calendar/page.tsx` guarding it again and rendering `components/calendar/CalendarShell.tsx`. **Every surface the export draws now exists** — capture sheet, backlog drawer, `StatusCue`/`PlatformCue`/`ItemChip`, `MonthGrid`+`DayCell`, `WeekList`, `PeriodNav`, `ItemSheet`, `DeleteConfirm`, the `@dnd-kit` drag path, `PlatformFilter`, `FilteredEmpty`, `PublishedLink`, `FirstRun`, and the header sign-out. **432 Playwright tests passing across four projects, none skipped** — `contract`, `proxy`, `client`, `mobile-375`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service now has real pages to serve as of T025–T027, but has not been run. |
-| `.gitlab-ci.yml` | **Green end to end** on pipeline #5: `build → test → review` all pass, both `deploy` jobs `manual` as designed. Three earlier pipelines were red on config that had only ever been syntax-checked. The `test:backend` gap is now **closed by evidence**: the job still runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. |
+| `.gitlab-ci.yml` | **Green end to end**, and it gates every merge: `build → test → review` all pass, both `deploy` jobs `manual` **and deliberately failing** until T071 sets their hook variables. `test:e2e` runs against `pnpm start` (the production bundle) because `playwright.config.ts` branches on `CI` — so **CI has never had the dev overlay**. The `test:backend` gap is **closed by evidence**: the job runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. **Runs on a project-owned runner** since 2026-08-03; see `CLAUDE.local.md`. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `CreatorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
 | Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `CreatorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
-| `docs/` | Does not exist. Correct — T076 creates it. |
-| GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **MRs !1–!4 merged T025–T028; !7–!13 the docs sweep and T029–T035; !14–!21 the Phase 3 checkpoint and T036–T042; !22–!24 T043–T045 and the Phase 4 checkpoint; !25–!33 T046–T058 and the Phase 5 checkpoint**, each behind a green pipeline. Still open: no issues imported. |
+| `docs/` | Does not exist. Correct — **T076** creates it (`retro-01.md`). |
+| GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **Every task since T025 has merged through an MR behind a green pipeline — !1 through !50**, covering T025–T070 plus T073, T075, T077, the phase checkpoints and the docs sweeps. **Pipelines run on a project-owned runner** since 2026-08-03, after the free-tier quota ran out; the gate was never relaxed. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 — the daemon does not survive a reboot, so start Docker Desktop first every session. |
 
@@ -191,37 +161,42 @@ and neither is duplicated here.
    `backend/AGENTS.md` or `frontend/AGENTS.md` — they hold that side's decisions, traps, and commands,
    and none of it is repeated here. They load automatically once you read a file in that directory,
    but "automatically" can mean *after* your first edit, which is too late for a trap.
-   `frontend/AGENTS.md` grew substantially across T032–T045 — the silent-Tailwind trap, the port-3100
-   collision, the pinned-timezone rule, the stub-and-guard rule, the shape of `lib/items.ts`, the four
-   drawer decisions, the unparameterised-read rule, the grid's fixed span and chip cap, `lib/period.ts`,
-   the `h-dvh` rule, the overdue-versus-drag-ghost border split, and — added at the Phase 4 checkpoint —
-   **the dev overlay that covers the `MONTH` toggle at 375px**, which is why a hand-walk needs a
-   production build and the two environment variables that go with it.
+   `frontend/AGENTS.md` is now long and every row cost something: the silent-Tailwind trap, the
+   port-3100 collision, the pinned-timezone rule, the unparameterised-read rule, the `h-dvh` rule, the
+   `savedSince` rule and why "just merge on id" is **forbidden**, the three empty states, the focus
+   indicator and the two shapes that clip it, the viewport-audit rule (**a `scrollWidth` check does not
+   catch a control pushed off the side** — the band clips), and the two 404 branches that are
+   deliberate opposites.
 1. **Start Docker Desktop, then `docker compose up -d db`.** Postgres is verified working, but the
    daemon does not survive a reboot, and the whole suite fails confusingly without it. Then
-   `cd backend && uv run alembic upgrade head` if the volume was recreated — note the migration has
-   been applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both.
-   The T017 harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
-2. **Continue at T059** — Phase 6 (US4), the platform filter. T059 tests the `platform` query
-   parameter, T060 adds it to `GET /content-items`, T061 builds the filter row `CalendarShell` already
-   reserves a place for, T062 the filtered empty state. Then the Phase 6 checkpoint: quickstart V3 and
-   V6 again, plus SC-005's one-second filter budget.
+   `cd backend && uv run alembic upgrade head` if the volume was recreated — the migration has been
+   applied to **both** `creatorhub` and `creatorhub_test`, and a recreated volume loses both. The T017
+   harness migrates `creatorhub_test` itself, so that command is only for `creatorhub`.
+2. **Start the local GitLab runner, or every pipeline hangs.** The free-tier compute quota ran out on
+   2026-08-02 and resets on 2026-09-01; a project-owned runner does not draw on it, which is why the
+   merge gate still holds. It is **not** a Windows service and dies with the shell that started it.
+   Command, path and the `ci_quota_exceeded` diagnosis are in **`CLAUDE.local.md`** — including that
+   `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
+   Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
+   throttles that write; the live process is the evidence, not the timestamp.
+3. **Only four tasks remain, and the next one you can do alone is T074.**
 
-   **Two things already written down that Phase 6 will otherwise rediscover.** T061 **must not** send
-   `date_from`/`date_to` — the calendar's read stays unparameterised, because a ranged read returns no
-   undated rows and empties the backlog drawer, which narrows the same state. `month-grid.spec.ts` and
-   `period-nav.spec.ts` both guard this. And the filter is a **client-side narrowing of loaded state**,
-   like `selectBacklog` and `groupByScheduledDate`; the endpoint's `platform` parameter exists for a
-   caller that wants only one platform, and this surface is not one.
+   - **T071 and T072 are blocked on the human** — Render and Vercel accounts, and their deploy hooks
+     as CI variables. There are currently **no CI variables at all**. Do not try to work around this:
+     a deploy job that reports success without deploying is the failure mode `.gitlab-ci.yml` was
+     written to prevent.
+   - **T074** — re-run `/speckit-analyze` and a `reviewer` pass over the whole feature, fix what they
+     find, and write `CHANGELOG.md`. **The v0.1 tag is deliberately held until after T072** (decided
+     with the human on 2026-08-03, recorded under T074 in `tasks.md`): tagging a release that no
+     deployment corresponds to is backwards.
+   - **T076** — the retro. It compares *shipped* behaviour against every acceptance criterion, so it
+     wants T072's results. It must record the **full extent of the constitution VI exception**: one
+     stage-1 fast-forward plus every `--no-ff` merge from T008 through T024 — **25 merge commits**,
+     pinned at `caca814~4`, because `git log --merges` now includes the real MR merges too. **There is
+     no second exception**; the runner is what kept the gate intact through the quota outage.
 
-   Run all three checkpoint gates every time. At Phase 3 the hand-walk found what the suite
-   structurally cannot; at Phase 4 and again at Phase 5 `/speckit-analyze` found a stale claim in
-   `contracts/openapi.yaml` that a `reviewer` pass did not, because it reads artifacts against each
-   other rather than counting citations; at Phase 5 the `reviewer` found a **missing default** on a
-   path no assertion reached, which neither of the other two gates could see.
-
-3. **Every task from here goes through a merge request.** `main` refuses direct pushes and the
-   pipeline gates the merge. The flow used for every task since T025:
+4. **Every task goes through a merge request.** `main` refuses direct pushes and the pipeline gates
+   the merge:
 
    ```bash
    git checkout main && git pull --ff-only
@@ -233,49 +208,15 @@ and neither is duplicated here.
    glab mr merge <N> --yes --remove-source-branch
    ```
 
-   Do **not** merge locally with `--no-ff` — that flow ended at T025.
-4. ~~**The backend 409 seam**~~ — **closed at T030.** The contract won: `InvariantErrorResponse`
-   carries `{code, detail}` and `test_errors.py`'s one-key rule was narrowed per status code rather
-   than relaxed. `backend/AGENTS.md` records what exists so a later 409 follows the same path — and
-   **T049's `PATCH` is `check_invariant_1`'s second caller**, raising `platform_locked` from the same
-   rule. Do not write a parallel check there. Two other backend hazards live in that file:
-   `app.auth.presented_token` must stay **logout-only**, and three entries in `backend/pyproject.toml`
-   look removable but are load-bearing.
-5. ~~**T033's two inherited obligations**~~ — **both discharged.** T027's re-assert lives in
-   `app/(app)/calendar/page.tsx`, and the four guard tests are switched on. **The suite now has
-   nothing skipped**, so a skipped test appearing again is a signal rather than the status quo.
-   Note the limit recorded in `frontend/AGENTS.md`: a full page load exercises the layout guard and
-   the page guard at once, so **no e2e test can tell them apart** — deleting the page-level check
-   leaves the suite green.
-6. Read the **Post-review revisions** table at the bottom of `tasks.md` before touching Phase 3+:
-   three tasks exist for non-obvious reasons and look droppable if you have not read it.
-7. **Do not skip** `T075` at the end — amending the Auth row of `tech-defaults.md` to permit sliding
-   reissue. `research.md` R-002 defers it to Reflect on purpose, so the rule is inherited by later
-   modules rather than re-derived from an argument buried in a research file.
-
-**One thing is still waiting on the human, and it blocks nothing.** The other two closed on
-2026-08-01:
-
-8. ~~**Seed the single creator account**~~ — **done 2026-08-01, and it was the oldest open item in the
-   project.** The cause was `SEED_CREATOR_EMAIL` on the reserved `.local` TLD, which `email-validator`
-   refuses; a real domain fixed it and `app.scripts.seed_user` ran. **Quickstart V1 has now been walked
-   by a human** — browser to proxy to FastAPI to Postgres — so T033 builds on a session proven outside
-   the suite as well as inside it. One row exists: **do not seed a second address**, it is refused
-   outright and `content_item` has no owner column. Note what this does *not* change: every automated
-   frontend test still stubs the proxy, because CI has no FastAPI behind it, so the green suite still
-   proves less than that one sign-in did. Prefer a hand-walk at each checkpoint over trusting it.
-9. ~~**Stage 2 (Design)**~~ — **done 2026-08-01.** The export is in `design/content-calendar/`, the
-   data-shape audit ran **clean** (no `spec.md` amendment needed), and the token layer is in
-   `frontend/app/globals.css`. **Every surface from T033 on is built from that export** — read
-   `BRIEF.md`'s audit findings and open the `.dc.html` before building one, rather than inventing a
-   layout. `/login`, the calendar shell (`1c`), the capture sheet (`1f`) and the backlog drawer
-   (`1h` + `1c`'s peek strip) are done; the rest were deliberately **not** built ahead of their tasks.
-   Note T035 changed one line of export copy on purpose — the drawer does not promise a drag that
-   does not exist until T054. **Screenshot at 375px after any restyle** — a
-   misspelled Tailwind class fails no check, and use a port other than 3100.
-10. **Import `tasks.md` as GitLab issues** — T001–T058 created and closed immediately, so later
-    `closes #N` references do not skew. `/speckit-taskstoissues` is GitHub-only and will abort; use
-    `glab issue create` or the web UI. Do not try to make that command work.
+   Do **not** merge locally with `--no-ff` — that flow ended at T025. A full pipeline is ~12–14
+   minutes; poll it in the background rather than waiting in the foreground.
+5. Read the **Post-review revisions** table at the bottom of `tasks.md` before changing anything in
+   Phase 3+: several tasks exist for non-obvious reasons and look droppable if you have not read it.
+   Each phase also has its own notes-and-amendments section recording what its checkpoint found.
+6. **Import `tasks.md` as GitLab issues** — still open, still blocking nothing. Create and close
+   T001–T070 immediately so later `closes #N` references do not skew.
+   `/speckit-taskstoissues` is GitHub-only and will abort; use `glab issue create` or the web UI. Do
+   not try to make that command work.
 
 ### Commands that are real now
 
@@ -285,26 +226,33 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is **238 backend tests and 322 frontend tests, none
-skipped**, with `pnpm typecheck` and `pnpm lint` both silent.
+**`frontend/AGENTS.md`**. Current green state is **271 backend tests and 432 frontend tests, none
+skipped**, with `pnpm typecheck` and `pnpm lint` both silent. (`pnpm typecheck` reads generated route
+types out of `.next/`, so it goes red straight after a branch switch — `rm -rf .next` and re-run.)
 
 `pnpm dev` serves the proxy for real — `/api/auth/login` and `/api/auth/logout` work against a running
 `docker compose up -d backend`, and it needs no `frontend/.env.local`: `lib/session.ts` defaults
 `API_BASE_URL` to the compose backend outside production. **A hand-walk needs `pnpm build && pnpm
 start` instead**, plus `API_BASE_URL` and `SESSION_COOKIE_SECURE=false` — the dev overlay covers the
-`MONTH` toggle at 375px. See `frontend/AGENTS.md`.
+`MONTH` toggle at 375px, and without the second variable a correct sign-in bounces straight back to
+`/login`. See `frontend/AGENTS.md`.
 
-Real now: `/login`, `/` (which redirects), and **`/calendar`** — header with an `N overdue` count,
-**month grid**, **week list**, **period navigation**, backlog drawer, capture sheet, bottom action
-band, **item sheet**, **delete confirmation**, and **drag-to-schedule**. **A signed-in creator can capture an idea, find it in the backlog, move between months and
-weeks, see every dated item with its status, platform and overdue state legible without opening it,
-and — since Phase 5 — open it and change every one of those fields, drag it onto a day or back to the
-backlog, and delete it behind a confirmation.** What no surface can do yet: **filter by platform**
-(T061) and **carry a published link** (T064). `docker compose up frontend` has still never been run.
+**Real now: every surface v0.1 specifies.** `/login`, `/` (which redirects), and **`/calendar`** —
+header with an `N overdue` count and a sign-out control, month grid, week list, period navigation,
+backlog drawer, capture sheet, bottom action band, item sheet, delete confirmation,
+drag-to-schedule, platform filter, published-link field and open control, and the first-run empty
+state. **A signed-in creator can capture an idea, find it in the backlog, move between months and
+weeks, read every dated item's status, platform and overdue state without opening it, open it and
+change every one of those fields, drag it onto a day or back to the backlog, filter by platform,
+record where it was published and open the live post, delete it behind a three-tap confirmation, and
+sign out.**
 
-`glab` is installed and authenticated, and `origin` exists — the whole MR flow in step 3 above works.
+What is *not* real: **nothing is deployed** (T071/T072), and `docker compose up frontend` has still
+never been run.
+
+`glab` is installed and authenticated, and `origin` exists — the whole MR flow in step 4 above works.
 The binary's path is non-standard and not on the PATH of a shell that predates the install; see
-`CLAUDE.local.md`.
+`CLAUDE.local.md`, which also carries the local runner.
 
 ## What this is
 
