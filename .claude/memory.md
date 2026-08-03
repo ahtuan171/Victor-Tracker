@@ -144,9 +144,13 @@ The rule: when a checkpoint amends a decision, **grep the claim across `specs/` 
 have open. Related: this is also why `/speckit-analyze` earns its place beside `reviewer` — a clean
 `reviewer` pass missed it, because reviewing code against specs cannot see two specs disagreeing.
 
-**2026-08-02 — the contract has now carried an overturned claim at four checkpoints running, and
-Phase 6 showed the failure mode is the *reason*, not the conclusion.** Phase 4 CRITICAL, Phase 5
-HIGH, Phase 6 MEDIUM — every one of them in `contracts/openapi.yaml`. Stop treating this as bad luck:
+**2026-08-02, extended 2026-08-03 — the contract has carried a defect at four checkpoints running,
+and Phase 6 showed the failure mode is the *reason*, not the conclusion.** Phase 4 CRITICAL, Phase 5
+HIGH, Phase 6 MEDIUM, **Phase 7 MEDIUM** — every one of them in `contracts/openapi.yaml`. Phase 7's
+is the variant that breaks the usual defence: it was a **silence**, not a wrong sentence — the
+contract never said which of `format: uri` and `pattern` it enforced, so the client guessed a subset
+and shipped a validator stricter than the API. **"Grep the claim" cannot find an absent claim.** Stop
+treating this as bad luck:
 the contract is the artifact least often opened while building a surface and the one that outranks
 code when someone does open it, so a wrong sentence there survives longest and is obeyed hardest.
 **Read the whole `description` block of any operation you touch, every time.**
