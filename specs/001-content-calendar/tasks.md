@@ -1076,7 +1076,36 @@ red and the rest stayed green: dropping `noreferrer` reddened exactly the three 
 removing the scheme gate reddened exactly the `javascript:` test (and, first, **failed the build** on
 the now-unused import); adding a `status === "posted"` gate reddened the retained-link test and the
 two sheet-draft tests, which is correct — their fixtures are not `posted`.
-- [ ] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
+- [x] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
+
+**T066 result (2026-08-03)**: done, one merge request, frontend suite **373 → 381 passing**, nothing
+skipped; `pnpm typecheck` and `pnpm lint` silent. Screenshotted at 375px on the production build.
+
+**Built exactly to the four steps recorded above, and nothing was re-litigated.** The check runs in
+`ItemSheet.save()` before the request is built; the link field is marked (`aria-invalid`, a border)
+and takes focus through `focusFix`; **the draft is not touched**; and one save then carries everything
+once the link is fixed or cleared. Writing the resolution down before the code turned out to be the
+whole value of it — the symptom (a 422 that eats a status change) invites "send the link separately",
+which is the option T052 exists to forbid.
+
+**`focusFix` gained a third target.** It selected `button`, which is right for the two invariant codes
+— `platform_required` and `platform_locked` are resolved in the status and platform columns — and
+wrong for a link, which is resolved in a text field. It now selects `input, button`, first in document
+order. The link row's `<a>` (T065) is deliberately not matched: focusing the *open* control would be
+the wrong answer to "fix this link".
+
+**`linkRefused` is state set at the save, not derived from the draft.** Deriving it would mark the
+field on the first keystroke of a URL the creator is halfway through typing, which is the validating
+input this task is explicitly not building. `edit()` clears it, on the same rule T053 established: a
+refusal describes a save attempt that no longer matches the draft.
+
+**Green was not taken as evidence — three breaks, each reddening the right tests:**
+
+| Break | Result |
+|---|---|
+| `isValidPublishedUrl` accepts anything (the gate never refuses) | **5 red, 34 green.** The three that stayed green are the ones asserting the *non-refusal* path, which is correct |
+| The predicate made **stricter** than the contract (`^https?://.+`) | **1 red, 38 green** — exactly `is not stricter than the contract`. This is the direction no backend test can see, and the only test that can see it is this one |
+| `setDraft(item)` added to the refusal path (discard the edit) | **3 red, 36 green** — the survival test plus the two that save afterwards and expect the earlier edits still in the diff |
 
 **Checkpoint**: every user story is complete and independently functional.
 

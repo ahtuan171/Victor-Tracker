@@ -722,3 +722,167 @@ test("an overdue item says so in the sheet, on the field that caused it", async 
   await page.getByTestId("item-date-input").fill("2026-08-20");
   await expect(page.getByTestId("item-overdue-note")).toBeHidden();
 });
+
+/**
+ * T066 — a refused link never costs the creator the edit it travelled with (spec Edge Cases, FR-019).
+ *
+ * The conflict this resolves was decided in `tasks.md` before any of it was written, so it cannot be
+ * re-litigated from a symptom: T052 fixed that **one save is one `PATCH` carrying a diff**, because
+ * SC-012 needs a title-only idea to gain a platform *and* advance in a single request. A malformed
+ * `published_url` makes the backend refuse the **whole body** with a 422, taking the accompanying
+ * status change with it. One request cannot satisfy both, so the link is checked on the **client**,
+ * before the request is built — the same principle T053 applies to the 409: the cheapest way to
+ * honour a refusal is to not produce it.
+ *
+ * What is asserted is therefore mostly *the absence of a request*, and the survival of the draft.
+ */
+test.describe("a malformed published link", () => {
+  /** Advance to `posted` and paste a bad link — the two edits the spec's edge case puts together. */
+  async function advanceAndPasteBadLink(page: Page, link = "not-a-url"): Promise<void> {
+    await page.getByTestId("platform-option-tiktok").click();
+    await page.getByTestId("status-option-posted").click();
+    await page.getByTestId("item-link-input").fill(link);
+    await save(page).click();
+  }
+
+  test("never reaches the network, so the 422 that would discard the status never happens", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+
+    // The whole mechanism, in one assertion: no request was built, so there is no whole-body refusal
+    // for the status change to be lost inside.
+    expect(stub.patched).toHaveLength(0);
+  });
+
+  test("keeps the status change and every other pending edit exactly as they were", async ({
+    page,
+    baseURL,
+  }) => {
+    await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+
+    // "The item's status change is not lost as a result" — the requirement, read off the controls.
+    await expect(page.getByTestId("status-option-posted")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("platform-option-tiktok")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("item-link-input")).toHaveValue("not-a-url");
+    // Still open: a sheet that closed would have discarded all of it.
+    await expect(save(page)).toBeVisible();
+  });
+
+  test("says the link is the problem, and says the rest survived", async ({ page, baseURL }) => {
+    await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+
+    const message = page.getByTestId("item-sheet-message");
+    await expect(message).toContainText("http://");
+    // The half a creator acts on: without it they redo the status change they can see is still set.
+    await expect(message).toContainText(/still here/i);
+  });
+
+  test("marks the field and moves focus to it, because the sheet's body scrolls", async ({
+    page,
+    baseURL,
+  }) => {
+    await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+
+    // Adjacency is not reachability — the same reason T053's 409 moves focus rather than only
+    // naming the control. Focus also scrolls it back into view and puts the keyboard on it.
+    await expect(page.getByTestId("item-link-input")).toBeFocused();
+    await expect(page.getByTestId("item-link-input")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("the mark clears on the next edit, rather than arguing with it", async ({
+    page,
+    baseURL,
+  }) => {
+    await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+    await page.getByTestId("item-link-input").fill("https://tiktok.com/@c/video/1");
+
+    // The refusal described a save attempt that no longer matches the draft.
+    await expect(page.getByTestId("item-link-input")).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByTestId("item-sheet-message")).not.toContainText(/still here/i);
+  });
+
+  test("once fixed, ONE save carries the link and the status change together", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+    await page.getByTestId("item-link-input").fill("https://tiktok.com/@c/video/1");
+    await save(page).click();
+
+    // Step 4 of the resolution, and the reason splitting the link into its own request was rejected:
+    // the one-save-one-request property T052 exists to establish is still true afterwards.
+    expect(stub.patched).toHaveLength(1);
+    expect(stub.patched[0]).toEqual({
+      platform: "tiktok",
+      status: "posted",
+      published_url: "https://tiktok.com/@c/video/1",
+    });
+  });
+
+  test("clearing it instead also saves everything, in one request", async ({ page, baseURL }) => {
+    const stub = await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    await advanceAndPasteBadLink(page);
+    await page.getByTestId("item-link-input").fill("");
+    await save(page).click();
+
+    // An empty field is `null` at the edge, and `null` never fails the check — the creator is not
+    // trapped by a value they have decided to abandon. `published_url` is absent from the diff
+    // because the item never had one: FR-023's omitted-means-untouched, not an explicit clear.
+    expect(stub.patched).toHaveLength(1);
+    expect(stub.patched[0]).toEqual({ platform: "tiktok", status: "posted" });
+  });
+
+  test("is not stricter than the contract — a bare scheme is sent, not refused", async ({
+    page,
+    baseURL,
+  }) => {
+    const stub = await stubApi(page);
+    await openCalendar(page, baseURL);
+    await openFromPeek(page);
+
+    /*
+     * The direction of drift that no backend test can see. T063 characterised `https://` with nothing
+     * after it as **accepted** by the API, deliberately, with the note that tightening it is a
+     * `contracts/openapi.yaml` amendment first. `format: uri` is a JSON Schema annotation validators
+     * need not enforce, so `^https?://` is the whole machine-checkable rule — and a client that used
+     * `new URL()` or `input.validity` here would refuse a value the API stores happily.
+     */
+    await advanceAndPasteBadLink(page, "https://");
+
+    expect(stub.patched).toHaveLength(1);
+    expect(stub.patched[0]).toEqual({
+      platform: "tiktok",
+      status: "posted",
+      published_url: "https://",
+    });
+  });
+});
