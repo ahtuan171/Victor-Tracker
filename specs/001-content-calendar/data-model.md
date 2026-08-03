@@ -181,7 +181,7 @@ nothing is drift, and `/speckit-analyze` should catch it.
 | FR-013 | Date-range query on `scheduled_date`; `ix_content_item_scheduled_date` |
 | FR-014, FR-014a | Partial `PATCH` on `scheduled_date` — one endpoint, reached by drag or by tap (research.md R-003) |
 | FR-015, FR-015a, FR-015b | Partial `PATCH` on `status`, reached by tap only. Status is not draggable — see the FR-015a amendment in spec.md's post-review clarification |
-| FR-016 | Optional `platform` query parameter on list, plus client-side narrowing of the loaded period (research.md R-007) |
+| FR-016 | Optional `platform` query parameter on list, plus client-side narrowing of the loaded list — the whole list, read once, not a period (research.md R-007 and its Phase 4 amendment) |
 | FR-017, FR-018 | `status` and `platform` returned on every list row so no follow-up read is needed to render a cue |
 | FR-019, FR-019a | `published_url` nullable and never auto-cleared; INV-3 |
 | FR-020 | Frontend confirmation before `DELETE`; no schema involvement |
