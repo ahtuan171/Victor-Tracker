@@ -1736,6 +1736,15 @@ problem, with the fix "use a production build". What T057 shows is that it is **
 `playwright.config.ts`'s `webServer` runs `next dev`, so the overlay is over the `MONTH` toggle in
 every pipeline too.
 
+> **[Correction, 2026-08-03] The paragraph above is wrong, and Phase 4 was right.**
+> `playwright.config.ts` runs `` `${process.env.CI ? "pnpm start" : "pnpm dev"}` ``: CI has always
+> served the production bundle, so no pipeline has ever had the overlay. T057 widened a local trap
+> into a CI one without reading the config, and the wrong version propagated to `CLAUDE.md`,
+> `frontend/AGENTS.md`, `tasks.md` and the `pipeline.spec.ts` call-site comment — four artifacts —
+> while the correct Phase 4 wording sat untouched in `tasks.md` the whole time. Left in place rather
+> than rewritten because this file is a record of what was believed when; the rule now lives in
+> `frontend/AGENTS.md`.
+
 It went unnoticed for a reason worth remembering: **no test before this one had ever clicked `MONTH`**.
 `view-week` is clickable, so `period-nav.spec.ts` exercises the toggle in one direction and stops.
 The gap was invisible because the half that works is the half every test happened to use.
@@ -1810,6 +1819,9 @@ gate passed.
 
 The `MONTH` toggle. Next's dev overlay covers it at 375px, and `playwright.config.ts` runs `next dev`,
 so this is true in CI too — not just in a hand-walk, which is how the Phase 4 checkpoint recorded it.
+
+> **[Correction, 2026-08-03]** The second clause is false and the Phase 4 record was right — CI runs
+> `pnpm start`. See the correction earlier in this T057 entry.
 
 It went unnoticed until T057 for a reason worth generalising: **no test had ever clicked it.** `WEEK`
 works, so the toggle was exercised in one direction only, and the gap was invisible because the half

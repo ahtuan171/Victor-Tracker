@@ -737,12 +737,25 @@ least one task. One HIGH finding (F1) and one MEDIUM (F3).
 | F3 | MEDIUM | quickstart **V4 step 2 asked the creator to paste a published link** - but the link field is **T064 (US5, Phase 7)** and this checkpoint makes V4 a **Phase 5** gate, so the gate could not be completed at the phase that runs it. FR-019 was already absent from V4's own *Proves* list | Step reduced to what V4 actually proves, with the link pointed at V8 and the reason recorded inline |
 
 **One thing recorded rather than fixed, because the fix has a cost that is not this task's to pay.**
-The `MONTH` toggle is a control **no automated test can click**: Next's dev overlay covers it at 375px
-and `playwright.config.ts`'s `webServer` runs `next dev`, so this holds in CI and not only in a
-hand-walk. It went unnoticed until T057 because no test had ever clicked it - `WEEK` is clickable, so
-the toggle was only ever exercised in the direction that works. `pipeline.spec.ts` uses
-`dispatchEvent("click")` with the reason at the call site. **The real fix is running the suite against
-`pnpm start`**, which rebuilds on every run; T069's overlay audit is where that belongs.
+The `MONTH` toggle is a control **no automated test can click**: Next's dev overlay covers it at 375px.
+It went unnoticed until T057 because no test had ever clicked it - `WEEK` is clickable, so the toggle
+was only ever exercised in the direction that works. `pipeline.spec.ts` uses `dispatchEvent("click")`
+with the reason at the call site.
+
+> **Corrected 2026-08-03 — the scope above was wrong, and it assigned work to T069 that does not
+> exist.** This paragraph originally said `playwright.config.ts`'s `webServer` runs `next dev` "so
+> this holds in CI and not only in a hand-walk", and made "running the suite against `pnpm start`"
+> the real fix, owed by T069. The config reads
+> `` `${process.env.CI ? "pnpm start" : "pnpm dev"} --port ${PORT}` `` - **CI has always run the
+> production bundle**, so there is no overlay in a pipeline and nothing for T069 to do. The Phase 4
+> record two hundred lines above states this correctly ("CI runs the production bundle, so this was
+> never going to appear in the suite"); T057 widened it, and the wrong version then propagated to
+> `CLAUDE.md`, `frontend/AGENTS.md` and the call-site comment in `pipeline.spec.ts` while the right
+> one sat in this same file. **`specs/` outranks code, so a false claim here is the dangerous
+> direction**: it was already spending a later task's budget. The residual gap is real but small and
+> local-only - a developer running `pnpm exec playwright test` on their own machine gets the dev
+> server, and `CI=1` in front of it is the whole workaround. The surviving lesson is about coverage,
+> not environments: **the direction that works is the direction every test happens to use.**
 
 **V8 added 2026-07-31** by the Phase 2 `/speckit-analyze` pass. SC-009 and FR-023 — "every change
 made in the previous session is still present after a reload" — were validated by **no checkpoint at
