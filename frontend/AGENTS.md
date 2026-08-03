@@ -112,7 +112,24 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | The corner and texture treatments are **plain CSS classes** (`.notch-card`, `.notch-sheet`, `.web-grain`), not React components | They are token-level decisions — the visual language's corner and grain — rather than anything with behaviour, and a CSS class is the smallest thing that can carry a `clip-path`. Each already had two callers on the login surface alone, so this is not abstraction ahead of need. |
 | Contract tests run as a **second Playwright project**, not a second test runner | `tech-defaults.md` names Playwright as the frontend test tool, and `.gitlab-ci.yml`'s `test:e2e` job runs `playwright test` with no `--project` filter — a separate config file would be a merge gate nobody invokes. The project touches no `page` fixture, so no browser starts. |
 
+| **Sign-out lives in the header, and T077's task line said the action band** | A measurement, not a preference — the amendment and its numbers are in `tasks.md`. The band holds the view toggle (123px), two arrows (40px each) and `+ CAPTURE` (97px): 300px of content, 24px of gaps, 32px of padding = **356px of the 375px floor, leaving 19px**, where a 44px target plus its gap needs 50px. FR-022 is what permits the move, and it must be quoted rather than paraphrased: it asks thumb reach for the actions performed **frequently** and *names them* — "capture, status change, date change". Sign-out is none of the three, and distance from the thumb is a feature for the one control whose mis-tap ends the session. It sits **above** the counts, not beside them, so the right column is `max(button, counts)` wide rather than their sum and the period title loses ~5px instead of ~91px. |
+| A refused sign-out **keeps the creator on the calendar** and says so | Only the proxy can clear an httpOnly cookie, so a logout the server refused leaves the session **alive**. Navigating to `/login` anyway would report an ending that did not happen — FR-002a read backwards — and would strand the creator on a login form while their session was still open. `logout()` already swallows a 401 (the session was over, which is where sign-out was going), so anything reaching the catch is a session that still exists. The message renders **full width under the header row**, never inside the 44px right-hand column, where a sentence would push the period title and break the constraint that put the control there. |
+
 ## Traps
+
+**A `scrollWidth > clientWidth` check does not catch content pushed off the side of the screen.** The
+whole suite's horizontal-overflow assertion is
+`document.documentElement.scrollWidth > document.documentElement.clientWidth`, and it is **weaker than
+it reads**. Verified while building T077 by putting the sign-out control in the action band as the
+task line originally said: `+ CAPTURE` moved to **x=417 on a 375px viewport — 42px past the right
+edge — and the check stayed `false`.** The band is a flex row inside an `h-dvh` column, so it *clips*
+rather than extending the document's scroll width; the primary action simply left the screen with
+nothing to announce it. FR-021 forbids the body scrolling and SC-003 asks that the views be "fully
+usable", and this failure satisfies the first while destroying the second. The assertion that catches
+it is the one `period-nav.spec.ts` already had —
+`capture.x + capture.width <= viewport.width` — so **assert that the controls are inside the viewport,
+not only that the body does not scroll.** This is T069's subject and the scrollWidth check alone is
+not enough to close it.
 
 **A bottom sheet measured the instant it becomes *visible* is still 40px below where it lands.**
 `SheetContent` enters on a 200ms `translate-y-[2.5rem]` transition, so `toBeVisible()` resolves while

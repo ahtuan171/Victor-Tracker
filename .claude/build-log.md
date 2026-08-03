@@ -1830,3 +1830,73 @@ restyle away from being broken with the suite still green.
 
 The real fix — running the suite against `pnpm start` — rebuilds on every run and belongs with T069's
 overlay audit, not here.
+
+---
+
+## T077 — the sign-out control, and an overflow check that was weaker than it read
+
+The Phase 7 checkpoint's finding C1: FR-002a requires a session to end "only on expiry or **an
+explicit sign-out**", and after 76 tasks nothing in the product could sign out. Every layer beneath
+the surface already existed — the backend route since T014, `logout()` in `lib/api.ts` since T023, the
+proxy clearing the cookie on the way back since T021 — so this task was a surface and nothing else.
+
+**Sequencing note.** T077 is numbered last because it was discovered last, but it was built **first**
+in Phase 8, ahead of T067. T067 adds focus states to "every interactive element"; running it before
+the sign-out control existed would have guaranteed a second pass over the same file.
+
+### The task line said "action band", and the band had 19px
+
+The line was written without measuring the band. Measured on the production build at 375px: view
+toggle 123px, two arrows 40px each, `+ CAPTURE` 97px — **300px of content, 24px of gaps, 32px of
+padding, 356px of a 375px floor.** 19px left, against the 50px a 44px target and its gap need.
+
+So the placement had to move, and the interesting part is that FR-022 *permits* it rather than
+tolerating it. It asks thumb reach for the actions performed **frequently** and then names them:
+"capture, status change, date change". Sign-out is not one of the three, and being out of the thumb's
+path is a **feature** for the one control whose mis-tap ends the session — `.claude/rules/design.md`
+asks that consequential actions not sit one tap from a common gesture, and `+ CAPTURE` is the most
+common gesture in the product. The header had 144px free. The control sits **above** the item counts
+rather than beside them, so the right-hand column is `max(button, counts)` wide instead of their sum,
+costing the period title ~5px instead of ~91px.
+
+`tasks.md` carries the amendment with the numbers. Grepped across `specs/` and both `AGENTS.md`
+first: the "action band" claim existed in exactly one place, and `quickstart.md` names the action
+without naming its location, so V1.4 and V8.1 needed no change — they simply become walkable.
+
+### The find: `scrollWidth > clientWidth` does not catch content pushed off the screen
+
+The placement was **tried**, not merely reasoned about. With the control in the action band,
+`+ CAPTURE` moves to **x=417 on a 375px viewport — 42px past the right edge — and
+`document.documentElement.scrollWidth > document.documentElement.clientWidth` stays `false`.**
+
+The band is a flex row inside an `h-dvh` column, so it *clips* instead of extending the document's
+scroll width. The primary action simply leaves the screen, and nothing announces it.
+
+That matters well beyond this task, because **that check is the horizontal-overflow assertion in every
+`tests/e2e/` file.** It satisfies FR-021's letter — the body genuinely does not scroll — while
+destroying SC-003's "fully usable". The assertion that catches it is the one `period-nav.spec.ts`
+already happened to have: `capture.x + capture.width <= viewport.width`.
+
+**This is T069's subject, and T069 is specified in the weaker of the two terms** ("audit ... for
+horizontal body scroll"). Recorded in `tasks.md` under the amendment and in `frontend/AGENTS.md`, so
+the audit checks that controls stay inside the viewport and not only that the body does not scroll.
+
+Same shape as T057's `MONTH` toggle, one level down: not a check that was absent, but a check that
+passed while the thing it was supposed to protect was broken.
+
+### A refused sign-out keeps the creator where they are
+
+Only the proxy can clear an httpOnly cookie, so a logout the server refused leaves the session
+**alive**. Navigating to `/login` anyway would report an ending that did not happen. `logout()`
+already swallows a 401 — the session was over, which is where sign-out was going — so anything
+reaching the catch is a live session, and the honest answer is to stay, say so, and leave the control
+enabled. The message renders full width beneath the header row rather than inside the 44px right-hand
+column, where a sentence would push the period title and break the constraint that put the control in
+the header in the first place.
+
+### Four breaks, four confirmations
+
+Green on the day the test was written is not evidence, so each assertion was verified against a
+deliberate break: removing the navigation turned exactly the two navigation tests red; navigating on
+the failure path turned exactly the refusal test red; dropping `h-11` turned exactly the tap-floor
+test red; and moving the control into the action band produced the 417px measurement above.

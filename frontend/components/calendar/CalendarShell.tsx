@@ -23,7 +23,7 @@ import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
-import type { ContentItem, Platform } from "@/lib/api";
+import { logout, type ContentItem, type Platform } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
@@ -445,6 +445,23 @@ function readNoToday(): DateOnly | null {
  * It counts **every loaded item, not the visible period's**. An overdue item two months back is
  * exactly the one the creator has lost track of, and a count that emptied itself as they navigated
  * away from the problem would be the opposite of what the treatment is for.
+ *
+ * ## Sign-out lives here, and the task line said the action band
+ *
+ * T077, and the amendment is recorded in `tasks.md` with the measurement behind it. The action band
+ * carries the view toggle, two arrows and `+ CAPTURE`: **300px of content, 24px of gaps and 32px of
+ * padding — 356px of the 375px floor, leaving 19px.** A 44px target and its gap need 50px, so
+ * putting sign-out there means breaking either `.claude/rules/design.md`'s tap floor or FR-021's
+ * "the page body MUST NOT scroll horizontally". FR-022 asks thumb reach for the actions the creator
+ * performs **frequently** — it names them: "capture, status change, date change" — and sign-out is
+ * none of the three. Distance from the thumb is a *feature* here for the same reason it is a cost
+ * there: this is the one control whose mis-tap ends the session.
+ *
+ * It sits **above** the counts rather than beside them, which is what makes it nearly free: the
+ * right-hand column is then `max(button, counts)` wide instead of their sum, so the period title
+ * loses ~5px rather than ~91px. The longest title this product can produce is a cross-boundary week
+ * (`28 Dec 2026 – 3 Jan 2027`), and both `period-nav.spec.ts` and `sign-out.spec.ts` pin it against
+ * horizontal overflow.
  */
 function CalendarHeader({
   period,
@@ -459,62 +476,131 @@ function CalendarHeader({
   overdueCount: number;
   loading: boolean;
 }) {
+  /**
+   * Set only when the request is refused, and it keeps the creator here.
+   *
+   * Only the proxy can clear an httpOnly cookie, so a refused logout leaves the session **alive** —
+   * navigating to `/login` anyway would report an ending that did not happen. `logout()` already
+   * swallows a 401 (the session was over, which is where this was going), so anything reaching this
+   * branch is a session that is still open.
+   */
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+
+  /** Disables the control for the moment before the page swaps, as `login-form.tsx` does on submit. */
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function signOut(): Promise<void> {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError(null);
+
+    try {
+      await logout();
+    } catch {
+      setSignOutError("Could not sign you out. Your session is still open — try again.");
+      setSigningOut(false);
+      return;
+    }
+
+    // `window.location.replace`, never a router push: the `(app)` guard is a server component and
+    // App Router layouts are not re-executed on soft navigations, so a client-side push could land
+    // on `/login` with the server never re-reading the now-cleared cookie. `replace` also keeps the
+    // signed-in page out of history, where going back would only bounce off the guard.
+    window.location.replace("/login");
+  }
+
   return (
-    <header className="border-hairline flex items-end justify-between border-b px-4 pt-5 pb-3">
-      <div>
-        {/*
-         * `Content Calendar` on the month view, `Week 11` on the week view — the export's `1c` and
-         * `1e` headers. The eyebrow carries the week number rather than the title, because the title
-         * has to name the actual days and there is not room at 375px for both.
-         */}
-        <p
-          className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase"
-          data-testid="calendar-eyebrow"
-        >
-          {period === null ? "Content Calendar" : periodEyebrow(period, view)}
-        </p>
-        {/*
-         * `-skew-x-6` and the uppercase Oswald are the export's display treatment, not decoration
-         * added here. An empty string rather than a fallback month while `period` is null: a
-         * placeholder month would be a wrong month for a moment, which is the exact failure the
-         * after-mount read exists to prevent.
-         */}
-        <h1
-          className={cn(
-            "font-display -skew-x-6 leading-none font-bold tracking-wide uppercase",
-            // The week title names days and a month, so it is longer than `MARCH 2026` and drops a
-            // size — the export's own `1c`/`1e` difference. A cross-boundary week is longer still,
-            // which is why the range abbreviates its months in `lib/period.ts`.
-            view === "month" ? "text-[27px]" : "text-2xl",
-          )}
-          data-testid="calendar-period"
-        >
-          {period === null ? "" : periodTitle(period, view)}
-        </h1>
+    <header className="border-hairline border-b px-4 pt-5 pb-3">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          {/*
+           * `Content Calendar` on the month view, `Week 11` on the week view — the export's `1c` and
+           * `1e` headers. The eyebrow carries the week number rather than the title, because the title
+           * has to name the actual days and there is not room at 375px for both.
+           */}
+          <p
+            className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase"
+            data-testid="calendar-eyebrow"
+          >
+            {period === null ? "Content Calendar" : periodEyebrow(period, view)}
+          </p>
+          {/*
+           * `-skew-x-6` and the uppercase Oswald are the export's display treatment, not decoration
+           * added here. An empty string rather than a fallback month while `period` is null: a
+           * placeholder month would be a wrong month for a moment, which is the exact failure the
+           * after-mount read exists to prevent.
+           */}
+          <h1
+            className={cn(
+              "font-display -skew-x-6 leading-none font-bold tracking-wide uppercase",
+              // The week title names days and a month, so it is longer than `MARCH 2026` and drops a
+              // size — the export's own `1c`/`1e` difference. A cross-boundary week is longer still,
+              // which is why the range abbreviates its months in `lib/period.ts`.
+              view === "month" ? "text-[27px]" : "text-2xl",
+            )}
+            data-testid="calendar-period"
+          >
+            {period === null ? "" : periodTitle(period, view)}
+          </h1>
+        </div>
+
+        <div className="flex flex-none flex-col items-end gap-1.5">
+          {/*
+           * `h-11` is the 44px floor, as everywhere else — every shadcn size variant is desktop-scaled,
+           * so the height is explicit rather than inherited. The label is a written word for the same
+           * reason the rest of the product's controls are (`+ CAPTURE`, `MONTH`, `CLEAR`): a lone glyph
+           * would be the only icon-only control here, and this is the worst one to leave ambiguous.
+           */}
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            disabled={signingOut}
+            className="border-hairline bg-surface-2 text-ink-mid font-display h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
+            data-testid="sign-out-action"
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+
+          <p className="text-ink-mid text-right text-xs leading-snug" data-testid="calendar-counts">
+            {loading ? (
+              "…"
+            ) : (
+              <>
+                {itemCount} {itemCount === 1 ? "item" : "items"}
+                {/*
+                 * Zero overdue prints nothing rather than "0 overdue". A standing line that usually
+                 * reads zero is one the creator stops seeing, which is the whole failure mode this
+                 * count exists to catch.
+                 */}
+                {overdueCount > 0 ? (
+                  <>
+                    <br />
+                    <span className="text-overdue" data-testid="calendar-overdue-count">
+                      {overdueCount} overdue
+                    </span>
+                  </>
+                ) : null}
+              </>
+            )}
+          </p>
+        </div>
       </div>
 
-      <p className="text-ink-mid text-right text-xs leading-snug" data-testid="calendar-counts">
-        {loading ? (
-          "…"
-        ) : (
-          <>
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-            {/*
-             * Zero overdue prints nothing rather than "0 overdue". A standing line that usually
-             * reads zero is one the creator stops seeing, which is the whole failure mode this
-             * count exists to catch.
-             */}
-            {overdueCount > 0 ? (
-              <>
-                <br />
-                <span className="text-overdue" data-testid="calendar-overdue-count">
-                  {overdueCount} overdue
-                </span>
-              </>
-            ) : null}
-          </>
-        )}
-      </p>
+      {/*
+       * Full width rather than inside the right-hand column, which is 44px wide by design — a
+       * sentence there would push the period title and break the very constraint that put the
+       * control in this band. It renders only on a refusal, so the header's height is unchanged in
+       * the case that always happens.
+       */}
+      {signOutError === null ? null : (
+        <p
+          role="alert"
+          className="text-brand-hi pt-2 text-xs leading-relaxed"
+          data-testid="sign-out-message"
+        >
+          {signOutError}
+        </p>
+      )}
     </header>
   );
 }
