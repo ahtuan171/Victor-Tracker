@@ -78,7 +78,7 @@ export function PublishedLink({
       className={cn(
         // 44px square — the tap floor in `.claude/rules/design.md`, which is what confines this
         // control to the `full` chip's row (see the call sites).
-        "border-hairline bg-surface-3 text-ink-mid focus-visible:ring-brand-hi flex h-11 w-11 flex-none items-center justify-center rounded-sm border text-sm leading-none focus-visible:ring-2 focus-visible:outline-none",
+        "border-hairline bg-surface-3 text-ink-mid focus-ring flex h-11 w-11 flex-none items-center justify-center rounded-sm border text-sm leading-none",
         className,
       )}
       data-testid="item-published-link"

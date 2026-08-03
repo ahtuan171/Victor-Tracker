@@ -240,6 +240,56 @@
  * before a second caller exists, and a CSS class is the smallest thing that carries a clip-path.
  */
 
+/*
+ * The one focus indicator (T067), defined here for the same reason the shape primitives below are:
+ * it is a token-level decision, not a per-screen one, and by T067 it had more than twenty callers.
+ *
+ * **Structural, not decoration** — `.claude/rules/design.md` lists focus states among the things
+ * v0.1 may not defer. `pipeline.spec.ts` already proves the product is *operable* by keyboard; this
+ * is what makes it *legible* by keyboard.
+ *
+ * Three properties, each load-bearing:
+ *
+ * - **`:focus-visible`, never `:focus`.** The browser's modality heuristic is the whole point: a ring
+ *   on every mouse tap is noise, and it is what makes designers delete focus styles.
+ * - **`outline`, not a `ring-*` box-shadow.** Tailwind's ring is a shadow, and a shadow is painted
+ *   in the same layer as the element's own — on the two brand-filled controls (`+ CAPTURE`, and the
+ *   selected platform option) that meant *red on red*. Before this class, those two drew Chromium's
+ *   default `outline: auto 1px` tinted by the base layer's `outline-ring/50`: a 1px, half-transparent
+ *   red ring on a red button. Measured, not guessed.
+ * - **`outline-offset`, which is what actually solves red-on-red.** The ring lands on the dark
+ *   surface *outside* the control rather than on the control's own fill. 2px is also the largest
+ *   offset a `micro` chip can carry inside a ~53px day cell without being clipped by the grid, which
+ *   `focus-states.spec.ts` pins as a number.
+ */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ch-brand-hi);
+  outline-offset: 2px;
+}
+
+/*
+ * The same indicator drawn **inside** the control, for the two places an outset ring is painted and
+ * then thrown away. Both were found by screenshot, not by review — a computed style cannot see a
+ * clip, which is the whole reason `focus-states.spec.ts` also compares pixels.
+ *
+ *   1. **Anything wearing `.notch-card`.** That class is a `clip-path`, and a clip-path clips the
+ *      element's outline along with everything else, so `+ CAPTURE`, the drawer's capture button,
+ *      both sheet save buttons and the login submit drew a ring that was **entirely invisible**.
+ *   2. **The view toggle.** `MONTH`/`WEEK` sit in a wrapper with `overflow-hidden` (it clips the two
+ *      children to the group's rounded border), which left a 2px sliver showing on the inner edge
+ *      only.
+ *
+ * Ink rather than brand red, and that is forced rather than chosen: every control needing this is
+ * brand-filled except the unselected half of the toggle, so a red ring inside a red button is the
+ * red-on-red problem the outset version exists to avoid. Near-white reads on both.
+ *
+ * Use `.focus-ring` by default. Reach for this **only** when something clips the control's own box.
+ */
+.focus-ring-inset:focus-visible {
+  outline: 2px solid var(--ch-ink-hi);
+  outline-offset: -4px;
+}
+
 /* Angular panel treatment — clipped corners, not uniform pill radii. */
 .notch-card {
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);

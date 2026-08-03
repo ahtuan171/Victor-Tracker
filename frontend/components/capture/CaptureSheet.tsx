@@ -137,7 +137,7 @@ export function CaptureSheet({
             // `text-base` is 16px and is not a style choice: iOS zooms the page in when focusing any
             // input below 16px, which throws away the layout on a 375px floor. h-13 is 52px, the
             // export's field height, comfortably past the 44px tap minimum.
-            className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-visible:ring-brand-hi h-13 w-full rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring h-13 w-full rounded-sm border px-3 text-base"
             aria-invalid={error !== null}
             {...(error !== null ? { "aria-describedby": errorId } : {})}
           />
@@ -164,7 +164,7 @@ export function CaptureSheet({
           <button
             type="button"
             onClick={close}
-            className="border-hairline text-ink-mid font-display h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline text-ink-mid font-display focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase"
           >
             Cancel
           </button>
@@ -175,7 +175,7 @@ export function CaptureSheet({
             // Disabled on an empty title rather than validated on submit: the button is the answer
             // to "is this saveable yet", and a submit that bounces is a worse answer.
             disabled={trimmed === "" || saving}
-            className="bg-brand notch-card font-display h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
+            className="bg-brand notch-card font-display focus-ring-inset h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
             data-testid="capture-save"
           >
             {saving ? "Saving…" : "Save to backlog"}

@@ -149,7 +149,7 @@ export function DeleteConfirm({
            */}
           <AlertDialogCancel
             autoFocus
-            className="border-hairline bg-surface-3 text-ink font-display h-12 w-full rounded-sm border text-[13px] font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline bg-surface-3 text-ink font-display focus-ring h-12 w-full rounded-sm border text-[13px] font-semibold tracking-[0.16em] uppercase"
             data-testid="delete-keep"
           >
             Keep item
@@ -166,7 +166,7 @@ export function DeleteConfirm({
             // Outlined and muted rather than a filled brand button. The export is explicit that the
             // destructive action carries the *lower* visual weight — a red button is the one a thumb
             // reaches for without reading.
-            className="border-brand-hi/50 text-brand-hi font-display h-12 w-full rounded-sm border bg-transparent text-[13px] font-semibold tracking-[0.16em] uppercase disabled:opacity-50"
+            className="border-brand-hi/50 text-brand-hi font-display focus-ring h-12 w-full rounded-sm border bg-transparent text-[13px] font-semibold tracking-[0.16em] uppercase disabled:opacity-50"
             data-testid="delete-confirm-action"
           >
             {deleting ? "Deleting…" : "Delete permanently"}

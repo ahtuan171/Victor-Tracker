@@ -65,7 +65,7 @@ export function PeriodNav({
             aria-checked={view === candidate}
             onClick={() => onViewChange(candidate)}
             className={cn(
-              "font-display h-11 px-3 text-xs leading-none font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
+              "font-display focus-ring-inset h-11 px-3 text-xs leading-none font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
               view === candidate ? "bg-brand text-white" : "text-ink-lo",
             )}
             data-testid={`view-${candidate}`}
@@ -113,7 +113,7 @@ function PeriodStep({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="border-hairline bg-surface-2 text-ink-mid h-11 w-10 flex-none rounded-sm border text-base leading-none font-semibold disabled:opacity-40"
+      className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 w-10 flex-none rounded-sm border text-base leading-none font-semibold disabled:opacity-40"
       data-testid={label.startsWith("Previous") ? "period-previous" : "period-next"}
     >
       <span aria-hidden="true">{glyph}</span>

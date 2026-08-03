@@ -1900,3 +1900,92 @@ Green on the day the test was written is not evidence, so each assertion was ver
 deliberate break: removing the navigation turned exactly the two navigation tests red; navigating on
 the failure path turned exactly the refusal test red; dropping `h-11` turned exactly the tap-floor
 test red; and moving the control into the action band produced the 417px measurement above.
+
+---
+
+## T067 — focus states, and two assertions that passed against the code they were written to fix
+
+Twenty interactive elements across eleven components and the login form now share one indicator.
+Fourteen had none; six had a `ring-*` and were migrated rather than left as a second spelling of the
+same decision. Built after T077 so the sweep covers the sign-out control, and it also picked up
+`PlatformFilter` and `FilteredEmpty` — the two components the Phase 6 checkpoint noted did not exist
+when this task line was written.
+
+The indicator is `.focus-ring` in `globals.css`, beside `.notch-card` and `.web-grain` and for the
+reason already written there: a token-level decision, not a per-screen one.
+
+### Finding 1: the test passed against the broken state
+
+The first version asked the obvious question — is there *an* outline or box-shadow when this element
+has focus? All eight tests went green against the codebase T067 exists to fix.
+
+**Chromium draws its own focus ring**, and the base layer's `* { @apply outline-ring/50 }` tints it.
+Measured on the production build, the fourteen unstyled controls each reported
+`outline: auto 1px oklab(0.672 0.199 0.082 / 0.5)` — one pixel, half transparent. On `+ CAPTURE` and
+the selected platform option, both brand-filled, that is a **red ring on a red button**.
+
+`auto` is the browser's; `solid` is ours. The check now requires `solid` at 2px or more.
+
+**The general form is worth more than the instance: when asserting that a style exists, assert the
+value the design specifies, not that the property is non-default.** The browser supplies a default for
+almost everything, and the default is usually the thing being replaced.
+
+### Finding 2: a computed style cannot see a clip
+
+With the class applied everywhere and the sweep green, the screenshot showed no ring on `+ CAPTURE`.
+
+`.notch-card` is a `clip-path`, and **a clip-path clips the element's outline along with everything
+else.** Five brand-filled buttons — the action band's capture, the drawer's capture, both sheet saves
+and the login submit — reported a perfect `outline: 2px solid` and drew nothing at all. Separately,
+the view toggle's wrapper carries `overflow-hidden` to clip `MONTH`/`WEEK` to the group's border, and
+left a 2px sliver on one inner edge.
+
+`.focus-ring-inset` handles both, drawing the ring *inside* the box at `outline-offset: -4px`. It is
+ink rather than brand red, and that is forced rather than chosen: every control needing it is
+brand-filled except the unselected half of the toggle, so a red ring inside a red button is the
+red-on-red problem the outset version exists to avoid.
+
+So the spec now also **compares pixels**: screenshot each control focused and unfocused and assert the
+bytes differ. No baseline file, nothing to re-bless, and identical bytes are the definition of an
+invisible focus state. Verified by putting the outset ring back on `+ CAPTURE` — the style sweep
+stayed green and the pixel check failed with `capture-action draws no focus ring`.
+
+### The offset is what solves red-on-red, and that was confirmed by eye
+
+`outline-offset: 2px` puts the ring on the dark surface *outside* the control, so the selected `ALL`
+filter — a red button — carries a clearly visible red ring. Worth stating because the obvious reading
+of "brand red is for focus" plus "brand red is for primary action" is that the two cannot coexist.
+They can; the offset is the whole trick.
+
+### The dialog's focus guards are skipped by `aria-hidden`, not by vendor attribute
+
+`AlertDialog` (base-ui) wraps its content in `<span data-base-ui-focus-guard aria-hidden="true"
+tabindex="0">` clipped to 1px — a real tab stop whose job is to bounce focus back inside. A
+tab-walking test has to skip it. The criterion is `aria-hidden="true"`: an element hidden from
+assistive technology cannot be a control, so it excludes the machinery and nothing a requirement could
+be hiding behind, and it survives the primitive changing.
+
+### Second instance in one day
+
+T077's amendment records the same shape one level up — `scrollWidth > clientWidth` staying `false`
+while `+ CAPTURE` sat 42px off the right edge. Two in a day, in unrelated code:
+**an assertion can pass while the requirement it names is unmet, and the only way to find out is to
+run it against the broken state before trusting it.**
+
+### A third find, delivered as a flaky test: `<main>` is a tab stop
+
+The delete-confirmation test failed about half the time, landing on `main:MTWTFSS2728…`. **Chromium
+makes a scrolling container keyboard-focusable** so it can be scrolled with the arrow keys, and
+`CalendarShell`'s `<main>` is `overflow-y-auto` — which is not incidental, it is how
+`.claude/rules/design.md`'s "wide content scrolls inside its own container" is implemented.
+
+So it is a genuine tab stop that is nobody's idea of an interactive element, and a 2px brand outline
+around the entire calendar body would be the wrong answer. It keeps the browser's faint ring, which is
+right for a scroll region.
+
+The fix in the test is the part worth keeping: it filters on **what an element is** — a natively
+interactive tag, or an interactive ARIA role — rather than on a list of testids. The scroll region is
+exempt by category while a control added later is still covered the day it lands, which is why the
+walk was driven by Tab rather than a hand-written list to begin with. Re-verified after the change by
+removing the indicator again: seven of nine tests went red, so the filter narrowed the population
+without gutting the assertion.

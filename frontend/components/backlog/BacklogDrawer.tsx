@@ -169,7 +169,7 @@ function PeekStrip({
         // The whole header row is the target rather than the word EXPAND alone: at 375px a 40px-wide
         // text link beside a count is a miss waiting to happen, and there is nothing else on this row
         // to hit by accident.
-        className="border-hairline flex min-h-11 w-full items-center gap-2.5 border-b px-4 py-3 text-left"
+        className="border-hairline focus-ring flex min-h-11 w-full items-center gap-2.5 border-b px-4 py-3 text-left"
         data-testid="backlog-toggle"
       >
         <span className="bg-ink-lo/50 h-[3px] w-[34px] flex-none rounded-sm" aria-hidden="true" />
@@ -327,7 +327,7 @@ function ExpandedBacklog({
           <button
             type="button"
             onClick={onCollapse}
-            className="border-hairline bg-surface-2 text-ink-mid font-display h-11 flex-1 rounded-sm border text-xs font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring h-11 flex-1 rounded-sm border text-xs font-semibold tracking-[0.16em] uppercase"
           >
             Close drawer
           </button>
@@ -341,7 +341,7 @@ function ExpandedBacklog({
           <button
             type="button"
             onClick={onCapture}
-            className="bg-brand notch-card font-display h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+            className="bg-brand notch-card font-display focus-ring-inset h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
             data-testid="backlog-capture-action"
           >
             + Capture
