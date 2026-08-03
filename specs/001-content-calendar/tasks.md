@@ -1154,7 +1154,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [x] T067 [P] Add visible focus states to every interactive element in `frontend/components/` — structural under constitution principle V, not decoration
 - [x] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases) — **the calendar half lands in `components/calendar/FirstRun.tsx`, not in the page; see below**
 - [x] T069 Audit the three routes and **four** overlay surfaces under `frontend/app/` at 375px for horizontal body scroll **and for content leaving the viewport**, and fix any that do (FR-021, SC-003) — **task line amended, see below**
-- [ ] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases)
+- [x] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases) — **task line amended, see below: the delete half was settled at T056 and must *not* report**
 - [ ] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001
 - [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether Render's spin-down is a real problem (quickstart.md, research.md Open items)
 - [ ] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md
@@ -1185,6 +1185,64 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T070 note and amendment (2026-08-03): the two 404s are opposites, and the task line merged them
+
+**T070 result (2026-08-03)**: done, one merge request, frontend suite **424 → 432 passing**, nothing
+skipped.
+
+**The amendment: "a 404 on update *or delete* … and reports it" is right about update and wrong about
+delete.** The two are not one behaviour with two entry points, and writing them as one would have
+undone a decision taken at T056:
+
+| | `PATCH` 404 | `DELETE` 404 |
+|---|---|---|
+| Was the row already off screen? | **No** — the optimistic edit keeps it | **Yes** — the optimistic delete removed it |
+| Phantom risk | **Yes**, this task's whole subject | None |
+| Did the creator get what they asked for? | **No**, the change did not happen | **Yes**, the item is gone |
+| Correct answer | remove the row, **reject**, report it | resolve silently — settled at T056 |
+
+So the delete half was **already complete before this task started**, and deliberately so:
+`deleteItem` returns on a 404 because "the creator asked for the item to be gone and it is gone", and
+`delete-item.spec.ts` has pinned it since T056 under the name *"an item already gone is a success, not
+an error"*. Adding the task line's "reports it" there would be **an error message describing
+success** — the thing that decision exists to prevent. The line is amended rather than obeyed, and
+`stale-item.spec.ts` opens by stating the asymmetry so a later "tidy the two 404 branches into one"
+has something to fail against.
+
+**The update half was a real defect and it is the one the requirement names.** `updateItem` rolled
+*every* failure back with `itemChanged(previous, item)` — which **restores** the row, because the row
+is still in the list and that call puts its old values back. An item deleted on the creator's other
+device therefore came back onto the grid the moment they edited or dragged it here, with the sheet
+still open on it and every subsequent save producing the same 404 forever. The spec's edge case
+forbids exactly that, in those words: *"without presenting a phantom item as **editable**"*.
+
+**Reporting it needed a surface, and the drag path is why.** The store removes the row (state truth);
+`CalendarShell` reports it (surface decision) — the existing split, where a failed *write* belongs
+beside the control that attempted it and only a failed *read* sets `state.error`. The sheet cannot be
+that surface: removing the row makes `editing` null, so the sheet **closes before the message it just
+set can be read**. That leaves a save that closes the sheet and removes the chip, which is
+indistinguishable from a save that worked. `onDragEnd` was worse — it caught and discarded every
+rejection on the stated grounds that "the row visibly returning to its old day is the feedback",
+which stops being true when the row does not return.
+
+So a notice sits **between the header and the scrolling region**, naming the item: outside `<main>`
+because `<main>` scrolls and a creator who just dragged a chip is a creator who has scrolled, and as
+another row of the `h-dvh` column it shrinks `<main>` rather than moving the action band. Dismissed
+explicitly rather than on a timer — a notice that vanishes on its own is one that can be missed, and
+a timer is how a suite becomes flaky. `role="status"`, not `alert`: the calendar is now correct and
+nothing is being demanded of the creator.
+
+**`reload()` still has no caller, for the fifth time.** The obvious reading of "the view recovers on
+refresh" is *call `reload()` on a 404*, and it was rejected for R-007's reason: the response already
+carries the only fact needed — this id is gone — so re-reading the whole list is a round trip to
+learn something already known, against a backend whose free tier spins down. Removing the one row is
+also **stronger** than the requirement, which only asks the view to recover *on* refresh.
+
+**Verified by breaking it three ways**, each turning a different subset red: the store's 404 branch
+(the removal, the sheet closing, the drag), the drag path's report (one test), and the sheet's wrapper
+(the three notice tests). The dismiss control gets its own focus assertion, because
+`focus-states.spec.ts` sweeps surfaces it can reach and this one exists only after a write is refused.
 
 ### T069 note and amendment (2026-08-03): the audit found a real one, and it was on the delete dialog
 

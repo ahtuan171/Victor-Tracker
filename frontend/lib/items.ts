@@ -564,6 +564,11 @@ export interface ContentItemsStore extends ItemsState {
    * Resolves with the saved row and **rejects with the original `ApiError`** once the optimistic
    * change has been rolled back — including the 409s, which T053 renders beside the platform
    * control. Callers should keep the sheet open on a rejection.
+   *
+   * **A 404 removes the row instead of rolling it back** (T070). The item was deleted somewhere
+   * else, so putting it back would leave a phantom on the grid that no save can ever succeed
+   * against. It still rejects — unlike `deleteItem`'s 404 — because the change the creator asked
+   * for did not happen, and a caller that reported nothing would let a chip vanish unexplained.
    */
   readonly updateItem: (item: ContentItem, changes: ContentItemUpdate) => Promise<ContentItem>;
   /**
@@ -684,9 +689,28 @@ export function useContentItems(params: ListContentItemsParams = {}): ContentIte
         setState((previous) => itemChanged(previous, saved));
         return saved;
       } catch (error) {
-        // `item` is the row as it was before the optimistic change, so restoring it needs no
-        // snapshot. Under FR-023a's last-write-wins this is also the right answer when something
-        // else has moved underneath: the creator's screen returns to what they were looking at.
+        // **A 404 is not a refusal, it is an absence** (T070, FR-023a, spec Edge Cases). The item
+        // was deleted somewhere else — the creator's other tab, their phone — and rolling back would
+        // *restore* it, because `item` is the row as it was and `itemChanged` would put those values
+        // back on a row that is still in the list. The result is a chip for something that does not
+        // exist, which the sheet will happily reopen and re-save into the same 404 forever: the
+        // "phantom item presented as editable" the edge case names in those words.
+        //
+        // So the row goes. This is the same conclusion `deleteItem` reaches one branch down and for
+        // the same reason — the server is the authority on existence, and absence is not a failure
+        // state to recover from. It differs in what it does next: a delete got what it asked for and
+        // resolves, while an edit did **not** happen, so this still rejects and the caller reports
+        // it (`CalendarShell` renders the notice; the sheet closes on its own once the row is gone).
+        if (error instanceof ApiError && error.status === 404) {
+          setState((previous) => itemRemoved(previous, item.id));
+          throw error;
+        }
+
+        // Every other failure is the server saying the item exists and the change is wrong — a 409
+        // invariant, a 422, a 500. `item` is the row as it was before the optimistic change, so
+        // restoring it needs no snapshot. Under FR-023a's last-write-wins this is also the right
+        // answer when something else has moved underneath: the creator's screen returns to what they
+        // were looking at.
         setState((previous) => itemChanged(previous, item));
         // Rethrown for the same reason `createItem` rethrows: a refused write belongs beside the
         // control that attempted it, not in `state.error`, which would blank the calendar.
