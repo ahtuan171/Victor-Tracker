@@ -56,9 +56,11 @@ connection.
 **Serves**: FR-002a, SC-010
 
 **Problem**: FR-002a asks for a session valid for ~30 days that "renew[s] silently while the creator
-is active". The obvious mechanism is a refresh token — but `tech-defaults.md` is explicit: *"login +
-access token only. No register, refresh, reset, or multi-tenant columns."* Taken naively, the spec and
-the tech defaults disagree.
+is active". The obvious mechanism is a refresh token — but `tech-defaults.md`'s Auth row was explicit,
+reading at the time *"login + access token only. No register, refresh, reset, or multi-tenant
+columns."* Taken naively, the spec and the tech defaults disagree. (**That row has since been amended
+at T075** — see the process correction at the end of this section. The quotation above is what it said
+when this conflict arose, and is kept because the argument below is about that wording.)
 
 **Decision**: a single access token with a 30-day expiry and **sliding reissue**. There is no second
 token type and no refresh endpoint.
@@ -103,9 +105,16 @@ around. The apparent conflict was real; this section is the resolution.
 **Process correction**: an earlier draft asserted that no amendment to `tech-defaults.md` was needed.
 That was the plan grading its own reinterpretation of a locked row — and `tech-defaults.md` says
 changing a row is a Reflect-stage decision. The mechanism stands, but the *rule* should be inherited
-by later modules rather than re-derived from this argument. Amending the Auth row to read "login +
-access token only; sliding reissue permitted, no refresh token" is queued for the Reflect stage, where
-`tech-defaults.md` may legitimately change.
+by later modules rather than re-derived from this argument.
+
+**Discharged at T075 (2026-08-03).** The Auth row now reads *"login + access token only; **sliding
+reissue permitted, no refresh token**. No register, reset, or multi-tenant columns"*, and
+`tech-defaults.md` carries a **Sliding reissue** section holding the mechanism's two required halves
+and the accepted weakness — so a later module inherits the rule from the table it already reads
+rather than from this file. The constitution was **not** touched and `/speckit-constitution` was not
+needed: it delegates the stack to `tech-defaults.md` and requires a stated reason only for
+*substituting* a component, and sliding reissue substitutes none — the stack is still JWT with a
+single seeded user.
 
 **Alternatives considered**: a genuine access/refresh pair (rejected — directly contradicts
 `tech-defaults.md`, and rotation logic is meaningful only when access tokens are short-lived, which
