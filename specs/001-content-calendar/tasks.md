@@ -1162,7 +1162,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [ ] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV)
 - [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
 
-- [ ] T077 Add a sign-out control to `frontend/components/calendar/CalendarShell.tsx`'s action band, calling the `logout()` that already exists in `lib/api.ts`, and navigating to `/login` with `window.location.replace` (FR-002a)
+- [x] T077 Add a sign-out control to `frontend/components/calendar/CalendarShell.tsx`'s **header**, calling the `logout()` that already exists in `lib/api.ts`, and navigating to `/login` with `window.location.replace` (FR-002a) — **task line amended, see below**
 
 **Added at the Phase 7 checkpoint (2026-08-03) — finding C1.** FR-002a says a session "MUST end only
 on expiry or **an explicit sign-out**", and **nothing in the product can sign out.** The backend route
@@ -1185,6 +1185,34 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### Amendment (2026-08-03, while building T077): the control goes in the **header**, not the action band
+
+The task line above said "action band" and was written without measuring it. Measured on the
+production build at 375px, the band holds the view toggle (123px), two arrows (40px each) and
+`+ CAPTURE` (97px) — **300px of content, 24px of gaps, 32px of padding = 356px of the 375px floor,
+leaving 19px.** A 44px tap target plus its gap needs 50px. There is no version of "add a control to
+the action band" that does not break either `.claude/rules/design.md`'s 44px floor or FR-021.
+
+**FR-022 permits this, and it is worth quoting rather than paraphrasing**: it requires thumb reach for
+"actions the creator performs *frequently*", and it names them — "capture, status change, date
+change". Sign-out is not one of the three. Distance from the thumb is a *feature* for this control for
+the same reason it is a cost for those: it is the only control in the product whose mis-tap ends the
+session, and `.claude/rules/design.md` asks that consequential actions not sit one tap from a common
+gesture. The header had **144px** free.
+
+It sits **above** the item counts rather than beside them, so the right-hand column is
+`max(button, counts)` wide instead of their sum — the period title loses ~5px rather than ~91px.
+
+**What the break-test found, and it is the part worth carrying to T069.** Putting the control in the
+band was tried, not just reasoned about. `+ CAPTURE` is pushed to **x=417 on a 375px viewport — 42px
+off the right edge — while `document.documentElement.scrollWidth > clientWidth` stays `false`.** The
+band clips instead of scrolling, so the primary action simply leaves the screen with no scrollbar to
+announce it. **Every horizontal-overflow assertion in `tests/e2e/` uses that scrollWidth check**, so
+none of them would have caught it; the one that does is `period-nav.spec.ts`'s
+`capture.x + capture.width <= viewport.width`. T069 audits "horizontal body scroll" — on this
+evidence that is the *narrower* of the two failures, and the audit must check that content stays
+within the viewport as well, not only that the body does not scroll.
 
 ---
 
