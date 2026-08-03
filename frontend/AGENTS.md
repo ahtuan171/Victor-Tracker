@@ -175,8 +175,27 @@ nothing to announce it. FR-021 forbids the body scrolling and SC-003 asks that t
 usable", and this failure satisfies the first while destroying the second. The assertion that catches
 it is the one `period-nav.spec.ts` already had —
 `capture.x + capture.width <= viewport.width` — so **assert that the controls are inside the viewport,
-not only that the body does not scroll.** This is T069's subject and the scrollWidth check alone is
-not enough to close it.
+not only that the body does not scroll.** T069 closed this by adding
+`tests/e2e/viewport-audit.spec.ts`, which sweeps every route and overlay surface and fails on any
+visible control whose box leaves the 375px width. **The thirteen scrollWidth assertions are kept**:
+they catch the other clause of FR-021, and neither check subsumes the other.
+
+**A `truncate`d title has a min-content width of the whole string, and in a grid that widens the
+box.** T069's audit found the delete confirmation **561px wide on a 375px screen**, with `KEEP ITEM`
+and `DELETE PERMANENTLY` cut in half at the right edge. `ItemChip`'s title is `truncate`
+(`white-space: nowrap`), so the chip's min-content is the entire title; `AlertDialogContent` is a
+`grid`, and a grid track's automatic minimum is its items' min-content, so a long title stretched
+the track and the two `w-full` buttons stretched with it. **`max-w-xs` on the dialog did nothing** —
+content overflows a track rather than being clamped by it. The fix is `min-w-0` on the grid item
+**and** `w-full min-w-0` on the chip: a `<button>` is `inline-block`, so it sizes to its content and
+shrinking the track alone left the chip at 561px. `BacklogRow` passes `min-w-0 flex-1` for the same
+reason one layout mode over. **Any surface that puts an `ItemChip` inside a grid or flex container
+has to say how it may shrink**, or the title decides the container's width.
+
+What makes it worth its own entry is that **`delete-item.spec.ts` has a test called "the dialog does
+not make the page scroll sideways at 375px" and it passes against the broken dialog** — the dialog is
+`position: fixed`, so nothing it does reaches the document's scroll width. Verified by restoring the
+defect: old assertion green, new audit red.
 
 **Measured a second time at T068, on a different control, with the same result.** The export's first-run
 panel (`1k`) renames the band's button to `+ CAPTURE FIRST IDEA`; swapping the label in the live band

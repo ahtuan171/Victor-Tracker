@@ -144,19 +144,37 @@ uv run pytest tests/test_transitions.py -v
 platform of a `draft` item returns 409 `platform_locked`; walking `posted → draft → idea` preserves
 platform and published link.
 
-### V6 — No horizontal page scroll
+### V6 — Everything fits at 375px
 
 **Proves**: FR-021, SC-003
 
-1. At 375px, open month view and week view with a busy month loaded, then the backlog drawer in both
-   its peek and expanded states, then the capture sheet and the item sheet.
-2. Attempt to scroll the page body horizontally in each.
-3. Swipe vertically starting on an item chip in the month grid.
+**Amended at T069 (2026-08-03).** This scenario used to be called "No horizontal page scroll" and
+asked only whether the body moved. FR-021 has **two** clauses — *"Every screen MUST be **fully
+usable** at 375px width, **and** the page body MUST NOT scroll horizontally"* — and the first is the
+one that breaks. A control pushed off the right edge satisfies the scroll clause completely, because
+these layouts **clip rather than scroll**: measured three times now at x=417 (T077), x=411 (T068) and
+a 561px-wide delete dialog (T069), every one of them with the page reporting no horizontal overflow.
+Step 2 is therefore not sufficient on its own and step 3 is the real check.
 
-**Expected**: the body does not move. The month grid scrolls inside its own container if it needs to.
-Week view is a vertical list of day sections, not seven columns (research.md R-004). Step 3 scrolls the
-grid — it does **not** pick up the chip and silently reschedule it, which is what an unconstrained
-`PointerSensor` would do (research.md R-003).
+1. At 375px, open month view and week view with a busy month loaded — long titles, a day over its
+   chip cap, an overdue item — then the backlog drawer in both its peek and expanded states, then the
+   capture sheet, the item sheet, **the delete confirmation**, and `/login` showing an error.
+2. Attempt to scroll the page body horizontally in each.
+3. **On each surface, check that every control is fully on screen** — no button, field or link with
+   part of itself past either edge, and no label cut off mid-word. Give the item a title long enough
+   to be worth the check.
+4. Swipe vertically starting on an item chip in the month grid.
+
+**Expected**: the body does not move, **and every control is wholly within the 375px width**. The
+month grid scrolls inside its own container if it needs to. Week view is a vertical list of day
+sections, not seven columns (research.md R-004). The backlog peek strip is the one place a control
+may be clipped — it is a single line by design and the expanded drawer holds the same chips at full
+size. Step 4 scrolls the grid — it does **not** pick up the chip and silently reschedule it, which is
+what an unconstrained `PointerSensor` would do (research.md R-003).
+
+`tests/e2e/viewport-audit.spec.ts` automates steps 2 and 3 across all three routes and all four
+overlay surfaces, so this walk is confirming the surfaces the suite cannot reach rather than
+repeating it.
 
 ### V7 — Delete cannot happen by accident
 

@@ -1153,7 +1153,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 
 - [x] T067 [P] Add visible focus states to every interactive element in `frontend/components/` — structural under constitution principle V, not decoration
 - [x] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases) — **the calendar half lands in `components/calendar/FirstRun.tsx`, not in the page; see below**
-- [ ] T069 Audit the three routes and three overlay surfaces under `frontend/app/` at 375px for horizontal body scroll and fix any that scroll (FR-021, SC-003)
+- [x] T069 Audit the three routes and **four** overlay surfaces under `frontend/app/` at 375px for horizontal body scroll **and for content leaving the viewport**, and fix any that do (FR-021, SC-003) — **task line amended, see below**
 - [ ] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases)
 - [ ] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001
 - [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether Render's spin-down is a real problem (quickstart.md, research.md Open items)
@@ -1185,6 +1185,53 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T069 note and amendment (2026-08-03): the audit found a real one, and it was on the delete dialog
+
+**T069 result (2026-08-03)**: done, one merge request, frontend suite **410 → 424 passing**, nothing
+skipped. **One defect found and fixed.**
+
+**Two amendments to the task line, both stated rather than quietly satisfied.**
+
+1. **"for horizontal body scroll" is the narrower half of FR-021 and it is not the half that
+   breaks.** The requirement is *"Every screen MUST be **fully usable** at 375px width, **and** the
+   page body MUST NOT scroll horizontally"* — two clauses — and SC-003 says "fully usable" too. A
+   control pushed off the side satisfies the second while destroying the first, which is exactly
+   what T077 measured (`+ CAPTURE` at x=417, overflow check `false`) and T068 measured again on a
+   second label (x=411, same). This was already recorded under T067's note as the thing to carry
+   here; the task line itself was left unamended and is amended now.
+2. **Three overlay surfaces is four.** Capture sheet, item sheet, expanded backlog drawer — and the
+   **delete confirmation**, which did not exist when this line was written (T056 added it). It is
+   the one the audit found the defect on.
+
+**The defect, and why nothing saw it for eleven tasks.** `ItemChip`'s title is `truncate`, which is
+`white-space: nowrap`, so the chip's **min-content width is the whole title**. `AlertDialogContent`
+is a `grid`, and a grid track's automatic minimum is its items' min-content — so a long title
+stretched the track to **561px on a 375px screen**. Both buttons are `w-full`, so `KEEP ITEM` and
+`DELETE PERMANENTLY` rendered 561px wide with their labels cut in half at the right edge. The
+`max-w-xs` on the dialog box did nothing, because content overflows a track rather than being
+clamped by it.
+
+**`delete-item.spec.ts` has a test named "the dialog does not make the page scroll sideways at
+375px", and it passes against the broken dialog** — verified by restoring the defect and running
+both files: the old assertion green, the new audit red. The dialog is `position: fixed`, so nothing
+it does can extend the document's scroll width. **The confirmation for the product's only
+irreversible action was unreadable at the design floor, behind a green test that named the right
+screen.** The fix is `min-w-0` on the grid item and `w-full min-w-0` on the chip — a `<button>` is
+`inline-block` and sizes to its content, which is why the first alone was not enough.
+`AlertDialogDescription` also gained `break-words`, since it quotes a title that may contain no
+spaces at all.
+
+**The audit filters on what an element *is*** — a natively interactive tag or an interactive ARIA
+role, the predicate `focus-states.spec.ts` settled on — rather than a list of testids, so a control
+added later is audited the day it lands. One exemption, with its reason and its compensation: the
+backlog peek strip is a deliberately clipped single line (R-003a), and every chip in it is reachable
+at full size one tap away in the expanded drawer, which the audit covers separately.
+
+**`quickstart.md` V6 is amended in the same merge request**, because it is a checkpoint gate and its
+"Expected" described only the body-scroll half — the half that does not catch this. The historical
+V6 row in the Phase 2 results table above is **left alone**: it records what was actually checked
+that day, and rewriting a past result to match present understanding is not an amendment.
 
 ### T068 note (2026-08-03): three empty states, and half of this one already existed
 
