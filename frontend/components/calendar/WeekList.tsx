@@ -3,6 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 
 import { ItemChip } from "@/components/item/ItemChip";
+import { PublishedLink } from "@/components/item/PublishedLink";
 import type { ContentItem } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
 import { groupByScheduledDate } from "@/lib/items";
@@ -151,8 +152,20 @@ function DaySection({
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
-            <li key={item.id}>
-              <ItemChip item={item} size="full" today={today} onOpen={onOpenItem} />
+            <li key={item.id} className="flex items-stretch gap-2">
+              {/*
+               * The chip grows and the link control keeps its 44px (T065). Two siblings rather than
+               * one nested control: the chip is a `<button>` and an `<a>` inside one is invalid HTML,
+               * and the two go to different places — the sheet and the live post.
+               */}
+              <ItemChip
+                item={item}
+                size="full"
+                today={today}
+                onOpen={onOpenItem}
+                className="min-w-0 flex-1"
+              />
+              <PublishedLink item={item} />
             </li>
           ))}
         </ul>

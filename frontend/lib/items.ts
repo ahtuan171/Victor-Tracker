@@ -452,6 +452,37 @@ export function countOverdue(items: readonly ContentItem[], today: DateOnly | nu
 }
 
 /**
+ * The contract's two machine-checkable rules for `published_url`, in one place (T065).
+ *
+ * `contracts/openapi.yaml` types the field as `format: uri`, `pattern: "^https?://"`,
+ * `maxLength: 2048`. **`format` is a JSON Schema annotation that validators need not enforce**, so
+ * the pattern and the length are the whole of what the API actually promises — which T063 pinned by
+ * characterising `https://` with nothing after it as **accepted**, deliberately, with the note that
+ * tightening it is a contract amendment first.
+ *
+ * They live here rather than beside either caller because there are two and they must not diverge:
+ * T065's open control refuses to build an `<a href>` from anything else, and **T066 uses the same
+ * predicate as its save gate**. A client stricter than the contract refuses values the API stores
+ * happily — drift in the direction that looks like extra safety, and the harder one to notice
+ * because no backend test can see it. One definition makes that mistake take an edit here, where
+ * this comment is.
+ */
+export const PUBLISHED_URL_PATTERN = /^https?:\/\//;
+
+/** The contract's `maxLength`, and the `String(2048)` column behind it. */
+export const PUBLISHED_URL_MAX_LENGTH = 2048;
+
+/**
+ * Whether a link is one the contract permits — **exactly** the contract, never more.
+ *
+ * Deliberately not `new URL(...)`: the browser's parser rejects `https://` with nothing after it,
+ * which the API accepts, so validating with it would make the client the stricter of the two.
+ */
+export function isValidPublishedUrl(url: string): boolean {
+  return url.length <= PUBLISHED_URL_MAX_LENGTH && PUBLISHED_URL_PATTERN.test(url);
+}
+
+/**
  * Dated items, indexed by the day they fall on (T042, FR-012).
  *
  * The month grid's counterpart to `selectBacklog`, and together the two are a **partition**: every

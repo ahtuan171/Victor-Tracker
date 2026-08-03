@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 
 import { ItemChip } from "@/components/item/ItemChip";
+import { PublishedLink } from "@/components/item/PublishedLink";
 import type { ContentItem, Platform } from "@/lib/api";
 import { selectBacklog, selectByPlatform } from "@/lib/items";
 import { platformCue } from "@/lib/status";
@@ -372,8 +373,15 @@ function BacklogRow({
   onOpenItem: (item: ContentItem) => void;
 }) {
   return (
-    <li className="mb-2 last:mb-0" data-testid="backlog-row">
-      <ItemChip item={item} onOpen={onOpenItem} />
+    <li className="mb-2 flex items-stretch gap-2 last:mb-0" data-testid="backlog-row">
+      {/*
+       * T065's link control sits beside the chip, not inside it — the chip is a `<button>` and an
+       * `<a>` nested in one is invalid HTML. A `posted` item with no scheduled date lives here
+       * legitimately (the same reason this row carries cues at all), so the backlog is a real home
+       * for a published link rather than a theoretical one.
+       */}
+      <ItemChip item={item} onOpen={onOpenItem} className="min-w-0 flex-1" />
+      <PublishedLink item={item} />
     </li>
   );
 }

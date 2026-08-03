@@ -6,6 +6,7 @@ import {
   changesBetween,
   hasChanges,
   isPending,
+  isValidPublishedUrl,
   itemChanged,
   itemRemoved,
   itemRestored,
@@ -712,5 +713,56 @@ test.describe("selectByPlatform", () => {
     selectByPlatform(items, "tiktok");
 
     expect(items.map((each) => each.id)).toEqual([2, 1]);
+  });
+});
+
+test.describe("isValidPublishedUrl", () => {
+  /*
+   * This predicate has two callers with opposite failure modes, which is why it is one function.
+   *
+   * T065 builds an `<a href>` from it, so anything it wrongly *accepts* becomes a live link — the
+   * `javascript:` case below is the one that matters there. T066 gates the save on it, so anything it
+   * wrongly *rejects* is a value the API would have stored and the client refused — invisible from
+   * the backend suite, and the direction T063 warned about when it characterised a bare scheme as
+   * accepted rather than tightening it. Both directions are asserted here.
+   */
+
+  test("accepts the two schemes the contract's pattern names", () => {
+    expect(isValidPublishedUrl("https://www.tiktok.com/@creator/video/74012345678")).toBe(true);
+    expect(isValidPublishedUrl("http://example.com/post")).toBe(true);
+  });
+
+  test("accepts a bare scheme, because the contract does", () => {
+    // T063 pinned this on the backend deliberately: `format: uri` is a JSON Schema *annotation* that
+    // validators need not enforce, so `^https?://` is the whole of the machine-checkable rule.
+    // Tightening it is a `contracts/openapi.yaml` amendment first — not a client-side opinion.
+    expect(isValidPublishedUrl("https://")).toBe(true);
+  });
+
+  test("refuses every scheme that is not http(s)", () => {
+    for (const url of [
+      "javascript:alert(1)",
+      "JavaScript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "file:///etc/passwd",
+      "//evil.example.com",
+      "www.tiktok.com/@creator",
+      "",
+    ]) {
+      expect(isValidPublishedUrl(url), url).toBe(false);
+    }
+  });
+
+  test("the scheme must be at the start, not merely present", () => {
+    expect(isValidPublishedUrl("javascript:https://ok.example.com")).toBe(false);
+  });
+
+  test("bounds the length at the contract's 2048, inclusive", () => {
+    const prefix = "https://example.com/";
+    const at = prefix + "a".repeat(2048 - prefix.length);
+    expect(at.length).toBe(2048);
+
+    expect(isValidPublishedUrl(at)).toBe(true);
+    expect(isValidPublishedUrl(at + "a")).toBe(false);
   });
 });
