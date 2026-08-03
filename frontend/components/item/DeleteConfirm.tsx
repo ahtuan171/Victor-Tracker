@@ -112,7 +112,10 @@ export function DeleteConfirm({
         </AlertDialogTitle>
 
         <AlertDialogDescription
-          className="text-ink-mid mb-3.5 text-[13px] leading-relaxed"
+          // `break-words` because this sentence quotes the creator's own title, and a title with no
+          // spaces in it is a single unbreakable word as far as the line breaker is concerned — see
+          // the note on the row below, which is the same defect one element over.
+          className="text-ink-mid mb-3.5 text-[13px] leading-relaxed break-words"
           data-testid="delete-confirm-message"
         >
           {error ?? (
@@ -136,8 +139,32 @@ export function DeleteConfirm({
          * modal surfaces on screen with the destructive one behind.
          */}
         {item === null ? null : (
-          <div className="mb-4.5" data-testid="delete-confirm-item">
-            <ItemChip item={item} size="full" today={today} onOpen={noop} />
+          /*
+           * **`min-w-0` is load-bearing, and T069's audit is what found that out.** `ItemChip`'s
+           * title is `truncate`, which is `white-space: nowrap` — so the chip's *min-content* width
+           * is the entire title, however long the creator made it. `AlertDialogContent` is a
+           * `grid`, and a grid track's automatic minimum is its items' min-content, so a long title
+           * stretched the track to **561px on a 375px screen**: both buttons are `w-full`, so
+           * `KEEP ITEM` and `DELETE PERMANENTLY` rendered 561px wide and ran off the right edge with
+           * their labels cut in half. The `max-w-xs` on the dialog box did nothing, because content
+           * overflows a track rather than being clamped by it.
+           *
+           * None of the suite could see it: the dialog is `position: fixed`, so nothing extended the
+           * document's scroll width and `delete-item.spec.ts`'s overflow check stayed green while
+           * the confirmation for a destructive action was unreadable.
+           *
+           * `min-w-0` lowers the item's automatic minimum to zero, which is what lets the track
+           * shrink to the dialog and the chip's own `truncate` finally do its job. `BacklogRow`
+           * already passes the same class for the same reason.
+           */
+          <div className="mb-4.5 min-w-0" data-testid="delete-confirm-item">
+            {/*
+             * `w-full` as well, because `ItemChip` renders a `<button>` and a button is
+             * `inline-block` — it sizes to its content, not to its parent, so shrinking the track
+             * above left the chip itself still 561px wide inside a 320px box. `BacklogRow` passes
+             * `min-w-0 flex-1` for the same reason, in a flex row rather than a grid.
+             */}
+            <ItemChip item={item} size="full" today={today} onOpen={noop} className="w-full min-w-0" />
           </div>
         )}
 
