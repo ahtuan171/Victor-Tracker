@@ -84,7 +84,7 @@ export function FilteredEmpty({
       <button
         type="button"
         onClick={onClear}
-        className="border-hairline bg-surface-2 text-ink font-display h-11 rounded-sm border px-4 text-xs font-semibold tracking-[0.16em] uppercase"
+        className="border-hairline bg-surface-2 text-ink font-display focus-ring h-11 rounded-sm border px-4 text-xs font-semibold tracking-[0.16em] uppercase"
         data-testid="filtered-empty-clear"
       >
         Clear {cue.label} filter

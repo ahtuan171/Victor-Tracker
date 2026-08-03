@@ -140,7 +140,7 @@ export function LoginForm() {
                 // asserted in the suite. `text-base` is kept from the primitive for a second reason
                 // the export cannot express: iOS zooms the page in on focusing any input under 16px,
                 // so the design's 15px body size is deliberately not applied to form fields.
-                className="bg-void h-[50px] rounded-sm text-base"
+                className="bg-void focus-ring h-[50px] rounded-sm text-base"
                 aria-invalid={error !== null}
                 aria-describedby={error !== null ? ERROR_ID : undefined}
                 value={email}
@@ -162,7 +162,7 @@ export function LoginForm() {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="bg-void h-[50px] rounded-sm text-base"
+                className="bg-void focus-ring h-[50px] rounded-sm text-base"
                 aria-invalid={error !== null}
                 aria-describedby={error !== null ? ERROR_ID : undefined}
                 value={password}
@@ -188,7 +188,7 @@ export function LoginForm() {
 
             <Button
               type="submit"
-              className="notch-card font-display mt-1 h-[52px] w-full rounded-none text-[15px] font-semibold tracking-[0.18em] uppercase shadow-[0_8px_22px_rgb(232_35_47_/_0.35)]"
+              className="notch-card font-display focus-ring-inset mt-1 h-[52px] w-full rounded-none text-[15px] font-semibold tracking-[0.18em] uppercase shadow-[0_8px_22px_rgb(232_35_47_/_0.35)]"
               disabled={pending}
             >
               {pending ? "Signing in…" : "Sign in"}

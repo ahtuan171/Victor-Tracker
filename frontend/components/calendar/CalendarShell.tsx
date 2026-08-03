@@ -555,7 +555,7 @@ function CalendarHeader({
             type="button"
             onClick={() => void signOut()}
             disabled={signingOut}
-            className="border-hairline bg-surface-2 text-ink-mid font-display h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
+            className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
             data-testid="sign-out-action"
           >
             {signingOut ? "Signing out…" : "Sign out"}
@@ -637,7 +637,7 @@ function CalendarActionBar({
       <button
         type="button"
         onClick={onCapture}
-        className="bg-brand notch-card font-display h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+        className="bg-brand notch-card font-display focus-ring-inset h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
         data-testid="capture-action"
       >
         + Capture

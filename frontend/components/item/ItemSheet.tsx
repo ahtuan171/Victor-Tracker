@@ -285,7 +285,7 @@ export function ItemSheet({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="font-display text-ink-mid -mr-2 h-11 px-2 text-[11px] font-semibold tracking-[0.16em] uppercase"
+            className="font-display text-ink-mid focus-ring -mr-2 h-11 px-2 text-[11px] font-semibold tracking-[0.16em] uppercase"
             data-testid="item-sheet-close"
           >
             Close
@@ -308,7 +308,7 @@ export function ItemSheet({
               maxLength={200}
               // `text-base` is 16px and is a platform constraint, not a style choice: iOS zooms the
               // page in when focusing any input below 16px, which throws away a 375px layout.
-              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-visible:ring-brand-hi h-12 w-full rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none"
+              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring h-12 w-full rounded-sm border px-3 text-base"
               data-testid="item-title-input"
             />
           </Field>
@@ -325,7 +325,7 @@ export function ItemSheet({
               maxLength={500}
               rows={2}
               placeholder="Open on the ledge shot, cut on the siren."
-              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-visible:ring-brand-hi min-h-[66px] w-full resize-none rounded-sm border p-3 text-base leading-relaxed focus-visible:ring-2 focus-visible:outline-none"
+              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring min-h-[66px] w-full resize-none rounded-sm border p-3 text-base leading-relaxed"
               data-testid="item-hook-input"
             />
           </Field>
@@ -436,7 +436,7 @@ export function ItemSheet({
                   edit({ scheduled_date: event.target.value === "" ? null : event.target.value })
                 }
                 className={cn(
-                  "border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi h-12 flex-1 rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none",
+                  "border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-base",
                   // The export's overdue treatment on this field: dashed on the **left only**, the
                   // same encoding `ItemChip` carries, so the two surfaces agree about what a dashed
                   // left edge means. `border-l-dashed` is not a Tailwind utility.
@@ -455,7 +455,7 @@ export function ItemSheet({
                 type="button"
                 onClick={() => edit({ scheduled_date: null })}
                 disabled={current?.scheduled_date === null}
-                className="border-hairline text-ink-mid font-display h-12 flex-none rounded-sm border px-3 text-[11px] font-semibold tracking-[0.14em] uppercase disabled:opacity-40"
+                className="border-hairline text-ink-mid font-display focus-ring h-12 flex-none rounded-sm border px-3 text-[11px] font-semibold tracking-[0.14em] uppercase disabled:opacity-40"
                 data-testid="item-date-clear"
               >
                 Clear
@@ -510,7 +510,7 @@ export function ItemSheet({
                  */
                 aria-invalid={linkRefused || undefined}
                 className={cn(
-                  "border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 min-w-0 flex-1 rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none",
+                  "border-hairline bg-surface-3 text-ink placeholder:text-ink-mid focus-ring h-12 min-w-0 flex-1 rounded-sm border px-3 text-base",
                   linkRefused && "border-brand-hi",
                 )}
                 data-testid="item-link-input"
@@ -567,7 +567,7 @@ export function ItemSheet({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="bg-brand notch-card font-display h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
+            className="bg-brand notch-card font-display focus-ring-inset h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
             data-testid="item-save"
           >
             {saving ? "Saving…" : "Save changes"}
@@ -585,7 +585,7 @@ export function ItemSheet({
             onClick={() => {
               if (item !== null) onRequestDelete(item);
             }}
-            className="border-hairline text-ink-mid font-display h-11 w-full rounded-sm border bg-transparent text-[11px] font-semibold tracking-[0.18em] uppercase"
+            className="border-hairline text-ink-mid font-display focus-ring h-11 w-full rounded-sm border bg-transparent text-[11px] font-semibold tracking-[0.18em] uppercase"
             data-testid="item-delete"
           >
             Delete item
@@ -725,7 +725,7 @@ function ChoiceButton({
       data-testid={testId}
       data-selected={selected ? "" : undefined}
       className={cn(
-        "flex h-11 items-center gap-2 rounded-sm border px-2.5 text-left text-[13px] leading-none",
+        "focus-ring flex h-11 items-center gap-2 rounded-sm border px-2.5 text-left text-[13px] leading-none",
         selected
           ? "border-brand bg-surface-2 text-ink font-semibold"
           : "border-hairline bg-surface-3 text-ink-mid font-medium",

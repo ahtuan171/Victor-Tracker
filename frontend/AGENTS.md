@@ -115,7 +115,52 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | **Sign-out lives in the header, and T077's task line said the action band** | A measurement, not a preference — the amendment and its numbers are in `tasks.md`. The band holds the view toggle (123px), two arrows (40px each) and `+ CAPTURE` (97px): 300px of content, 24px of gaps, 32px of padding = **356px of the 375px floor, leaving 19px**, where a 44px target plus its gap needs 50px. FR-022 is what permits the move, and it must be quoted rather than paraphrased: it asks thumb reach for the actions performed **frequently** and *names them* — "capture, status change, date change". Sign-out is none of the three, and distance from the thumb is a feature for the one control whose mis-tap ends the session. It sits **above** the counts, not beside them, so the right column is `max(button, counts)` wide rather than their sum and the period title loses ~5px instead of ~91px. |
 | A refused sign-out **keeps the creator on the calendar** and says so | Only the proxy can clear an httpOnly cookie, so a logout the server refused leaves the session **alive**. Navigating to `/login` anyway would report an ending that did not happen — FR-002a read backwards — and would strand the creator on a login form while their session was still open. `logout()` already swallows a 401 (the session was over, which is where sign-out was going), so anything reaching the catch is a session that still exists. The message renders **full width under the header row**, never inside the 44px right-hand column, where a sentence would push the period title and break the constraint that put the control there. |
 
+| There is **one focus indicator**, `.focus-ring` in `globals.css`, plus `.focus-ring-inset` for controls that clip | T067. It lives beside `.notch-card` and `.web-grain` for the same stated reason — a token-level decision rather than a per-screen one — and by T067 it had more than twenty callers, so it is not abstraction ahead of need. **`outline`, never a `ring-*` box-shadow**: on the brand-filled controls a ring is painted in the element's own layer, which is red on red. **`outline-offset: 2px` is what actually solves that**, putting the ring on the dark surface outside the control. Use `.focus-ring` by default and `.focus-ring-inset` **only** where something clips the control's box — see the trap below for the two cases, which is the whole of the list. |
+| Focus is `:focus-visible`, and the six pre-existing `ring-*` sites were migrated rather than left alone | Two spellings of one decision is how they drift; `ItemChip` had `ring-2` while nothing else on the calendar had anything. `:focus` rather than `:focus-visible` is the other tempting shortcut and it is worse than nothing — a ring on every mouse tap is the noise that gets focus styles deleted. |
+
 ## Traps
+
+**A focus ring that a computed style calls perfect can be painted and then thrown away, and only
+pixels can tell you.** Found twice in T067, after the class was applied and the whole style sweep was
+green. **`.notch-card` is a `clip-path`, and a clip-path clips the element's outline** — so
+`+ CAPTURE`, the drawer's capture button, both sheet save buttons and the login submit reported
+`outline: 2px solid` and drew **nothing at all**. The view toggle's wrapper has `overflow-hidden` (it
+clips `MONTH`/`WEEK` to the group's rounded border), which left a 2px sliver on one inner edge.
+`.focus-ring-inset` exists for exactly these two shapes and for nothing else.
+
+The general rule, which is the reusable half: **an assertion about a computed style cannot see
+clipping, compositing, or contrast.** `focus-states.spec.ts` therefore also screenshots each control
+focused and unfocused and compares the bytes — no baseline file, so nothing to re-bless, and
+identical bytes are the definition of an invisible focus state. Verified by putting the outset ring
+back on `+ CAPTURE`: the style sweep stayed green and the pixel test failed with
+`capture-action draws no focus ring`.
+
+**The first version of that spec passed against the very code it was written to fix, and the reason
+generalises past focus.** It asked `outlineStyle !== "none" || boxShadow !== "none"` — and **Chromium
+draws its own focus ring**, which the base layer's `* { outline-ring/50 }` merely tints. All fourteen
+unstyled controls reported `outline: auto 1px oklab(… / 0.5)`: one pixel, half transparent, and red
+on the red buttons. `auto` is the UA default and `solid` is ours, so the check is for `solid` at 2px
+or more. **When asserting that a style exists, assert the value the design specifies, not that the
+property is non-default** — the browser supplies a default for almost everything, and a default is
+what you are usually trying to replace.
+
+**`CalendarShell`'s `<main>` is a tab stop, because Chromium makes scrolling containers
+keyboard-focusable.** Not a bug and not something to "fix" with `tabindex="-1"` — it is how a keyboard
+user scrolls the month grid with the arrow keys, and the grid scrolls in its own container by
+design (`.claude/rules/design.md`). It surfaced as a **flaky** `focus-states.spec.ts` run: a tab walk
+landed on `main:MTWTFSS2728…` roughly half the time, depending on where focus started. Any test that
+enumerates tab stops has to expect it. `focus-states.spec.ts` filters on **what an element is** — a
+natively interactive tag or an interactive ARIA role — rather than on a list of testids, so the scroll
+region is exempt while a control added next month is still covered on the day it lands. The container
+keeps the browser's own faint ring, which is the right treatment for a scroll region; a 2px brand
+outline around the whole calendar body would not be.
+
+**`aria-hidden` is the right way to skip a focus trap's sentinels.** `AlertDialog` (base-ui) wraps its
+content in `<span data-base-ui-focus-guard aria-hidden="true" tabindex="0">`, clipped to 1px — a real
+tab stop that exists to bounce focus back in. A tab-walking test has to skip it, and the criterion is
+`aria-hidden="true"`, not the vendor attribute: an element hidden from assistive technology cannot be
+a control, so it excludes the machinery and nothing a requirement could hide behind, and it does not
+need rewriting when the primitive changes.
 
 **A `scrollWidth > clientWidth` check does not catch content pushed off the side of the screen.** The
 whole suite's horizontal-overflow assertion is

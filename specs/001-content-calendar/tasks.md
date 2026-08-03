@@ -1151,7 +1151,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 
 **Purpose**: what constitution principle V says may *not* be deferred, plus shipping.
 
-- [ ] T067 [P] Add visible focus states to every interactive element in `frontend/components/` — structural under constitution principle V, not decoration
+- [x] T067 [P] Add visible focus states to every interactive element in `frontend/components/` — structural under constitution principle V, not decoration
 - [ ] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases)
 - [ ] T069 Audit the three routes and three overlay surfaces under `frontend/app/` at 375px for horizontal body scroll and fix any that scroll (FR-021, SC-003)
 - [ ] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases)
@@ -1185,6 +1185,31 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T067 note (2026-08-03): what "visible" turned out to require
+
+Built **before** T077 in file order but **after** it in time, so its sweep covers the sign-out control,
+`PlatformFilter` and `FilteredEmpty` — the three components that did not exist when the task line was
+written. Twenty interactive elements now share one indicator (`.focus-ring` in `globals.css`, with
+`.focus-ring-inset` for the two shapes that clip); six already had a `ring-*` and were migrated onto it
+rather than left as a second spelling.
+
+**Two findings, and both are about the gap between "declared" and "visible".**
+
+1. **The first version of `focus-states.spec.ts` passed against the unfixed code.** It asked whether
+   any outline or box-shadow was present — and Chromium draws its own focus ring, tinted by the base
+   layer's `* { outline-ring/50 }`. The fourteen unstyled controls all reported
+   `outline: auto 1px oklab(… / 0.5)`: one pixel, half transparent, and **red on red** for
+   `+ CAPTURE` and the selected platform option. The check now demands `solid` at ≥2px, which is the
+   designed indicator and not the browser's default.
+2. **A computed style cannot see a clip.** `.notch-card` is a `clip-path`, and a clip-path clips the
+   outline: five brand-filled buttons reported a perfect ring and drew **nothing**. So the spec also
+   screenshots each control focused and unfocused and compares the bytes. Verified by restoring the
+   broken form on `+ CAPTURE` — the style sweep stayed green while the pixel check failed.
+
+The generalisation is the same one T077's amendment records one level up, and this is now the second
+instance in a day: **an assertion can pass while the requirement it names is unmet.** Run a new check
+against the broken state before trusting it.
 
 ### Amendment (2026-08-03, while building T077): the control goes in the **header**, not the action band
 

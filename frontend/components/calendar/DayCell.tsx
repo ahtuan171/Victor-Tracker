@@ -94,7 +94,7 @@ export function DayCell({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="border-hairline bg-surface-3 text-ink-mid h-3.5 rounded-sm border text-[8px] leading-3 font-semibold"
+          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-3.5 rounded-sm border text-[8px] leading-3 font-semibold"
           data-testid="day-overflow"
         >
           +{hidden} more

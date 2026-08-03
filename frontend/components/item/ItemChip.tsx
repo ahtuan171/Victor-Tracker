@@ -173,7 +173,7 @@ export function ItemChip({
         "border-hairline flex items-center rounded-sm border",
         FRAME[size],
         openable &&
-          "focus-visible:ring-brand-hi text-left focus-visible:ring-2 focus-visible:outline-none",
+          "focus-ring text-left",
         // T055: the gesture arbitration half that lives on the element. Without it a vertical swipe
         // beginning on a chip is captured as a drag and the grid does not scroll.
         !pending && "touch-none",
