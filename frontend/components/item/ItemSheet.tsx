@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 
 import { PlatformCue } from "@/components/item/PlatformCue";
+import { PublishedLink } from "@/components/item/PublishedLink";
 import { StatusCue } from "@/components/item/StatusCue";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -14,7 +15,12 @@ import {
   type Platform,
 } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
-import { changesBetween, hasChanges, isOverdue } from "@/lib/items";
+import {
+  changesBetween,
+  hasChanges,
+  isOverdue,
+  PUBLISHED_URL_MAX_LENGTH,
+} from "@/lib/items";
 import { PLATFORM_CUES, STATUS_CUES } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
@@ -435,22 +441,40 @@ export function ItemSheet({
            * 500 rather than a 422 (the reason `PublishedUrl` exists in the backend since T030).
            */}
           <Field label="Published link" htmlFor={linkId}>
-            <input
-              id={linkId}
-              type="url"
-              inputMode="url"
-              maxLength={2048}
-              value={current?.published_url ?? ""}
-              // Empty is how a cleared text input reports itself, and `null` is how the contract
-              // spells "clear this field" — the same edge conversion the title and hook do, so
-              // `changesBetween` never sees an empty string where FR-023 means a null.
-              onChange={(event) =>
-                edit({ published_url: event.target.value === "" ? null : event.target.value })
-              }
-              placeholder="Add when posted"
-              className="border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 w-full rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none"
-              data-testid="item-link-input"
-            />
+            <div className="flex gap-2">
+              <input
+                id={linkId}
+                type="url"
+                inputMode="url"
+                maxLength={PUBLISHED_URL_MAX_LENGTH}
+                value={current?.published_url ?? ""}
+                // Empty is how a cleared text input reports itself, and `null` is how the contract
+                // spells "clear this field" — the same edge conversion the title and hook do, so
+                // `changesBetween` never sees an empty string where FR-023 means a null.
+                onChange={(event) =>
+                  edit({ published_url: event.target.value === "" ? null : event.target.value })
+                }
+                placeholder="Add when posted"
+                className="border-hairline bg-surface-3 text-ink focus-visible:ring-brand-hi placeholder:text-ink-mid h-12 min-w-0 flex-1 rounded-sm border px-3 text-base focus-visible:ring-2 focus-visible:outline-none"
+                data-testid="item-link-input"
+              />
+
+              {/*
+               * The open control, beside the value it opens (T065).
+               *
+               * **Why the sheet has one at all, when T065's line says "grid and drawer".** The month
+               * grid is the default view and its chips are `micro` — a ~53px day cell, where a 44px
+               * control cannot go without breaking the tap floor `.claude/rules/design.md` makes a
+               * hard constraint. So the grid's `full` chips (the week list) and the expanded drawer
+               * get it inline, and the month grid reaches it here, one tap further in. Without this
+               * the default view has no path to US5 scenario 3 at all.
+               *
+               * It reads the **draft**, so a link that has just been pasted can be checked before
+               * saving. That is also the only place a `javascript:` value could reach an `href`,
+               * which is why `PublishedLink` gates on the contract's scheme pattern.
+               */}
+              {current === null ? null : <PublishedLink item={current} className="h-12 w-12" />}
+            </div>
 
             {/*
              * The prompt, and the whole of "prompted on the move to `posted` but never required".

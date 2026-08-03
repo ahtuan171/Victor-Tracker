@@ -167,13 +167,22 @@ grid — it does **not** pick up the chip and silently reschedule it, which is w
 **Expected**: every path requires an explicit confirmation, and no single tap deletes anything. Check
 that the confirm action is not adjacent to a common navigation gesture.
 
-### V8 — Changes survive a reload
+### V8 — Changes survive a reload, and the link is reachable
 
-**Proves**: FR-023, SC-009
+**Proves**: FR-023, SC-009, FR-019
 
 1. Change a date, a status, a platform, and a link. Reload. Sign out and back in.
+2. From the week list and from the expanded backlog drawer, find the item's open control beside its
+   chip. Check `rel` reads `noopener noreferrer`, then open it.
 
-**Expected**: everything persists.
+**Expected**: everything persists, and the link opens the live post in a new tab.
+
+> **Step 2 added at T065.** US5's Independent Test asks for two things — *"confirm the link persists
+> **and is reachable from the calendar view**"* — and only the first had a step, so scenario 3 was
+> validated by no gate at all. `rel` is checked by eye because it is the whole of what constitution II
+> asks for here and a browser gives no visible sign of a `Referer` it did or did not send. The month
+> grid is deliberately not in this step: its chips are `micro` in a ~53px cell, too small for a 44px
+> control, and it reaches the link through the item sheet instead.
 
 ### V9 — A week's planning in under a minute
 

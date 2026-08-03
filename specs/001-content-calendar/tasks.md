@@ -1029,7 +1029,53 @@ spec would trade a satisfiable requirement for a weaker one to avoid twenty line
 `https://` as accepted rather than fixing it, with the note that tightening is a
 `contracts/openapi.yaml` amendment first. A client that is stricter than the contract refuses values
 the API stores happily, and the failure is invisible from the backend suite.
-- [ ] T065 [US5] Surface the link from the grid and drawer on `posted` items as an external control carrying `rel="noopener noreferrer"`, so the calendar URL does not leak as a `Referer` to the platform (US5 scenario 3, constitution II)
+- [x] T065 [US5] Surface the link from the grid and drawer **wherever an item carries one** as an external control carrying `rel="noopener noreferrer"`, so the calendar URL does not leak as a `Referer` to the platform (US5 scenario 3, constitution II)
+
+> **Amended at T065, from "on `posted` items".** The narrower wording would have taken a working link
+> off the calendar the moment the creator reversed a status: **FR-008a retains the published link when
+> an item leaves `posted`**, and the post it points at is still live. US5 scenario 3 — the requirement
+> this task cites — sets the condition without mentioning status at all: *"Given a stored published
+> link, when the creator opens it, then it opens the live post outside the app."* So the implemented
+> condition is the scenario's, and it is a **superset** of the line it replaces rather than a
+> reinterpretation of it. Recorded here rather than only in code, because `specs/` outranks code and a
+> task line is where the next reader checks.
+
+**T065 result (2026-08-03)**: done, one merge request, frontend suite **356 → 373 passing** (12 browser
+tests, 5 pure-function), nothing skipped; `pnpm typecheck` and `pnpm lint` silent. Screenshotted at
+375px on the production build, per the silent-Tailwind rule.
+
+**The structural constraint the task line does not state: the chip is a `<button>`.** An `<a>` inside
+a `<button>` is invalid HTML — the parser hoists it out and what the creator ends up tapping is
+undefined — and the two go to *different places*, the item sheet and the live post. So `PublishedLink`
+is a **sibling** of the chip in the row, never a child. That also keeps the drag intact: the draggable
+node is the chip alone, so a pointer going down on the link never reaches `useDraggable`'s listeners
+and a link cannot be dragged onto a day cell by accident.
+
+**Where it appears is decided by the 44px floor, and the exclusions are asserted.** The week list and
+the expanded backlog drawer carry it inline. The month grid's chips are `micro` in a ~53px day cell —
+the width at which the chip already drops the title entirely — and the collapsed peek strip is one
+clipped line whose whole purpose is a glance; neither can hold a 44px target without breaking the hard
+constraint in `.claude/rules/design.md`. Both reach it one tap further in, and
+`published-link.spec.ts` pins the two absences so they stay decisions rather than oversights.
+
+**One addition beyond the task line, and the reason it is not scope creep.** The **item sheet** gained
+the same control beside its link field. Without it the *default view* — the month grid — has no path
+to US5 scenario 3 at all, since its chips cannot carry one. It reads the **draft** rather than the
+saved row, so a just-pasted link can be checked before saving.
+
+That is also the only place a `javascript:` string could reach an `href`: every other surface renders
+rows the backend has already refused anything but `http(s)` for (T030's `PublishedUrl`, tested at
+T063). So the control gates on `isValidPublishedUrl` — **the contract's own `^https?://` and 2048, and
+not one character stricter**. The same predicate is what **T066** uses as its save gate, which is why
+it is one exported function in `lib/items.ts` rather than a check at each call site: the two callers
+fail in opposite directions, and a client stricter than the contract refuses values the API stores
+happily, invisibly to the entire backend suite.
+
+**Green was not taken as evidence.** Three deliberate breaks, each confirming the *right* tests went
+red and the rest stayed green: dropping `noreferrer` reddened exactly the three `rel` assertions;
+removing the scheme gate reddened exactly the `javascript:` test (and, first, **failed the build** on
+the now-unused import); adding a `status === "posted"` gate reddened the retained-link test and the
+two sheet-draft tests, which is correct — their fixtures are not `posted`.
 - [ ] T066 [US5] Ensure a rejected malformed link does not discard the accompanying status change, keeping the two edits independent (spec Edge Cases)
 
 **Checkpoint**: every user story is complete and independently functional.
