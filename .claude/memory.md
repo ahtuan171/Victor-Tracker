@@ -164,6 +164,28 @@ The same amendment's "period" framing was also still in `data-model.md` and in *
 line**, nine tasks after it was overturned. Grepping the claim found them; reading the files would
 not have.
 
+**2026-08-03 — drift does not only *survive*, it **overwrites a correct record**, and the artifact
+count is what makes it look authoritative.** Every prior instance of this trap was a stale claim
+nobody had revisited. This one is the opposite and it is worse. The Phase 4 checkpoint recorded the
+dev-overlay obstruction correctly — *"untappable under `next dev` and only under `next dev`. CI runs
+the production bundle."* T057 then re-derived it from the symptom (a `view-month` click intercepted in
+a local run), concluded `playwright.config.ts` "runs `next dev`" **without opening the config**, and
+wrote the widened version into `CLAUDE.md`, `frontend/AGENTS.md`, `tasks.md` and a call-site comment
+in `pipeline.spec.ts`. The config actually reads
+`` `${process.env.CI ? "pnpm start" : "pnpm dev"}` `` — CI has never had the overlay.
+
+**Four artifacts said one thing and one said the other, and the majority was the wrong one.** Worth
+holding onto, because "grep the claim" was followed here and would have produced *conflicting* hits
+rather than a clean answer — `frontend/AGENTS.md` contained both halves, fifty lines apart. When a
+grep comes back split, **the tiebreaker is the executable artifact, never the count**: one line of
+`playwright.config.ts` outranks any number of paragraphs about it. Same shape as the contract
+problem, one level down — prose describing a config drifts from the config exactly as prose
+describing code drifts from code.
+
+It was already spending a later task's budget, which is the concrete cost: T057's paragraph made
+"run the suite against `pnpm start`" **T069's** job, and T069 had nothing to do — CI already did.
+A false claim in `specs/` does not sit inert, it **allocates work**.
+
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the
 `postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the

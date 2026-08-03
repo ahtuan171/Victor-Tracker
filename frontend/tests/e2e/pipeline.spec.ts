@@ -281,9 +281,11 @@ test("the journey survives a period change and a view change (SC-002)", async ({
   /*
    * `dispatchEvent` rather than `click`, and it is the recorded environment trap rather than a
    * flaky selector: **Next's dev overlay sits exactly over the `MONTH` toggle at 375px** and
-   * intercepts the pointer event. `playwright.config.ts` runs `next dev`, so this is true in CI as
-   * well as locally — which is why no test before this one ever clicked `MONTH`, and why a hand-walk
-   * has to use `pnpm build && pnpm start` (`frontend/AGENTS.md`).
+   * intercepts the pointer event. `playwright.config.ts` runs `pnpm dev` locally and `pnpm start`
+   * under `CI`, so the obstruction is **local only** — this is here so the suite passes on a
+   * developer's machine, not because a pipeline needs it. (Corrected 2026-08-03; this comment
+   * previously claimed CI ran `next dev` too.) A hand-walk still needs `pnpm build && pnpm start`
+   * for the same overlay (`frontend/AGENTS.md`).
    *
    * Dispatching straight at the element is honest here: the obstruction is a development artifact
    * that no creator will ever have, and the thing under test is what the toggle *does*.

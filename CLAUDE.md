@@ -38,11 +38,15 @@ surface, and the one that outranks code when someone does open it. Grep the clai
 - **`reload()` still has no caller**, for the third time. Predicted for T044 (navigation issues no
   request), plausible for T051 (an optimistic edit reconciles against the `PATCH` response). Both
   predictions assumed a write implies a refetch, which is exactly what R-007 rejects.
-- **The `MONTH` toggle is a control no automated test can click.** Next's dev overlay covers it at
-  375px and `playwright.config.ts` runs `next dev`, so this holds **in CI**, not only in a hand-walk.
-  It went unnoticed until T057 because no test had ever clicked it — `WEEK` works, so the toggle was
-  only exercised in the direction that does. `pipeline.spec.ts` uses `dispatchEvent`. The real fix
-  (running the suite against `pnpm start`) rebuilds every run and belongs with **T069**.
+- **The `MONTH` toggle cannot be clicked by a *local* test run** — Next's dev overlay covers it at
+  375px. **Corrected 2026-08-03: this does not hold in CI.** `playwright.config.ts` runs
+  `process.env.CI ? "pnpm start" : "pnpm dev"`, so the pipeline exercises the production bundle and
+  has no overlay; the obstruction is a local-run artifact, exactly as the *Phase 4* record said
+  before T057 widened it to "a CI fact". `pipeline.spec.ts` still needs its `dispatchEvent` for the
+  local run. There is no "real fix" owed by **T069** — CI already runs the suite against
+  `pnpm start`. The lesson that does survive is the one about coverage, not about environments: the
+  toggle went unexercised in one direction because `WEEK` works, and **the half that works is the
+  half every test happens to use.**
 
 **User Story 1 is complete: a creator can sign in, capture an idea, and find it in the backlog.**
 The proxy at
