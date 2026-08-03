@@ -21,11 +21,11 @@ This is a validation guide. Implementation belongs in `tasks.md`.
 | Docker + compose | yes, for PostgreSQL | check with `docker compose version` |
 | `glab` | stage 3 and every merge | ✅ 1.110.0, authenticated as `ahtuan1701` |
 | Git remote | stage 3 and the merge gate | ✅ `gitlab.com/ahtuan1701/creator-hub`, `main` protected |
-| A seeded creator account | V1, V2, V4, V8 — anything requiring a sign-in | ❌ **none exists** |
+| A seeded creator account | V1, V2, V4, V8 — anything requiring a sign-in | ✅ seeded 2026-08-01, one row |
 
-The merge gate required by constitution principle VI is real as of T025. The missing piece is now the
-**creator account**: the seed script has never succeeded, so every scenario below that begins with a
-sign-in is currently unrunnable by hand. See [Outstanding setup](#outstanding-setup).
+The merge gate required by constitution principle VI is real as of T025, and the creator account has
+existed since 2026-08-01 — so every scenario below is walkable by hand. See
+[Outstanding setup](#outstanding-setup) for what that account is and why there must only ever be one.
 
 ---
 
