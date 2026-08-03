@@ -24,7 +24,13 @@ import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
-import { logout, type ContentItem, type Platform } from "@/lib/api";
+import {
+  ApiError,
+  logout,
+  type ContentItem,
+  type ContentItemUpdate,
+  type Platform,
+} from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
@@ -147,6 +153,30 @@ export function CalendarShell() {
   const [dragging, setDragging] = useState<ContentItem | null>(null);
 
   /**
+   * The item that turned out to be already deleted, named in a notice (T070, FR-023a).
+   *
+   * **Held here rather than in the store**, which is the existing rule and not a new one: a failed
+   * *write* is the surface's to report, while `state.error` describes a failed *read* of the whole
+   * list — folding the two together would blank the calendar because one save was refused.
+   *
+   * It exists because the store now *removes* the row on a 404, and a removal with nothing said is
+   * indistinguishable from a successful save. On the sheet path the sheet closes by itself (its item
+   * is gone from `items`), so without this the creator sees a save close the sheet and the chip
+   * disappear — which reads as the save having worked. On the drag path there is no sheet at all.
+   */
+  const [staleTitle, setStaleTitle] = useState<string | null>(null);
+
+  /**
+   * The one place a 404 becomes a sentence, so both write paths report it identically.
+   *
+   * Anything else is passed straight through: the sheet renders a 409 beside the control that
+   * resolves it (T053) and the drag path's own feedback is the row visibly returning to its day.
+   */
+  function noticeIfGone(error: unknown, item: ContentItem): void {
+    if (error instanceof ApiError && error.status === 404) setStaleTitle(item.title);
+  }
+
+  /**
    * The platform filter (T061), or null for all platforms.
    *
    * State, not a URL parameter and not a request: `selectByPlatform` narrows the list already in
@@ -208,10 +238,28 @@ export function CalendarShell() {
     // Dropping a chip back where it started is a no-op, not an empty PATCH the backend would 422.
     if (scheduled_date === item.scheduled_date) return;
 
-    // Rejections are already handled: `updateItem` rolls the optimistic move back. There is no sheet
-    // open to render the message, so a floating error would be the only surface for it — deferred
-    // rather than invented here, and the row visibly returning to its old day is the feedback.
-    void updateItem(item, { scheduled_date }).catch(() => {});
+    // An ordinary refusal still needs no message here: `updateItem` rolls the optimistic move back
+    // and the row visibly returning to its old day is the feedback. **A 404 is the exception T070
+    // added** — the row does not return, it is removed, and a chip that silently disappears mid-drag
+    // is the one outcome a creator would read as the app losing their item.
+    void updateItem(item, { scheduled_date }).catch((error: unknown) => noticeIfGone(error, item));
+  }
+
+  /**
+   * The sheet's save, wrapped so the shell learns about a 404 the sheet cannot report.
+   *
+   * The rejection is **rethrown**, so `ItemSheet` keeps every one of its own behaviours — the draft
+   * intact, the 409 rendered against the control that resolves it. It simply cannot render *this*
+   * one: removing the row from the store makes `editing` null, which closes the sheet before the
+   * message it just set could be read. So the surface that survives the close carries it.
+   */
+  async function saveItem(item: ContentItem, changes: ContentItemUpdate): Promise<ContentItem> {
+    try {
+      return await updateItem(item, changes);
+    } catch (error) {
+      noticeIfGone(error, item);
+      throw error;
+    }
   }
 
   /**
@@ -269,6 +317,50 @@ export function CalendarShell() {
           overdueCount={countOverdue(visible, today)}
           loading={status === "loading"}
         />
+
+        {/*
+         * The stale-item notice (T070, FR-023a, spec Edge Cases).
+         *
+         * **Outside `<main>`, above the scroll region.** `<main>` scrolls, so a message at the top of
+         * it is off screen for a creator who has scrolled down the grid — which is exactly the
+         * creator who just dragged a chip. Here it is always in view, and because it is another row
+         * of an `h-dvh` flex column it shrinks `<main>` rather than moving the action band: the band
+         * stays under the thumb (FR-022) and nothing leaves the 375px width.
+         *
+         * `role="status"`, not `role="alert"`: the item is already gone and the calendar is correct:
+         * this explains what happened rather than demanding a fix. `alert` is reserved for the
+         * refusals the creator has to act on.
+         */}
+        {staleTitle === null ? null : (
+          <p
+            role="status"
+            className="border-hairline text-ink-mid flex items-start gap-3 border-b px-4 py-2 text-xs leading-relaxed"
+            data-testid="stale-notice"
+          >
+            {/*
+             * The title is named because the row it describes is no longer on screen to point at —
+             * on the drag path nothing else closed or moved, so an unnamed message would leave the
+             * creator to work out which chip disappeared.
+             */}
+            <span className="min-w-0 flex-1">
+              “{staleTitle}” was already deleted somewhere else, so that change could not be saved. It
+              has been removed from your calendar.
+            </span>
+            {/*
+             * Dismissed explicitly rather than on a timer. A notice that vanishes on its own is one
+             * the creator can miss entirely, and a timer is the kind of thing that makes a suite
+             * flaky. `h-11` is the 44px floor, as everywhere else.
+             */}
+            <button
+              type="button"
+              onClick={() => setStaleTitle(null)}
+              className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring -my-0.5 h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+              data-testid="stale-notice-dismiss"
+            >
+              Dismiss
+            </button>
+          </p>
+        )}
 
         {/*
          * `min-h-0` is what keeps the promise in `.claude/rules/design.md` that the page body never
@@ -390,7 +482,7 @@ export function CalendarShell() {
           onOpenChange={(open) => {
             if (!open) setEditingId(null);
           }}
-          onSave={updateItem}
+          onSave={saveItem}
           onRequestDelete={(item) => {
             // The sheet closes first. Two modal surfaces at once on a 375px screen is the layout
             // problem, and leaving the sheet open behind a confirmation about the same item is the
