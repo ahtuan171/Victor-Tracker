@@ -133,7 +133,7 @@ pages. This is not a scale problem; it is a friction problem.
 
 > **The constitution VI exception, stated here because this is the artifact that grades VI (T074).**
 > The gate did not exist for the first 25 merges into `main`: one local fast-forward carrying the
-> stage-1 specs, plus every `--no-ff` merge from T008 through T024. None of them passed a check that
+> stage-1 specs, plus every `--no-ff` merge from T001 through T024. None of them passed a check that
 > could have stopped them. It is a *knowing* exception — creating the GitLab project first would have
 > blocked all implementation on an account setup that blocked nothing else — and the point of the
 > gate is that its absence gets written down rather than quietly omitted.
