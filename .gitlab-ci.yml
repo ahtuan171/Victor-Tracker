@@ -10,9 +10,11 @@
 # Lint runs after tests rather than before because workflow.md orders the stages that way, and the
 # stage names are referenced from the retro and the constitution. It is not an accident.
 #
-# NOTE: no GitLab project exists yet. This file is written against the layout it will have; nothing
-# has executed it. tasks.md records that stage 3 (Load) is a prerequisite for shipping, not for
-# implementation.
+# This file gates every merge into main, and has since T025 (2026-07-31): main's allowed-to-push is
+# no one, only_allow_merge_if_pipeline_succeeds is true, and MRs !1 onward have each merged only
+# behind a green pipeline. Since 2026-08-03 it runs on a project-owned runner rather than shared
+# free-tier minutes; see CLAUDE.local.md. (Until T074 this comment still said no GitLab project
+# existed and that nothing had executed the file.)
 
 stages:
   - build
@@ -183,9 +185,15 @@ review:tsc:
 # deploy — manual approval at v0.1 (tech-defaults.md)
 # ---------------------------------------------------------------------------
 #
-# Both jobs are placeholders until T071 configures Render and Vercel and sets the corresponding CI
-# variables. They fail loudly rather than echoing success, because a green deploy job that deployed
-# nothing is worse than a red one.
+# Both jobs are live as of T071 (2026-08-04): RENDER_DEPLOY_HOOK_URL and VERCEL_DEPLOY_HOOK_URL are
+# set as masked CI variables, and both hooks have been fired against the real services. They stay
+# `manual` per tech-defaults.md ("manual approval on deploy at v0.1").
+#
+# The guard below is kept, not removed. It fails loudly when a hook variable is missing rather than
+# echoing success, because a green deploy job that deployed nothing is worse than a red one — and
+# that is exactly as true now that the variables exist as it was before, since a variable can be
+# unset again. Note also that an EMPTY variable is not an ABSENT one: T071 lost a deploy to
+# FRONTEND_ORIGIN="" overriding a default and then failing min_length=1.
 
 .deploy:
   stage: deploy

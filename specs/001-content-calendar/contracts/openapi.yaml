@@ -29,8 +29,17 @@ info:
 servers:
   - url: http://localhost:8000
     description: Local docker-compose
-  - url: https://creatorhub-api.onrender.com
-    description: Production
+  - url: https://creator-hub-1dgs.onrender.com
+    description: |
+      Production (Render). Corrected at T074 — this read `creatorhub-api.onrender.com` until then,
+      a hostname that has never existed. Render appends a random suffix to the service hostname, and
+      its edge answers an unknown host with `404 text/plain "Not Found"` — byte-identical, including
+      `content-type`, to what the Vercel proxy returns when `API_BASE_URL` is wrong. T071 lost time to
+      exactly that ambiguity, so a wrong hostname here is not cosmetic: it is the trap, pre-loaded,
+      for whoever next hand-verifies against production.
+
+      The browser never calls this origin directly (R-001) — it is here for hand-verification and for
+      reading the API docs at `/docs`.
 
 tags:
   - name: auth

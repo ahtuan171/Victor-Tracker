@@ -423,24 +423,52 @@ allowlist is what actually gates access.
 
 ## Open items carried into later stages
 
-- **No git remote exists.** The GitLab project, protected `main`, and the CI pipeline required by
-  constitution principle VI do not exist yet. `glab` is not installed either. This blocks stage 3
-  (Load) and the merge gate, not implementation. Recorded in [quickstart.md](./quickstart.md).
-- **Design tokens are not yet chosen.** Stage 2 exports from Claude Design into
-  `design/content-calendar/` establish colour, spacing, and type scale for all four modules. R-005
-  fixes the *semantics* of the status cue (shape and fill progression); the palette that dresses it is
-  a stage-2 decision. Because R-005 fixes the shape-and-fill progression independently of colour, the
-  cue components can be built against placeholder tokens and re-skinned when the export lands — the
-  stage-2 gate does not block Phase 4.
+**Status swept at T074 (2026-08-04).** Three of the four are discharged and are kept — struck
+through — rather than deleted, because an Open item that simply vanishes leaves no record of how it
+resolved. Only the last one is still open, and it is what T072 measures.
 
-- **`passlib` is likely a trap on Python 3.13.** `passlib` 1.7.4 is unmaintained and reads
-  `bcrypt.__about__`, which `bcrypt` ≥ 4.1 removed — a well-known initialisation failure. Verify at
-  T002; if it bites, use `pwdlib` or the `bcrypt` package directly. Recorded under Traps in
-  `.claude/memory.md` so the next module does not rediscover it.
+- ~~**No git remote exists.**~~ **DISCHARGED at T025 (2026-07-31).** `origin` is
+  `gitlab.com/ahtuan1701/creator-hub`, private; `main`'s allowed-to-push is **no one** and
+  `only_allow_merge_if_pipeline_succeeds` is `true`, both read back from the GitLab API rather than
+  assumed; `glab` 1.110.0 is installed and authenticated. The merge gate constitution principle VI
+  requires has held for every change since — **MRs !1 through !52**. The 25 merges that predate it are
+  a knowing exception, pinned at `caca814~4` and recorded in `plan.md`'s Constitution Check and in
+  `T076`. **There is no second exception**: when the free-tier CI quota ran out on 2026-08-02, the
+  answer was a project-owned runner, not a relaxed gate.
 
-- **Render free-tier spin-down is unmeasured.** R-001's "one extra hop between data centres" is true
-  but incomplete: a spun-down Render service can take tens of seconds to wake. R-007's client-side
-  filtering keeps this off the path of every interaction, but the *first* load of the day still pays
-  it, which is measured against SC-001. Only quickstart V-scenarios run against the deployed
-  environment would catch it, and those run late. If it proves real, the fix is a paid tier or a
-  keep-warm ping — a stage-7 decision, not a design change.
+- ~~**Design tokens are not yet chosen.**~~ **DISCHARGED at stage 2 (2026-08-01).** The export lives
+  in `design/content-calendar/` — eleven surfaces at 375px in dark and light, plus the greyscale
+  acceptance test for SC-004. The prediction in this item held exactly: because R-005 fixed the
+  shape-and-fill progression independently of colour, only the token layer and `/login` were
+  integrated at stage 2 and the cue components re-skinned without rework. The data-shape audit ran
+  **clean**, so no `spec.md` amendment was needed and constitution IV was satisfied.
+
+- ~~**`passlib` is likely a trap on Python 3.13.**~~ **DISCHARGED at T002 — it bit, and not in the
+  predicted way.** The failure is not the `bcrypt.__about__` read this item anticipated. With bcrypt
+  5.0.0 it happens at *first use*, inside passlib's own backend-capability probe (`detect_wrap_bug`),
+  which hashes an over-72-byte password expecting bcrypt to truncate; bcrypt 5.0 raises instead. Every
+  `CryptContext` with bcrypt is dead on arrival, and passlib 1.7.4 is unmaintained so it will not be
+  fixed. **`pwdlib[bcrypt]` is what ships**, verified on Python 3.13 with bcrypt 5.0.0. `plan.md`'s
+  Primary Dependencies was corrected at T074 — it had named `passlib[bcrypt]` for the whole build.
+  Inherited constraint: bcrypt still refuses passwords over 72 bytes rather than truncating them.
+
+- **Cold-start latency against SC-001 is still unmeasured. This is the one open item, and T072 is the
+  measurement.** ~~Render free-tier spin-down~~ — **amended at T074, because T071 doubled it.** The
+  original item named one cold start: a spun-down Render service taking tens of seconds to wake.
+  Since T071 the database is **Neon**, reached over the public internet rather than Render's internal
+  network, and **Neon's free tier auto-suspends too** — so the first request of the day now crosses
+  **two** cold starts, stacked. The substitution and its cost are stated in
+  [plan.md](./plan.md#technical-context) as the constitution's Scope Constraints require; this item is
+  the other half of that amendment, recorded here so the measurement is not designed against a
+  single-cold-start model.
+
+  **What is being measured against what.** SC-001 is *"capture a new idea with only a title in under
+  15 seconds and in no more than 3 interactions"* — a whole-journey budget, **not** a page-load
+  budget, and the cold start has to fit inside it. (SC-005's one-second budget is the platform filter,
+  and R-007's client-side narrowing already keeps every cold start off that path, along with period
+  navigation and status changes.) The honest method is to leave the deployment idle ≥20 minutes so
+  both tiers actually suspend, time the first request, then time a second warm one for comparison —
+  a single number with nothing beside it says nothing about which half is the cold start.
+
+  If it proves real, the fix is a paid tier or a keep-warm ping: a stage-7 operational decision, not
+  a design change. **The number is reported as measured, including if SC-001 fails.**

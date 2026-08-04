@@ -23,10 +23,13 @@ meet the spec.
 
 ## Technical Context
 
-**Language/Version**: Python 3.13 (backend), TypeScript 5.x on Node 22 (frontend)
+**Language/Version**: Python 3.13 (backend), TypeScript 5.x on Node 24 (frontend) — `node:24-bookworm-slim` in CI, 24.12.0 locally
 
-**Primary Dependencies**: FastAPI, SQLModel, Alembic, plus `pyjwt` and `passlib[bcrypt]` for token
-handling and password hashing, all managed with `uv` — never pip or poetry. Next.js App Router,
+**Primary Dependencies**: FastAPI, SQLModel, Alembic, plus `pyjwt` and **`pwdlib[bcrypt]`** for token
+handling and password hashing, all managed with `uv` — never pip or poetry. (This read
+`passlib[bcrypt]` until T074. T002 verified that passlib 1.7.4 is **dead on Python 3.13** — its own
+backend probe raises on bcrypt 5.0 — and substituted `pwdlib`; the reasoning is in
+`backend/pyproject.toml` and `backend/AGENTS.md`, and the Open item below is discharged.) Next.js App Router,
 Tailwind, shadcn/ui, `@dnd-kit/core` for the drag path and `date-fns` for calendar arithmetic, managed
 with `pnpm`.
 
@@ -57,8 +60,15 @@ items plus one holding the single creator account.
 > measuring it is exactly what T072 does** — the result is reported as measured, including if it
 > fails.
 
-**Testing**: pytest against a dedicated test database (models and endpoints); Playwright for one E2E
+**Testing**: pytest against a dedicated test database (models and endpoints); Playwright for the E2E
 flow. No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
+
+> **As shipped (T074, 2026-08-04):** "one E2E flow" was the plan's estimate and the suite outgrew it —
+> **271 backend tests and 432 Playwright tests across four projects** (`contract`, `proxy`, `client`,
+> `mobile-375`), none skipped. The *design* intent behind the phrase still holds and is load-bearing
+> in research.md R-003: the automated flow drives **taps**, and the drag half of SC-011 is validated by
+> hand at quickstart V4/V9, because a flaky drag test would get switched off and a switched-off gate
+> violates constitution VI.
 
 **Target Platform**: modern mobile browsers as the baseline, desktop as an enhancement. 375px is the
 design width and a hard floor, per constitution principle I.
@@ -76,10 +86,20 @@ container (FR-021). The full `idea → posted` journey is completable without a 
 No version marker for concurrent-edit detection (FR-023a).
 
 **Rendering and data flow**: server components for the root redirect and the session guard only;
-the calendar surface and backlog drawer are client components holding the visible period's items in
-local state, with optimistic `PATCH` updates and client-side platform filtering. See
-[research.md](./research.md) R-007 — this is the decision an earlier draft of this plan omitted
-entirely.
+the calendar surface and backlog drawer are client components holding **the whole item list, read
+once on mount and unparameterised**, in local state — with optimistic `PATCH` updates and
+client-side platform filtering. Period navigation issues no request at all; it re-narrows what is
+already in memory. See [research.md](./research.md) R-007 — this is the decision an earlier draft of
+this plan omitted entirely.
+
+> **Corrected at T074 (2026-08-04).** This paragraph said "the visible period's items" until the
+> T074 drift pass. That is the unit the **Phase 4 checkpoint overturned**, and R-007 carries the
+> amendment — a ranged read bounds `scheduled_date` and so returns no undated rows, which would empty
+> the backlog drawer the moment the grid loaded. R-007's own amendment note claims the fix reached
+> three artifacts; it reached three of **five**. This file and `tasks.md` T033 were the other two, and
+> this one cited R-007 in the same sentence it contradicted. Resolved against the executable artifact
+> per `.claude/memory.md` — `frontend/components/calendar/CalendarShell.tsx` documents in its own
+> comment that navigating a period issues no request.
 
 **Scale/Scope**: one creator, hundreds of content items. **Three routes** — `/` (redirect),
 `/login`, and `/calendar` — plus three overlay surfaces on the calendar route: the capture sheet, the
@@ -99,10 +119,23 @@ pages. This is not a scale problem; it is a friction problem.
 | III. One Core Capability Per Module | CRUD plus exactly one capability — the status pipeline view | **PASS** — the pipeline view is the one capability. No endpoint or screen serves Growth Tracker, Media Kit, or Deal Tracker. Bulk import was explicitly refused during clarify to protect this gate. |
 | IV. The Spec Is The Source Of Truth | `spec.md` carries no technology; `plan.md` traces to numbered requirements | **PASS** — spec.md contains zero technology names. Every design decision below cites the requirement it serves. |
 | V. Working And Deployed Beats Polished And Local | Polish deferred; tests, responsive behaviour, focus states, and destructive-action confirmation are not | **PASS** — FR-015b forces a non-drag path, which is what makes focus states possible at all; FR-020 requires delete confirmation. Neither is deferred. |
-| VI. Merges Are Gated, Not Trusted | `main` protected, MR required, lint + type-check + tests block merge | **PASS** as a process commitment. **Open item**: no git remote is configured yet, so the GitLab project, protected `main`, and CI pipeline do not exist. This is a stage-3 prerequisite, not a design flaw — recorded in [quickstart.md](./quickstart.md). |
+| VI. Merges Are Gated, Not Trusted | `main` protected, MR required, lint + type-check + tests block merge | **PASS**, and no longer only as a commitment — **the gate has been real since T025** (2026-07-31). `origin` is `gitlab.com/ahtuan1701/creator-hub`, `main`'s allowed-to-push is **no one**, and `only_allow_merge_if_pipeline_succeeds` is `true`; both read back from the GitLab API rather than assumed. Everything from T025 on merged through an MR behind a green pipeline. **The gate's absence before T025 is a knowing exception that `T076` records** — see the note below. |
 | VII. Build For One User Until There Is A Second | No multi-tenancy, roles, organizations, or speculative owner columns | **PASS** — `content_item` has no owner column. The creator table exists solely to hold one password hash. |
 
 **Result**: no violations. Complexity Tracking is therefore empty.
+
+> **The constitution VI exception, stated here because this is the artifact that grades VI (T074).**
+> The gate did not exist for the first 25 merges into `main`: one local fast-forward carrying the
+> stage-1 specs, plus every `--no-ff` merge from T008 through T024. None of them passed a check that
+> could have stopped them. It is a *knowing* exception — creating the GitLab project first would have
+> blocked all implementation on an account setup that blocked nothing else — and the point of the
+> gate is that its absence gets written down rather than quietly omitted.
+>
+> **The count is pinned at `caca814~4` and must not be recalculated**: `git log --merges` now includes
+> the real MR merges, so the number only means anything against that commit. **There is no second
+> exception.** When the free-tier CI quota ran out on 2026-08-02 mid-pipeline, the answer was a
+> project-owned runner — which does not draw on the shared quota — not a relaxed gate. `T076` records
+> this range.
 
 ### Post-Phase 1 re-check
 
@@ -198,7 +231,7 @@ frontend/
 │   ├── status.ts               # status and platform → visual cue mapping (FR-017, FR-018)
 │   └── utils.ts                # shadcn's `cn` class merger
 ├── tests/
-│   └── e2e/pipeline.spec.ts     # the one E2E flow
+│   └── e2e/                     # pipeline.spec.ts is the core flow; the suite grew past one file
 ├── package.json
 └── playwright.config.ts
 
