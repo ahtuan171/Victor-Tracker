@@ -10,13 +10,37 @@ Kit Generator, and Deal/Collab Tracker each restart the full eight-stage workflo
 
 ## [Unreleased]
 
-### v0.1.0 — Content Calendar, awaiting its tag
+Nothing yet. The next entry starts a new module iteration — Growth Tracker, Media Kit Generator or
+Deal/Collab Tracker — with its own `spec.md` against the same constitution.
 
-**The code is complete and deployed; the tag is deliberately held.** T072 walks quickstart V1–V9
-against the deployed environment and measures the cold-start cost against SC-001. Tagging a release
-that no deployment has been walked against would make the tag a claim without evidence, so the tag
-follows T072 rather than preceding it. Decided with the project owner on 2026-08-03 and recorded
-under T074 in `specs/001-content-calendar/tasks.md`.
+## [0.1.0] — 2026-08-05
+
+**Content Calendar, walked against the deployed environment before being tagged.**
+
+The tag was deliberately held until T072 had walked quickstart V1–V9 against production, because
+tagging a release that no deployment has been walked against would make the tag a claim without
+evidence. Decided with the project owner on 2026-08-03, recorded under T074 in
+`specs/001-content-calendar/tasks.md`, and discharged here.
+
+**The walk (2026-08-05): V1–V9 and US4 all pass** against `creator-hub-hazel.vercel.app` at 375px —
+browser → Vercel → Render → Neon, nothing stubbed. Eleven of twelve success criteria hold.
+Re-runnable with `frontend/scripts/t072-walk.mjs`; the full table is in the T072 note in `tasks.md`
+and the criterion-by-criterion comparison is in [`docs/retro-01.md`](docs/retro-01.md).
+
+**SC-001 fails cold and holds warm, and both numbers are recorded rather than the flattering one.**
+Capture costs 3 interactions and **1.89s warm** against a 15-second budget. The first interaction of
+the day costs **47.27s** — the `/calendar` document alone is **44.18s** — because the first request
+crosses two suspended free tiers, Render's spin-down and Neon's auto-suspend, stacked. Warm, the same
+walk is **3.92s**. The interaction count, which is the half of SC-001 the product controls, is 3
+either way, so this is the hosting tier failing a product criterion rather than the capture path.
+The remedy is a paid tier or a keep-warm ping; both are operational, neither is a design change, and
+both are deferred out of v0.1. **A keep-warm ping must wake both services** — pinging Render's
+`/health` does not touch Neon, because `/health` deliberately does not query the database.
+
+**SC-010 is recorded as correct by construction but unobserved.** It asks that a session survive 30
+days, which nothing shipped can observe in a day. The sliding-reissue mechanism is tested end to end
+and a real sign-out and sign-in was walked at T072, but marking it passed on a mechanism rather than
+an observation is the citation-shaped evidence this project has twice been caught by.
 
 ## What a creator can do
 
@@ -110,6 +134,10 @@ the live post, delete it behind an explicit confirmation, and sign out.
   spin-down, **the first request of the day now crosses two cold starts.** This lands on SC-001, and
   measuring it is what T072 does — the number will be reported as measured, including if it fails.
 
+  **Measured at T072: it does fail, cold.** 47.27s for the first interaction of the day against a
+  15-second budget, and 1.89s warm. The prediction above was correct and the promise to report it
+  either way is kept in this release's own section, at the top of this file.
+
 - **The Auth row of `.claude/rules/tech-defaults.md` now permits sliding reissue explicitly** (T075),
   amended at the Reflect stage, which is the only stage that row may change in. It previously forbade
   "refresh" outright, which collided with FR-002a's silently-renewing session. The rule that replaced
@@ -148,3 +176,13 @@ Accepted for a single-user tool at v0.1, each with the trigger that would make i
   hardest.
 - `/speckit-analyze` and the `reviewer` agent are not substitutes. At T074 they produced 9 and 3
   findings respectively **with no overlap at all**.
+- **The deployed seam is not covered by any automated test, and it hid a credential leak for 77
+  tasks.** Every frontend test stubs the proxy, because CI has no FastAPI behind it — so a suite green
+  at 432 tests said nothing about the browser → proxy → API → database path. The first automated
+  sign-in against production found the login form serialising the creator's password into the URL: a
+  `<form>` with no `method` defaults to GET, and `preventDefault()` is only attached at hydration. The
+  window is a property of the *deployment*, invisible locally and ~44 seconds wide on a cold free
+  tier. Fixed before this tag, in two independently tested halves. Walk the deployed seam by hand;
+  a green suite is evidence about the frontend in isolation.
+
+[0.1.0]: https://gitlab.com/ahtuan1701/creator-hub/-/releases/v0.1.0
