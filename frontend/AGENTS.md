@@ -224,6 +224,32 @@ test at all. Found by the Phase 7 `reviewer` pass. **When mirroring a constraint
 annotation, not the part the contract happens to repeat** — and prefer verifying against the running
 API over reasoning about the validator.
 
+**A `<form>` with no `method` defaults to GET, and before hydration that is the only thing your
+`preventDefault()` is not doing.** Found at **T072**, against the deployed product, on the first
+automated sign-in attempt: the browser navigated to `/login?email=...&password=...` and put the
+creator's real password in the address bar, in browser history, and in the edge's access logs.
+`handleSubmit` calls `preventDefault()` — but React attaches it at hydration, and a `type="submit"`
+button inside a `<form>` is fully functional before that. The default no one chose is the one that
+shipped.
+
+**The window is a property of the deployment, not of the browser.** On a fast local server hydration
+is effectively instant and the window is unobservable — which is exactly why nothing caught it for
+77 tasks. On the free tier it is wide: T072 measured the cold document at **~44 seconds** (Render
+spins down *and* Neon auto-suspends, stacked), with hydration behind that. A creator who types and
+taps during the first load of the day is *inside* it.
+
+The fix is two independent halves, and `login.spec.ts` pins them separately so removing one cannot
+be masked by the other: **`method="post"`** so a native submit can never serialise credentials into
+a URL, and a **hydration guard** (`useSyncExternalStore`, module-scope callbacks — see the clock
+rule above) disabling the submit control until handlers exist. Verified by breaking each half and
+confirming the matching test — and only that test — went red.
+
+The general form, which outlives this component: **every native HTML default is live until
+hydration.** Anything whose correctness depends on a React handler running is unprotected in that
+window, and `<form>` is the dangerous case because its default action *transmits*. This is also the
+sharpest instance yet of the rule in `.claude/memory.md` that a green suite is evidence about the
+frontend in isolation and never about the deployed seam.
+
 **A misspelled Tailwind class fails silently, and the design tokens made that worse.** Tailwind
 generates nothing for a name it does not recognise — no build error, no lint error, no test failure.
 `bg-surface-1` and `bg-surface1` are equally "valid" to every check in CI, and the second one renders
