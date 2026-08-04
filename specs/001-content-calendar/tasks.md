@@ -1155,7 +1155,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [x] T068 [P] Add the first-run empty state for an account with zero items to `frontend/app/(app)/calendar/page.tsx` and the backlog drawer (spec Edge Cases) — **the calendar half lands in `components/calendar/FirstRun.tsx`, not in the page; see below**
 - [x] T069 Audit the three routes and **four** overlay surfaces under `frontend/app/` at 375px for horizontal body scroll **and for content leaving the viewport**, and fix any that do (FR-021, SC-003) — **task line amended, see below**
 - [x] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases) — **task line amended, see below: the delete half was settled at T056 and must *not* report**
-- [ ] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001
+- [x] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001 — **the database moved to Neon; substitution stated in `plan.md` as the constitution requires, see below**
 - [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether Render's spin-down is a real problem (quickstart.md, research.md Open items)
 - [x] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md — `frontend/README.md` was still create-next-app boilerplate; **also fixed a self-contradiction in quickstart.md's prerequisites table, found while writing them**
 - [ ] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then tag v0.1 and write `CHANGELOG.md` (workflow.md stages 6 and 7)
@@ -1185,6 +1185,60 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T071 note and amendment (2026-08-04): the database is on Neon, and every failure looked like another
+
+**T071 result (2026-08-04)**: done. **The product is deployed and reachable for the first time.**
+
+| Part | Where | Verified |
+|---|---|---|
+| Backend | Render, `creator-hub-1dgs.onrender.com` | `/health` 200, `/content-items` 401 JSON |
+| Frontend | Vercel, `creator-hub-hazel.vercel.app` | `/` 307→`/login`, `/login` 200 |
+| Database | **Neon** | migrated, `alembic check` clean, 1 creator row |
+| Deploy hooks | both CI jobs | green, hooks accepted with ids |
+
+**The substitution is recorded in `plan.md`, which is where the constitution requires it** — Scope
+Constraints says substituting a stack component "REQUIRES an explicit stated reason in `plan.md`,
+never a silent change". Render's managed Postgres could not be created on the workspace at all, and
+its free tier is **deleted after 30 days** rather than suspended, so the option that was available
+would have re-presented this problem in a month with live data in it. `.claude/rules/tech-defaults.md`
+is amended in the same merge request. The deployment *targets* are unchanged: backend still Render,
+frontend still Vercel.
+
+**The cost is real and it lands on the requirement already most at risk.** Neon is reached over the
+public internet rather than Render's internal network, and its free tier auto-suspends — so the first
+request of the day now crosses **two** cold starts. **SC-001 is measured at T072**, and the number
+will be reported as measured.
+
+### Three failures in a row that each looked like the previous one's diagnosis
+
+Worth recording because the wrong lesson is easy to draw: *"deployment is just fiddly"*. It was not.
+Each was a distinct, findable cause, and each was found by comparing a **response signature** against
+a known-good one rather than by guessing.
+
+1. **`FRONTEND_ORIGIN=""` — an empty variable is not an absent one.** `Settings.frontend_origin` has a
+   default *and* `min_length=1`; a default applies only when the variable is **absent**, so setting it
+   blank overrode the default and the app refused to boot. Deleting the variable fixed it. The same
+   trap is waiting on any field in `app/config.py` that pairs a default with a constraint.
+2. **`DATABASE_URL` kept the `postgresql://` scheme.** The repo ships `psycopg[binary]` (v3) and no
+   psycopg2, so `create_engine` raised at **URL parse time** — which is why every DB-touching endpoint
+   returned a 500 in ~0.4s while `/health`, `/docs` and `/openapi.json` stayed 200. The timing was the
+   clue: a connection failure takes seconds, a missing driver takes none.
+3. **`API_BASE_URL` pointed at a hostname that does not exist.** Render appends a random suffix, so
+   `creator-hub.onrender.com` is not this service — and Render's edge answers an unknown host with
+   **`404 text/plain "Not Found"`**, byte-identical to what the proxy was returning. Isolated by
+   curling the wrong hostname directly and matching the signature, including its `content-type`.
+
+**`/health` deliberately does not touch the database** (`backend/AGENTS.md`: a probe that queries
+Postgres turns a blip into an outage), and that decision cut the other way here: **the health check
+was green while the database was completely unreachable.** Render reported the service healthy, and it
+was — by the definition it checks. Nothing in the automated suite could have caught any of these
+three: every frontend test stubs the proxy and every backend test uses a local database.
+
+**Vercel does not apply an environment variable to an existing deployment.** Changing `API_BASE_URL`
+does nothing until a new deployment exists — so the fix was applied by **re-running the CI
+`deploy:frontend` job**, which had the side benefit of proving the deploy hook works end to end rather
+than merely returning 200.
 
 ### T070 note and amendment (2026-08-03): the two 404s are opposites, and the task line merged them
 

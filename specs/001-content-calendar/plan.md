@@ -30,8 +30,32 @@ handling and password hashing, all managed with `uv` — never pip or poetry. Ne
 Tailwind, shadcn/ui, `@dnd-kit/core` for the drag path and `date-fns` for calendar arithmetic, managed
 with `pnpm`.
 
-**Storage**: PostgreSQL — docker-compose locally, Render managed in production. One table for content
+**Storage**: PostgreSQL — docker-compose locally, **Neon** managed in production. One table for content
 items plus one holding the single creator account.
+
+> **Substitution, stated as the constitution requires (T071, 2026-08-04).** The Scope Constraints
+> section names "deployment to Render and Vercel" and says substituting any stack component "REQUIRES
+> an explicit stated reason in `plan.md`, never a silent change". This is that reason.
+>
+> **What changed and what did not.** The *database host* moved from Render's managed Postgres to Neon.
+> The backend still deploys to Render and the frontend still to Vercel, so the deployment targets are
+> unchanged; so is the technology, which was and remains PostgreSQL. `.claude/rules/tech-defaults.md`
+> is amended in the same merge request, because an amendment applied to one artifact is not applied.
+>
+> **Why.** Render's Postgres could not be created on this workspace at all, and its free tier is
+> **deleted after 30 days** rather than suspended — so the provider that was available for one month
+> would have re-presented this same problem in a month, with a live database in it by then. Neon's
+> free tier does not expire. Two alternatives were considered and rejected: adding a payment method to
+> Render (buys a month, does not solve it) and a second Render account (an external connection either
+> way, so it pays the latency cost below *and* keeps the 30-day expiry).
+>
+> **The cost, stated rather than discovered later.** Render's *internal* URL is same-network; Neon is
+> reached over the public internet, so every query now costs tens of milliseconds instead of ~1ms, and
+> Neon's free tier auto-suspends after a few minutes idle. Stacked on Render's own free-tier
+> spin-down, the first request of the day now crosses **two** cold starts. `pool_pre_ping=True` in
+> `app/db.py` already covers the dropped-connection half. **This makes SC-001 harder to meet, and
+> measuring it is exactly what T072 does** — the result is reported as measured, including if it
+> fails.
 
 **Testing**: pytest against a dedicated test database (models and endpoints); Playwright for one E2E
 flow. No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
