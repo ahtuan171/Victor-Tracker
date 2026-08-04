@@ -2,30 +2,37 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-03: **all five user stories built** — T001–T070, T073, T075, T077 of 77
+## Status as of 2026-08-04: **built, deployed, and drift-swept** — T001–T071, T073, T074, T075, T077 of 77
 
 On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** Phases 3–7 are
-each closed with their three-gate checkpoint. **Only four tasks remain, and two of them are blocked on
-a human**: T071 and T072 (deployment, below), T074 (drift pass, `CHANGELOG.md`, tag) and T076 (retro).
+each closed with their three-gate checkpoint. **Two tasks remain and nothing is blocked on an account
+any more**: T072 (walk V1–V9 against the deployed environment) and T076 (retro). T072 needs only the
+production password.
 
-**The product is feature-complete for v0.1 and has never been deployed.** A signed-in creator can
+**The product is feature-complete for v0.1 and is deployed** — backend on Render, frontend on Vercel,
+database on Neon, since 2026-08-04. A signed-in creator can
 capture an idea, find it in the backlog, move between months and weeks, read every dated item's
 status, platform and overdue state without opening it, open it and change every field, drag it onto a
 day or back to the backlog, filter by platform, paste a published link and open the live post, delete
 behind a three-tap confirmation, and sign out. What no surface does: anything belonging to the other
 three modules.
 
-**The one thing blocking progress is not in this repository.** T071 needs a Render account and a
-Vercel account and their deploy hooks — `RENDER_DEPLOY_HOOK_URL` and `VERCEL_DEPLOY_HOOK_URL`. The
-project currently has **no CI variables at all**, and both `deploy` jobs fail loudly by design while
-they are missing, because a green deploy job that deployed nothing is worse than a red one. T072 (walk
-V1–V9 against the deployed environment, and measure the first load of the day against SC-001 to see
-whether Render's spin-down is a real problem) cannot start until that exists.
+**Deployed 2026-08-04 (T071).** Backend `creator-hub-1dgs.onrender.com`, frontend
+`creator-hub-hazel.vercel.app`, database **Neon** — a stack substitution stated in `plan.md` as the
+constitution requires, with `tech-defaults.md`'s DB row amended in the same MR. `RENDER_DEPLOY_HOOK_URL`
+and `VERCEL_DEPLOY_HOOK_URL` are set and both hooks have fired for real. The deploy jobs stay `manual`
+and still **fail loudly when a hook variable is missing** — that guard is as load-bearing now as it was
+before, since a variable can be unset again.
 
-**T074's tag was deliberately split off, on the human's instruction (2026-08-03).** Its drift pass and
-`CHANGELOG.md` can run now; **the v0.1 tag waits until after T072**, because tagging a release that no
-deployment corresponds to is backwards. Recorded in `tasks.md` under T074 rather than left as a
-private decision.
+**The one thing still blocking progress is not in this repository: the production password.** T072
+walks quickstart V1–V9 against the deployed environment and needs to sign in. The email is fixed at
+`ahtuan1701@gmail.com` and cannot change (`content_item` has no owner column). Ask for it in a file
+outside the repo — never pasted into a transcript — and delete the file afterwards.
+
+**T074's tag was deliberately split off, on the human's instruction (2026-08-03).** The drift pass and
+`CHANGELOG.md` are **done**; **the v0.1 tag waits until after T072**, because tagging a release that no
+deployment has been walked against is backwards. Now genuinely recorded in `tasks.md` under T074 —
+T074 found that this sentence had been asserting a record that did not exist.
 
 ### The one pattern that has cost the most, four checkpoints running
 
@@ -95,11 +102,11 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |
 | `frontend/` | Next **16.2.12** App Router, React 19.2.4, Tailwind **4**, shadcn/ui, `@dnd-kit/core`, `date-fns`, `yaml`. `lib/`: `proxy-allowlist.ts`, `session.ts`, `api.ts`, `dates.ts`, `items.ts`, `period.ts`, `status.ts`, `utils.ts`. **`app/globals.css` carries the stage-2 design tokens** plus `.notch-card` / `.notch-sheet` / `.web-grain` and **`.focus-ring` / `.focus-ring-inset`** (T067 — the one focus indicator, `outline` never a `ring-*`, because a ring on a brand-filled control is red on red); `app/layout.tsx` loads Oswald + Barlow and sets `dark` on `<html>`. `app/api/[...path]/route.ts` is the proxy. **Routes**: `app/login/`, `app/page.tsx` redirecting, `app/(app)/layout.tsx` guarding the group, `app/(app)/calendar/page.tsx` guarding it again and rendering `components/calendar/CalendarShell.tsx`. **Every surface the export draws now exists** — capture sheet, backlog drawer, `StatusCue`/`PlatformCue`/`ItemChip`, `MonthGrid`+`DayCell`, `WeekList`, `PeriodNav`, `ItemSheet`, `DeleteConfirm`, the `@dnd-kit` drag path, `PlatformFilter`, `FilteredEmpty`, `PublishedLink`, `FirstRun`, and the header sign-out. **432 Playwright tests passing across four projects, none skipped** — `contract`, `proxy`, `client`, `mobile-375`. |
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service now has real pages to serve as of T025–T027, but has not been run. |
-| `.gitlab-ci.yml` | **Green end to end**, and it gates every merge: `build → test → review` all pass, both `deploy` jobs `manual` **and deliberately failing** until T071 sets their hook variables. `test:e2e` runs against `pnpm start` (the production bundle) because `playwright.config.ts` branches on `CI` — so **CI has never had the dev overlay**. The `test:backend` gap is **closed by evidence**: the job runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. **Runs on a project-owned runner** since 2026-08-03; see `CLAUDE.local.md`. |
+| `.gitlab-ci.yml` | **Green end to end**, and it gates every merge: `build → test → review` all pass; both `deploy` jobs are `manual` per tech-defaults and **live since T071** — hook variables set, both fired for real. They still fail loudly if a hook variable goes missing. `test:e2e` runs against `pnpm start` (the production bundle) because `playwright.config.ts` branches on `CI` — so **CI has never had the dev overlay**. The `test:backend` gap is **closed by evidence**: the job runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. **Runs on a project-owned runner** since 2026-08-03; see `CLAUDE.local.md`. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `CreatorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
 | Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `CreatorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
-| `docs/` | Does not exist. Correct — **T076** creates it (`retro-01.md`). |
+| `docs/` | Does not exist. Correct — **T076** creates it (`retro-01.md`). `CHANGELOG.md` (T074) is at the repo root, not here. |
 | GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **Every task since T025 has merged through an MR behind a green pipeline — !1 through !50**, covering T025–T070 plus T073, T075, T077, the phase checkpoints and the docs sweeps. **Pipelines run on a project-owned runner** since 2026-08-03, after the free-tier quota ran out; the gate was never relaxed. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 — the daemon does not survive a reboot, so start Docker Desktop first every session. |
@@ -149,7 +156,7 @@ and neither is duplicated here.
 | **Specs reached `main` by local fast-forward**, not an MR | Creating the GitLab project first would have blocked all implementation on an account setup that blocks nothing else. With no remote there was no gate to satisfy, so this is a knowing exception to constitution VI — **`T076` must record it, not omit it.** Also in `.claude/memory.md`. |
 | One branch per task, merged `--no-ff` — **ended at T025** | It kept the working agreement in `tasks.md` real while there was no gate, and left a history shaped like the MR flow it became. The gate exists now: **T025 onward are real MRs**, and the exception covers the 25 merges before it. Do not revert to the local flow. |
 | No Dockerfiles; compose runs base images with bind mounts | Render and Vercel build from source and never read `docker-compose.yml`. Its only job is "Postgres + FastAPI + Next.js dev servers", which needs no image of our own. |
-| CI `deploy` jobs **fail** when their hook variable is missing | A green deploy job that deployed nothing is worse than a red one. T071 sets the variables. |
+| CI `deploy` jobs **fail** when their hook variable is missing | A green deploy job that deployed nothing is worse than a red one. T071 set the variables; the guard stays, because a variable can be unset again. **An empty variable is not an absent one** — `FRONTEND_ORIGIN=""` overrode a default, hit `min_length=1`, and stopped the app booting. Every field in `app/config.py` with both a default and a constraint has this waiting. |
 | The Claude Design project was created **through `DesignSync create_project`**, not by hand in the browser | A project's type is **immutable at creation**, and a regular project can never become a design system — `DesignSync` cannot read it and there is no conversion. Creating it through the tool removes the one irreversible mistake available in stage 2. Id is recorded in the table above. |
 | `design/content-calendar/BRIEF.md` was written **before** the export exists | The data-shape audit is the whole point of the stage-2 gate, and criteria invented after seeing a design are not criteria. The checklist is derived mechanically from `data-model.md`'s "Not present" table, so the audit has a fixed answer key. It also carries the `DO NOT INVENT` list that goes into the Claude Design prompt, which is far cheaper than catching a stray field during the audit. |
 | The stage-2 deadline is **T034, not T038** | `research.md` says the stage-2 gate does not block Phase 4, and that is true — about *tokens*, which R-005 made non-load-bearing. It is not true about *fields*. Constitution IV requires a `spec.md` amendment before building a design-implied field, and the fields get their controls at T034 and T052. After that, a re-skin (cheap) becomes rework (not). |
@@ -179,16 +186,19 @@ and neither is duplicated here.
    `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
    Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
    throttles that write; the live process is the evidence, not the timestamp.
-3. **Only four tasks remain, and the next one you can do alone is T074.**
+3. **Two tasks remain, and T072 is the next one — it is no longer blocked on an account.**
 
-   - **T071 and T072 are blocked on the human** — Render and Vercel accounts, and their deploy hooks
-     as CI variables. There are currently **no CI variables at all**. Do not try to work around this:
-     a deploy job that reports success without deploying is the failure mode `.gitlab-ci.yml` was
-     written to prevent.
-   - **T074** — re-run `/speckit-analyze` and a `reviewer` pass over the whole feature, fix what they
-     find, and write `CHANGELOG.md`. **The v0.1 tag is deliberately held until after T072** (decided
-     with the human on 2026-08-03, recorded under T074 in `tasks.md`): tagging a release that no
-     deployment corresponds to is backwards.
+   - **T072** — walk quickstart V1–V9 against `creator-hub-hazel.vercel.app` at 375px in a real
+     browser, and measure the cold start. **It needs the production password and nothing else.**
+     V1.4 and V8.1 are walkable now that T077 added a sign-out control.
+     **The cold start is two, not one**: Render's free tier spins down *and* Neon's auto-suspends, so
+     leave it idle ≥20 minutes before timing the first request, then time a warm second one for
+     comparison — one number alone says nothing about which half is the cold start.
+     **SC-001 is the 15-second, 3-interaction *capture* budget, not a page-load budget** (SC-005's
+     one second is the platform filter). Report the number as measured, including if it fails.
+   - **T074 is done** — both gates run, twelve findings, all documentation drift and none in
+     application code. The two passes **overlapped on nothing**, which is the point of running both.
+     **The v0.1 tag is still held until after T072.**
    - **T076** — the retro. It compares *shipped* behaviour against every acceptance criterion, so it
      wants T072's results. It must record the **full extent of the constitution VI exception**: one
      stage-1 fast-forward plus every `--no-ff` merge from T008 through T024 — **25 merge commits**,
@@ -247,8 +257,14 @@ change every one of those fields, drag it onto a day or back to the backlog, fil
 record where it was published and open the live post, delete it behind a three-tap confirmation, and
 sign out.**
 
-What is *not* real: **nothing is deployed** (T071/T072), and `docker compose up frontend` has still
-never been run.
+What is *not* real yet: **the deployed environment has not been walked by hand** (T072), and
+`docker compose up frontend` has still never been run.
+
+**Live URLs**: frontend `https://creator-hub-hazel.vercel.app`, backend
+`https://creator-hub-1dgs.onrender.com`. Render appends a **random suffix** to service hostnames —
+`creator-hub.onrender.com` is a different service, and Render answers an unknown host with
+`404 text/plain "Not Found"` that is byte-identical to what the proxy returns when `API_BASE_URL` is
+wrong. Copy the hostname, never retype it from memory.
 
 `glab` is installed and authenticated, and `origin` exists — the whole MR flow in step 4 above works.
 The binary's path is non-standard and not on the PATH of a shell that predates the install; see

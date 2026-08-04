@@ -340,7 +340,7 @@ three appear in the backlog drawer. Delivers a usable capture inbox with no cale
 - [x] T030 [US1] Implement `POST /content-items` in `backend/app/api/content_items.py` with title as the only required field, validating INV-1 at the API boundary so a bad create returns 409 rather than letting the `CHECK` constraint surface as a 500 (FR-005)
 - [x] T031 [US1] Implement `GET /content-items` in `backend/app/api/content_items.py` supporting the `scheduled` parameter and ordering by `created_at DESC` (FR-011, backlog ordering assumption)
 - [x] T032 [US1] Implement client-side item state and optimistic updates in `frontend/lib/items.ts` — the shared hook every surface reads from, per research.md R-007
-- [x] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads the visible period once and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007). **Also carries T027's deferred half**: re-assert the session guard in this page's own data load, because App Router layouts are not re-executed on soft navigations
+- [x] T033 [US1] Build the calendar page shell in `frontend/app/(app)/calendar/page.tsx` as a client component that loads **the whole item list once, unparameterised**, and holds it in state, with a bottom action bar in thumb reach (FR-022, research.md R-007) — **task line amended at T074: this said "loads the visible period once", the unit the Phase 4 checkpoint overturned; see the T074 note under Phase 8**. **Also carries T027's deferred half**: re-assert the session guard in this page's own data load, because App Router layouts are not re-executed on soft navigations
 - [x] T034 [US1] Build the bottom-anchored capture sheet in `frontend/components/capture/CaptureSheet.tsx` with a single title field, reachable in at most 3 interactions from the landing screen (FR-005, FR-022, SC-001)
 - [x] T035 [US1] Build the backlog drawer in `frontend/components/backlog/BacklogDrawer.tsx` with a collapsed peek strip and an expanded state, listing undated items newest-first, with an empty state pointing at the capture action (FR-011, research.md R-003a)
 
@@ -1156,9 +1156,9 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [x] T069 Audit the three routes and **four** overlay surfaces under `frontend/app/` at 375px for horizontal body scroll **and for content leaving the viewport**, and fix any that do (FR-021, SC-003) — **task line amended, see below**
 - [x] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases) — **task line amended, see below: the delete half was settled at T056 and must *not* report**
 - [x] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001 — **the database moved to Neon; substitution stated in `plan.md` as the constitution requires, see below**
-- [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether Render's spin-down is a real problem (quickstart.md, research.md Open items)
+- [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether the **stacked Render and Neon** cold starts are a real problem (quickstart.md, research.md Open items) — **task line amended at T074: this said "Render's spin-down", one cold start; since T071 the database is Neon and its free tier auto-suspends too, so the first request of the day crosses two. SC-001 is the 15-second, 3-interaction *capture* budget, not a page-load budget — the cold start has to fit inside it**
 - [x] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md — `frontend/README.md` was still create-next-app boilerplate; **also fixed a self-contradiction in quickstart.md's prerequisites table, found while writing them**
-- [ ] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then tag v0.1 and write `CHANGELOG.md` (workflow.md stages 6 and 7)
+- [x] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then write `CHANGELOG.md` (workflow.md stages 6 and 7) — **task line amended: the v0.1 tag is split out of this task and held until after T072**, decided with the human 2026-08-03, because tagging a release that no deployment has been walked against is backwards. See the T074 note under Phase 8
 - [x] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV) — **the constitution was not touched, so `/speckit-constitution` was not needed; R-002's "queued for Reflect" paragraph is marked discharged in the same MR**
 - [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
 
@@ -1185,6 +1185,66 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T074 note and amendment (2026-08-04): the tag is split off, and the drift pass found twelve
+
+**T074 result (2026-08-04)**: the drift pass and `CHANGELOG.md` are done. **The v0.1 tag is
+deliberately held until after T072** — decided with the human on 2026-08-03. Tagging a release that no
+deployment has been walked against is backwards: the tag would be the claim that v0.1 works, made
+before the only evidence that it does. T074's task line is amended accordingly, and this note is the
+record the decision was previously missing.
+
+> **That missing record is itself a finding.** `CLAUDE.md` stated the split was *"recorded in
+> `tasks.md` under T074 rather than left as a private decision"* — and it was not. Grepping `tasks.md`
+> for it returned nothing, which is the fourth time this project has met the rule that **grep finds a
+> wrong sentence but cannot find an absent one**. A claim that a record exists is not a record.
+
+**Both gates were run, and they overlapped on nothing.** `/speckit-analyze` found 9 findings; the
+`reviewer` agent found 3; **not one appeared in both lists**. That is the sharpest evidence yet for
+`.claude/memory.md`'s rule that the two are not substitutes — analyze reads artifacts against each
+other and caught the stale claims *inside* `specs/`, while the reviewer read artifacts against the
+world and caught the ones about deployment and CI. `T076` records this.
+
+**All twelve were documentation drift. Not one was in application code**, and no test changed.
+
+| # | Where | What it claimed | What is true |
+|---|---|---|---|
+| A1 | `plan.md` Rendering and data flow | the calendar holds **"the visible period's"** items | the whole list, read once, unparameterised |
+| A2 | `tasks.md` T033 | "loads the visible period once" | same |
+| A3 | `plan.md` Primary Dependencies | `passlib[bcrypt]` | `pwdlib[bcrypt]` — passlib is dead on 3.13 |
+| A4 | `research.md` Open items | spin-down is **one** cold start | two, since Neon (T071) |
+| A5 | `plan.md` VI gate, `research.md` Open items | no remote, no project, no CI, no `glab` | all four exist since T025 |
+| A6 | `research.md` Open items | passlib "verify at T002" | verified and rejected at T002 |
+| A7 | `research.md` Open items | design tokens not yet chosen | stage 2 closed 2026-08-01 |
+| A8 | `plan.md` Language/Version | Node 22 | Node 24 |
+| A9 | `plan.md` Testing, structure | "one E2E flow" | 432 tests, four projects |
+| R1 | `CLAUDE.md`, `CLAUDE.local.md` | T071 blocked on the human, "no CI variables at all" | T071 done; both hooks set and fired |
+| R2 | `contracts/openapi.yaml` | production is `creatorhub-api.onrender.com` | `creator-hub-1dgs.onrender.com` |
+| R3 | `.gitlab-ci.yml` | "no GitLab project exists yet"; deploy jobs "placeholders" | 52 MRs; both jobs live |
+
+**A1 is the fifth consecutive checkpoint to find this class of defect, and this time it was in
+`plan.md`.** The Phase 4 checkpoint overturned "the visible period" as the read unit and R-007 carries
+the amendment — whose own note says the fix reached three artifacts. It reached **three of five**.
+`plan.md` was one of the two missed, and it **cited R-007 in the same sentence it contradicted**,
+which is the configuration that makes a stale claim most believable. Resolved the way
+`.claude/memory.md` requires — against the **executable** artifact, never by counting hits:
+`frontend/components/calendar/CalendarShell.tsx` documents in its own comment that navigating a period
+issues no request.
+
+**R2 is the fifth consecutive `contracts/openapi.yaml` finding** (Phase 4 CRITICAL, 5 HIGH, 6 MEDIUM,
+7 MEDIUM, now this). Low severity by itself — nothing consumes the `servers` block — but it is a
+*loaded trap* rather than a dead sentence: Render answers an unknown hostname with
+`404 text/plain "Not Found"`, byte-identical including `content-type` to what the Vercel proxy returns
+when `API_BASE_URL` is wrong. T071 lost time to exactly that ambiguity. The next person to
+hand-verify production from the contract would have walked into it holding the wrong map.
+
+**What the contract got right, stated because a clean result is also a result.** All eight
+`description` blocks were read word by word. The list operation's parameter reasoning — the Phase 6
+defect, where a true conclusion rested on a wrong reason — is now stated in its **general** form
+("this rule holds for any parameter added later, whatever column it bounds"), which is the correct
+repair rather than a patched sentence. `published_url`'s `format`-versus-`pattern` silence, the Phase 7
+finding, is reconciled and matches the backend's annotated type exactly, as do the `InvariantError`
+codes.
 
 ### T071 note and amendment (2026-08-04): the database is on Neon, and every failure looked like another
 
