@@ -6,7 +6,7 @@ Locked for v0.1. Changing any row is a Reflect-stage decision, not an in-flight 
 |---|---|---|
 | Backend | FastAPI, Python 3.13, `uv` | `uv` is the package manager — never pip or poetry |
 | ORM | SQLModel + Alembic | one class for DB model and API schema unless they genuinely diverge |
-| DB | PostgreSQL | docker-compose locally, Render managed in prod |
+| DB | PostgreSQL | docker-compose locally, **Neon** managed in prod — amended at T071, reason in `plan.md` |
 | Frontend | Next.js App Router, TypeScript, Tailwind, shadcn/ui, `pnpm` | App Router, not Pages |
 | Auth | JWT, single user seeded by script | login + access token only; **sliding reissue permitted, no refresh token**. No register, reset, or multi-tenant columns — see [Sliding reissue](#sliding-reissue) |
 | Tests | pytest (backend), Playwright (one E2E flow) | no Jest/RTL in v0.1 — UI still moving |
