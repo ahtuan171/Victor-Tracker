@@ -1186,6 +1186,40 @@ route are all built and tested. `window.location.replace` rather than a router p
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
 
+### T076 note (2026-08-05): the retro, and the exception record had itself drifted
+
+**`docs/retro-01.md` is written.** It checks shipped behaviour against all twelve success criteria
+and all five stories' acceptance scenarios, and records the process facts stage 8 asks for.
+
+**Eleven of twelve success criteria hold.** SC-001 fails cold and holds warm (T072 note above).
+**SC-010 is recorded as "correct by construction, unobserved" rather than ticked** — it asks that a
+session survive 30 days, which nothing shipped can observe in a day. The mechanism is tested end to
+end and a real sign-out/sign-in was walked at T072, but marking it PASS on a *mechanism* rather than
+an *observation* is precisely the citation-shaped evidence the same document criticises in
+`/speckit-analyze`'s coverage counting, so it is not ticked.
+
+**The constitution VI exception's stated range was wrong in five artifacts, and the number was
+right.** 25 merge commits, but spanning **T001 through T024** — not T008, which `CLAUDE.md`,
+`.claude/memory.md`, `plan.md`, `CLAUDE.local.md` and `CHANGELOG.md` all said. All 24 task tags
+T001–T024 appear across those 25 commits; the earliest is `299b496` (T001). Settled against
+`git log --oneline --merges caca814~4` and corrected in all five in T076's MR.
+
+**Two lessons, and the second one happened while fixing the first.**
+
+- **The drifted claim was the exception record *itself*** — the one paragraph whose entire job is to
+  be the durable account of the project's single knowing constitution breach. Nothing is immune
+  because nothing is important enough to be immune. It also extends the existing tiebreaker: a split
+  grep is resolved by the **executable** artifact, and **`git log` is executable**. A claim about what
+  happened can be put to the repository directly, and four paragraphs of agreeing prose lose to one
+  command.
+- **The first grep was scoped by intuition and missed the fifth hit.** It searched `CLAUDE.md`,
+  `.claude/`, `specs/` and both `AGENTS.md` — a reasonable list, and `CHANGELOG.md` was not on it.
+  **A grep narrowed to where a claim seems likely to live reproduces the defect it is run to catch**,
+  since the artifact you forget is by definition the one you were not thinking about. The standing
+  instruction "grep the claim across `specs/` and both `AGENTS.md`" is therefore **too narrow as
+  written**: that enumeration is a hint about likely hits, not a boundary. **Search the whole
+  repository, then filter.** Recorded in `.claude/memory.md`.
+
 ### T072 note (2026-08-05): the deployed walk passes, and SC-001 fails cold
 
 **Every quickstart scenario passes against the deployed environment**, plus US4. Walked at 375×667

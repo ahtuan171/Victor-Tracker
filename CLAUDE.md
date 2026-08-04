@@ -211,8 +211,10 @@ and neither is duplicated here.
      exception**: one stage-1 fast-forward plus every `--no-ff` merge from T001 through T024 —
      **25 merge commits**, pinned at `caca814~4`, because `git log --merges` now includes the real MR
      merges too. **There is no second exception**; the runner is what kept the gate intact through the
-     quota outage. Writing it found that four artifacts had the range as "T008", corrected in the same
-     MR — the sixth instance of the drift trap, and this time in the exception record itself.
+     quota outage. Writing it found that **five** artifacts had the range as "T008", corrected in the
+     same MR — the sixth instance of the drift trap, and this time in the exception record itself.
+     **The fifth was found only by an unscoped, repo-wide grep**: the first search was narrowed to the
+     files that seemed likely and missed `CHANGELOG.md`. Search the whole repo, then filter.
    - **The v0.1 tag is the last step**, and it was deliberately split out of T074 and held until T072
      had walked the deployment. `CHANGELOG.md` has an `[Unreleased]` section carrying a
      `### v0.1.0 — Content Calendar, awaiting its tag` heading to promote when tagging.

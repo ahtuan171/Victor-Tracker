@@ -128,11 +128,21 @@ flow later produced.
 rather than a relaxed gate. Every change since T025 has merged behind a green pipeline: **MRs !1
 through !55**.
 
-> **This section is itself a finding.** Four artifacts — `CLAUDE.md`, `.claude/memory.md`,
-> `plan.md` and `CLAUDE.local.md` — stated the range as "**T008** through T024". The count (25) was
-> right and the range was wrong; the merges start at **T001** (`299b496`). Corrected in all four in
-> the same merge request as this retro. That it was the *exception record itself* that had drifted,
-> in the artifact set whose whole job is to carry it, is the sharpest possible illustration of §2.3.
+> **This section is itself a finding, twice over.** **Five** artifacts — `CLAUDE.md`,
+> `.claude/memory.md`, `plan.md`, `CLAUDE.local.md` and `CHANGELOG.md` — stated the range as
+> "**T008** through T024". The count (25) was right and the range was wrong; the merges start at
+> **T001** (`299b496`). All five are corrected in the same merge request as this retro. That it was
+> the *exception record itself* that had drifted, in the artifact set whose whole job is to carry it,
+> is the sharpest possible illustration of §2.3.
+>
+> **The second finding is how the fifth one was nearly missed, and it happened while writing this
+> section.** The first grep was scoped to the files that *seemed* likely — `CLAUDE.md`, `.claude/`,
+> `specs/`, both `AGENTS.md` — and found four. `CHANGELOG.md` was not in that list and carried the
+> same sentence; it surfaced only on an unscoped, repo-wide search afterwards. **A grep narrowed by
+> intuition about where a claim lives reproduces the very defect it is run to catch**, because the
+> artifact you forget to search is by definition the one you were not thinking about. The rule in
+> `.claude/memory.md` says "grep the claim across `specs/` and both `AGENTS.md`" — that enumeration is
+> now demonstrably too narrow. **Search the whole repository, then filter the hits.**
 
 ### 2.2 Two gates, twelve findings, zero overlap
 
@@ -308,10 +318,12 @@ drawer, and the published link on its own full-width row.
    iteration (§2.4) was reachable on day one of having a deployment and was found at task 72 of 77.
    Deploy a skeleton at the *end of Phase 2* and hand-walk it, so the seam has been crossed before
    there are 400 tests giving false comfort.
-2. **Make "grep the claim across every artifact" a checklist item**, not a remembered rule. Five
-   consecutive checkpoints found the same class of defect (§2.3). Add a line to the checkpoint
-   template: *name the claim, list the artifacts it appears in, resolve splits against the executable
-   one.*
+2. **Make "grep the claim across every artifact" a checklist item**, not a remembered rule, and
+   **search the whole repository rather than an enumerated list of likely files**. Five consecutive
+   checkpoints found the same class of defect (§2.3), and §2.1 shows a scoped grep missing a fifth
+   hit *while the section about scoped greps was being written*. Add a line to the checkpoint
+   template: *name the claim, search the whole repo, list every artifact it appears in, resolve
+   splits against the executable one — including `git log`, which is executable.*
 3. **Run both review gates at every checkpoint, and expect zero overlap.** Twelve findings, no
    intersection (§2.2). Budget for both rather than treating one as a cheaper substitute.
 4. **Size tasks so each one is independently green.** Seven double-task MRs came from a decomposition

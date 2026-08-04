@@ -207,6 +207,16 @@ artifact, and there the executable artifact was `playwright.config.ts`. Here it 
 what happened, the repository can be asked directly, and four paragraphs of agreeing prose lose to
 one command.
 
+**And the correction itself nearly reproduced the defect, which changes the rule above.** The first
+grep was scoped to the files that seemed likely — `CLAUDE.md`, `.claude/`, `specs/`, both
+`AGENTS.md` — and found four hits. There were **five**: `CHANGELOG.md` carried the same sentence and
+was not in the list. It surfaced only on an unscoped repo-wide search. **A grep narrowed by intuition
+about where a claim lives reproduces the very defect it is run to catch** — the artifact you forget
+to search is by definition the one you were not thinking about. So the instruction in the entries
+above, "grep the claim across `specs/` and both `AGENTS.md`", is **too narrow as written**: that
+enumeration is a hint about where hits are *likely*, not a boundary. **Search the whole repository,
+then filter the hits.**
+
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the
 `postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the
