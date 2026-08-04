@@ -43,7 +43,7 @@ rather than taken on trust. **T025–T028 went through MRs !1–!4**, one per ta
 after a green pipeline.
 
 **The exception's exact range, which is what T076 records:** one local fast-forward (the stage-1
-specs) plus every `--no-ff` merge from T008 through T024 — **25 merge commits on `main` before the
+specs) plus every `--no-ff` merge from T001 through T024 — **25 merge commits on `main` before the
 gate existed**, none of which passed a check that could have stopped them. Not a count to
 recalculate later: `git log --oneline --merges` now includes the real MR merges too, so the number
 only means anything pinned to the commit where it was taken (`caca814~4`).
@@ -190,6 +190,33 @@ It was already spending a later task's budget, which is the concrete cost: T057'
 "run the suite against `pnpm start`" **T069's** job, and T069 had nothing to do — CI already did.
 A false claim in `specs/` does not sit inert, it **allocates work**.
 
+**2026-08-05 — the sixth instance was in the record of the exception itself, and `git log` is the
+executable artifact that settled it.** T076 had to state the constitution VI exception's exact range.
+Four artifacts — `CLAUDE.md`, this file, `plan.md` and `CLAUDE.local.md` — said "every `--no-ff` merge
+from **T008** through T024, 25 merge commits". The count was right and the range was wrong: the
+merges start at **T001** (`299b496`), and all 24 task tags T001–T024 appear across those 25 commits.
+Fixed in all four in T076's MR.
+
+Two things make it worth keeping rather than just correcting. First, **the drifted claim was the
+exception record itself** — the one paragraph whose entire job is to be the durable account of the
+project's single knowing constitution breach, in the artifact set built to carry it. Nothing is
+immune because nothing is important enough to be immune. Second, **the tiebreaker generalises past
+config files**: the 2026-08-03 entry above says a split grep is resolved by the *executable*
+artifact, and there the executable artifact was `playwright.config.ts`. Here it is
+`git log --oneline --merges caca814~4` — **history is executable too.** Whenever a claim is about
+what happened, the repository can be asked directly, and four paragraphs of agreeing prose lose to
+one command.
+
+**And the correction itself nearly reproduced the defect, which changes the rule above.** The first
+grep was scoped to the files that seemed likely — `CLAUDE.md`, `.claude/`, `specs/`, both
+`AGENTS.md` — and found four hits. There were **five**: `CHANGELOG.md` carried the same sentence and
+was not in the list. It surfaced only on an unscoped repo-wide search. **A grep narrowed by intuition
+about where a claim lives reproduces the very defect it is run to catch** — the artifact you forget
+to search is by definition the one you were not thinking about. So the instruction in the entries
+above, "grep the claim across `specs/` and both `AGENTS.md`", is **too narrow as written**: that
+enumeration is a hint about where hits are *likely*, not a boundary. **Search the whole repository,
+then filter the hits.**
+
 **2026-07-30 — `creatorhub_test` already has the schema locally, so a test harness that assumes one
 will pass here and fail in CI.** The local test database was migrated by hand at T011; the
 `postgres:17-alpine` service container in `.gitlab-ci.yml`'s `test:backend` job starts empty and the
@@ -240,3 +267,17 @@ the same moment multi-user does — the two are the same migration.
 **2026-07-30 — Live-updating views.** Nothing pushes changes to an open view; a second device's edit
 appears on next load or refresh. Deferred with concurrent-edit detection above, since polling or push
 plus reconciliation is a larger build than v0.1's one capability justifies.
+
+**2026-08-05 — The stacked cold start, which is the only reason an acceptance criterion fails.**
+Measured at T072: capture is 3 interactions and **1.89s warm**, but **47.27s** on the first
+interaction of the day — the `/calendar` document alone is **44.18s**. **SC-001 fails cold and holds
+warm**, and the cause is that the first request crosses **two** suspended free tiers: Render's
+service spins down *and* Neon's database auto-suspends, stacked. The interaction count, the half of
+SC-001 the product controls, is 3 either way.
+
+The remedy is operational, not a design change: **a paid tier on either service, or a keep-warm
+ping**. Not done at v0.1 because it costs money for a single-user tool whose owner can wait 45
+seconds once a day. **Trigger for picking it up**: a second person uses it, or the creator reports
+avoiding the app at the start of the day. Note before choosing the cheap option — a keep-warm ping
+must wake **both** services, and pinging Render's `/health` does not touch Neon, because `/health`
+does not query the database.

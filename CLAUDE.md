@@ -2,12 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-04: **built, deployed, and drift-swept** — T001–T071, T073, T074, T075, T077 of 77
+## Status as of 2026-08-05: **all 77 tasks done — walked against production and retro'd**
 
-On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** Phases 3–7 are
-each closed with their three-gate checkpoint. **Two tasks remain and nothing is blocked on an account
-any more**: T072 (walk V1–V9 against the deployed environment) and T076 (retro). T072 needs only the
-production password.
+On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** Phases 3–8 are
+all closed. **T072 and T076 are done; the only step left is the v0.1 tag.**
+
+**T072 walked every quickstart scenario against the deployed environment on 2026-08-05, and V1–V9
+plus US4 all pass.** Results and reasoning are in the T072 note in `tasks.md`; the retro is
+`docs/retro-01.md`. **One acceptance criterion fails: SC-001, and only cold.** Capture is 3
+interactions and **1.89s warm**, but **47.27s** on the first interaction of the day, because the first
+request crosses **two** suspended free tiers — Render's service spins down *and* Neon's database
+auto-suspends, stacked. The `/calendar` document alone is **44.18s**. Both numbers are recorded
+unsoftened in `tasks.md`, `research.md` (whose last Open item is now discharged) and `plan.md`, which
+predicted this cost at T071 and promised to report it "including if it fails". The remedy — a paid
+tier or a keep-warm ping — is deferred in `.claude/memory.md`.
 
 **The product is feature-complete for v0.1 and is deployed** — backend on Render, frontend on Vercel,
 database on Neon, since 2026-08-04. A signed-in creator can
@@ -24,10 +32,14 @@ and `VERCEL_DEPLOY_HOOK_URL` are set and both hooks have fired for real. The dep
 and still **fail loudly when a hook variable is missing** — that guard is as load-bearing now as it was
 before, since a variable can be unset again.
 
-**The one thing still blocking progress is not in this repository: the production password.** T072
-walks quickstart V1–V9 against the deployed environment and needs to sign in. The email is fixed at
-`ahtuan1701@gmail.com` and cannot change (`content_item` has no owner column). Ask for it in a file
-outside the repo — never pasted into a transcript — and delete the file afterwards.
+**The production password is no longer blocking, and one thing about it is worth knowing.** The
+credential that works against production is the `SEED_CREATOR_PASSWORD` in the repo's **gitignored
+`.env`** — `D:\AhTuan\prod.env` held a *different* value that 401s against both the proxy and Render
+directly. The email is fixed at `ahtuan1701@gmail.com` and cannot change (`content_item` has no owner
+column). **A rotation is still owed**: that password reached a transcript in an earlier session, and
+rotating it means re-running `app.scripts.seed_user` against **Neon**, whose connection string is
+**not** in CI (only the two deploy hooks are) and is not reachable from this checkout — it lives in
+Render's environment. See `CLAUDE.local.md`.
 
 **T074's tag was deliberately split off, on the human's instruction (2026-08-03).** The drift pass and
 `CHANGELOG.md` are **done**; **the v0.1 tag waits until after T072**, because tagging a release that no
@@ -186,24 +198,29 @@ and neither is duplicated here.
    `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
    Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
    throttles that write; the live process is the evidence, not the timestamp.
-3. **Two tasks remain, and T072 is the next one — it is no longer blocked on an account.**
+3. **All 77 tasks are done. What remains is the v0.1 tag, and one credential chore.**
 
-   - **T072** — walk quickstart V1–V9 against `creator-hub-hazel.vercel.app` at 375px in a real
-     browser, and measure the cold start. **It needs the production password and nothing else.**
-     V1.4 and V8.1 are walkable now that T077 added a sign-out control.
-     **The cold start is two, not one**: Render's free tier spins down *and* Neon's auto-suspends, so
-     leave it idle ≥20 minutes before timing the first request, then time a warm second one for
-     comparison — one number alone says nothing about which half is the cold start.
-     **SC-001 is the 15-second, 3-interaction *capture* budget, not a page-load budget** (SC-005's
-     one second is the platform filter). Report the number as measured, including if it fails.
+   - **T072 is done (2026-08-05)** — V1–V9 and US4 all pass against the deployed environment,
+     re-runnable with `frontend/scripts/t072-walk.mjs`. **SC-001 fails cold and holds warm**; the
+     numbers are in the status section above and in the T072 note in `tasks.md`. The walk deletes
+     every `T072*` fixture it creates, matched on the prefix, so an aborted run is swept up by the
+     next one; production finished at **zero** items.
    - **T074 is done** — both gates run, twelve findings, all documentation drift and none in
      application code. The two passes **overlapped on nothing**, which is the point of running both.
-     **The v0.1 tag is still held until after T072.**
-   - **T076** — the retro. It compares *shipped* behaviour against every acceptance criterion, so it
-     wants T072's results. It must record the **full extent of the constitution VI exception**: one
-     stage-1 fast-forward plus every `--no-ff` merge from T008 through T024 — **25 merge commits**,
-     pinned at `caca814~4`, because `git log --merges` now includes the real MR merges too. **There is
-     no second exception**; the runner is what kept the gate intact through the quota outage.
+   - **T076 is done** — `docs/retro-01.md`. It records the **full extent of the constitution VI
+     exception**: one stage-1 fast-forward plus every `--no-ff` merge from T001 through T024 —
+     **25 merge commits**, pinned at `caca814~4`, because `git log --merges` now includes the real MR
+     merges too. **There is no second exception**; the runner is what kept the gate intact through the
+     quota outage. Writing it found that **five** artifacts had the range as "T008", corrected in the
+     same MR — the sixth instance of the drift trap, and this time in the exception record itself.
+     **The fifth was found only by an unscoped, repo-wide grep**: the first search was narrowed to the
+     files that seemed likely and missed `CHANGELOG.md`. Search the whole repo, then filter.
+   - **The v0.1 tag is the last step**, and it was deliberately split out of T074 and held until T072
+     had walked the deployment. `CHANGELOG.md` has an `[Unreleased]` section carrying a
+     `### v0.1.0 — Content Calendar, awaiting its tag` heading to promote when tagging.
+   - **Still owed: rotate `SEED_CREATOR_PASSWORD`.** The working credential is in the gitignored
+     `.env`, it leaked into a transcript in an earlier session, and rotating it needs the **Neon**
+     connection string, which is in Render's environment and not in CI.
 
 4. **Every task goes through a merge request.** `main` refuses direct pushes and the pipeline gates
    the merge:

@@ -1160,7 +1160,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [x] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md — `frontend/README.md` was still create-next-app boilerplate; **also fixed a self-contradiction in quickstart.md's prerequisites table, found while writing them**
 - [x] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then write `CHANGELOG.md` (workflow.md stages 6 and 7) — **task line amended: the v0.1 tag is split out of this task and held until after T072**, decided with the human 2026-08-03, because tagging a release that no deployment has been walked against is backwards. See the T074 note under Phase 8
 - [x] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV) — **the constitution was not touched, so `/speckit-constitution` was not needed; R-002's "queued for Reflect" paragraph is marked discharged in the same MR**
-- [ ] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
+- [x] T076 Write `docs/retro-01.md` comparing shipped behaviour against every acceptance criterion in spec.md, item by item, and recording two process facts: that a reviewer pass caught six blocking design gaps a coverage-based `/speckit-analyze` did not, and the **full extent of the constitution VI exception** — how many merges reached `main` ungated, over which task range, and at which task the protected-`main` gate became real. The exception was originally recorded as a single spec fast-forward and had grown to 17 merges by T016; reporting only the fast-forward would understate it (workflow.md stage 8)
 
 - [x] T077 Add a sign-out control to `frontend/components/calendar/CalendarShell.tsx`'s **header**, calling the `logout()` that already exists in `lib/api.ts`, and navigating to `/login` with `window.location.replace` (FR-002a) — **task line amended, see below**
 
@@ -1185,6 +1185,40 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T076 note (2026-08-05): the retro, and the exception record had itself drifted
+
+**`docs/retro-01.md` is written.** It checks shipped behaviour against all twelve success criteria
+and all five stories' acceptance scenarios, and records the process facts stage 8 asks for.
+
+**Eleven of twelve success criteria hold.** SC-001 fails cold and holds warm (T072 note above).
+**SC-010 is recorded as "correct by construction, unobserved" rather than ticked** — it asks that a
+session survive 30 days, which nothing shipped can observe in a day. The mechanism is tested end to
+end and a real sign-out/sign-in was walked at T072, but marking it PASS on a *mechanism* rather than
+an *observation* is precisely the citation-shaped evidence the same document criticises in
+`/speckit-analyze`'s coverage counting, so it is not ticked.
+
+**The constitution VI exception's stated range was wrong in five artifacts, and the number was
+right.** 25 merge commits, but spanning **T001 through T024** — not T008, which `CLAUDE.md`,
+`.claude/memory.md`, `plan.md`, `CLAUDE.local.md` and `CHANGELOG.md` all said. All 24 task tags
+T001–T024 appear across those 25 commits; the earliest is `299b496` (T001). Settled against
+`git log --oneline --merges caca814~4` and corrected in all five in T076's MR.
+
+**Two lessons, and the second one happened while fixing the first.**
+
+- **The drifted claim was the exception record *itself*** — the one paragraph whose entire job is to
+  be the durable account of the project's single knowing constitution breach. Nothing is immune
+  because nothing is important enough to be immune. It also extends the existing tiebreaker: a split
+  grep is resolved by the **executable** artifact, and **`git log` is executable**. A claim about what
+  happened can be put to the repository directly, and four paragraphs of agreeing prose lose to one
+  command.
+- **The first grep was scoped by intuition and missed the fifth hit.** It searched `CLAUDE.md`,
+  `.claude/`, `specs/` and both `AGENTS.md` — a reasonable list, and `CHANGELOG.md` was not on it.
+  **A grep narrowed to where a claim seems likely to live reproduces the defect it is run to catch**,
+  since the artifact you forget is by definition the one you were not thinking about. The standing
+  instruction "grep the claim across `specs/` and both `AGENTS.md`" is therefore **too narrow as
+  written**: that enumeration is a hint about likely hits, not a boundary. **Search the whole
+  repository, then filter.** Recorded in `.claude/memory.md`.
 
 ### T072 note (2026-08-05): the deployed walk passes, and SC-001 fails cold
 

@@ -138,7 +138,7 @@ Accepted for a single-user tool at v0.1, each with the trigger that would make i
 ### Process notes
 
 - **The merge gate did not exist for the first 25 merges into `main`** — one fast-forward carrying the
-  stage-1 specs, plus every `--no-ff` merge from T008 through T024. A knowing exception, pinned at
+  stage-1 specs, plus every `--no-ff` merge from T001 through T024. A knowing exception, pinned at
   `caca814~4`, recorded rather than omitted because the point of the gate is that its absence gets
   written down. **There is no second exception**: when the free-tier CI quota ran out mid-pipeline on
   2026-08-02, the answer was a project-owned runner, not a relaxed gate.
