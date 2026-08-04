@@ -165,3 +165,66 @@ test("the form cannot be submitted empty", async ({ page }) => {
   expect(stub.requests).toEqual([]);
   expect(new URL(page.url()).pathname).toBe("/login");
 });
+
+/**
+ * The pre-hydration window, found at T072 against the *deployed* product.
+ *
+ * `handleSubmit` calls `preventDefault()`, but only once React has attached it. Before that the
+ * button is a plain `type="submit"` inside a `<form>` — and a `<form>` with no `method` defaults to
+ * **GET**, so a tap in that window navigated to `/login?email=...&password=...`. The creator's
+ * password reached the address bar, browser history, and the edge's access logs: constitution II
+ * broken by a default nobody chose.
+ *
+ * **Nothing in this suite could have caught it before**, and that is the reusable lesson rather than
+ * the bug. Every test here stubs the proxy *and* runs against a local server where hydration is
+ * effectively instant, so the window never opens. It took the first load of the day on a free tier
+ * that had spun down — a ~44s document, with hydration behind it — to make the window wide enough
+ * to tap in.
+ *
+ * Two tests because there are two independent halves, and the second must keep working if the first
+ * is ever removed.
+ */
+test("the form posts, so a submit before hydration cannot put credentials in the URL", async ({
+  page,
+}) => {
+  await page.goto("/login");
+
+  // A static attribute, asserted directly. `method` is the whole defence here: it decides whether a
+  // native submit carries the password in a query string or in a request body. Do not relax this to
+  // "not GET" — the value is the requirement.
+  await expect(page.locator("form")).toHaveAttribute("method", "post");
+});
+
+test("the submit button is inert until React has hydrated", async ({ page }) => {
+  // Block every script so hydration never happens. What is left is exactly what a creator sees
+  // during the window: server-rendered markup with no handlers attached.
+  //
+  // Matched on `resourceType`, not on a `**/*.js` glob: Next serves chunks with cache-busting query
+  // strings in dev, which a suffix glob misses — and a test that silently stopped blocking anything
+  // would pass against a hydrated page and prove nothing.
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() === "script") {
+      await route.abort();
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+
+  const button = page.getByRole("button", { name: /sign in/i });
+  await expect(button).toBeVisible();
+  await expect(button).toBeDisabled();
+
+  // The fields still take text natively, so this is the real gesture: type a password, tap sign in.
+  await page.locator("#email").fill("creator@example.com");
+  await page.locator("#password").fill("hunter2");
+  await button.click({ force: true }).catch(() => {});
+  await page.waitForTimeout(500);
+
+  // The password must not have reached the URL by any route. Asserted on the whole href rather than
+  // on a named parameter, because the failure this guards against is a *native form submission*
+  // serialising every field it can find.
+  expect(page.url()).not.toContain("hunter2");
+  expect(new URL(page.url()).search).toBe("");
+});

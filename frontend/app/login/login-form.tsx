@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { ApiError, login } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,37 @@ const LANDING_PATH = "/calendar";
  * inputs it describes resolves both at once.
  */
 const ERROR_ID = "login-error";
+
+/**
+ * Has React hydrated yet?
+ *
+ * **This exists because of a real credential leak, found at T072 against the deployed product.**
+ * `handleSubmit` calls `preventDefault()` — but only once React has attached it. Before hydration
+ * the submit button is a plain `type="submit"` inside a `<form>`, and a `<form>` with no `method`
+ * defaults to **GET** against the current URL. So a tap in that window navigated to
+ * `/login?email=...&password=...`, putting the creator's password in the address bar, in browser
+ * history, and in the edge's access logs. That is constitution II violated by a default nobody
+ * chose.
+ *
+ * `method="post"` on the form is the other half of the fix and the more important one, because it
+ * holds even if this guard is ever removed: a pre-hydration submit then carries the credentials in
+ * a request body rather than a query string. This guard stops the stray submit from happening at
+ * all.
+ *
+ * **The window is not theoretical on this deployment.** T072 measured the cold document at ~44s
+ * (Render's free tier spins down and Neon's auto-suspends, stacked), and hydration lands after
+ * that — so a creator who types and taps during the first load of the day is *in* the window. It
+ * fired on the very first automated attempt.
+ *
+ * `useSyncExternalStore` rather than `useEffect` + `useState`, for the reason `frontend/AGENTS.md`
+ * gives about reading the browser clock: `getServerSnapshot` covers the server render *and* the
+ * hydration pass, so there is no state set from an effect and no first paint with the wrong value.
+ * All three callbacks are module scope — an inline arrow is a new identity every render, which is
+ * the subscription form of the unstable-params bug.
+ */
+const subscribeToNothing = (): (() => void) => () => {};
+const hydratedSnapshot = (): boolean => true;
+const serverSnapshot = (): boolean => false;
 
 /**
  * The sign-in form.
@@ -51,6 +82,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const hydrated = useSyncExternalStore(subscribeToNothing, hydratedSnapshot, serverSnapshot);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,8 +146,14 @@ export function LoginForm() {
 
         <div className="notch-sheet border-hairline bg-surface-1 shadow-e2 border-t px-6 pt-6 pb-8">
           {/* Native validation is left on: `required` plus `type="email"` is free, localised, and
-              already the behaviour a phone browser gives. The backend still validates. */}
-          <form className="flex flex-col gap-3.5" onSubmit={handleSubmit}>
+              already the behaviour a phone browser gives. The backend still validates.
+
+              `method="post"` is load-bearing and must not be removed as redundant-looking. Nothing
+              in this app ever performs a native submit *once hydrated* — `handleSubmit` calls
+              `preventDefault()` — but a `<form>` with no `method` defaults to **GET**, so the one
+              case that does submit natively (a tap before hydration) put the password in the query
+              string. See `hydratedSnapshot` above; T072 found this against the deployed product. */}
+          <form className="flex flex-col gap-3.5" method="post" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-[7px]">
               <Label
                 htmlFor="email"
@@ -189,7 +227,10 @@ export function LoginForm() {
             <Button
               type="submit"
               className="notch-card font-display focus-ring-inset mt-1 h-[52px] w-full rounded-none text-[15px] font-semibold tracking-[0.18em] uppercase shadow-[0_8px_22px_rgb(232_35_47_/_0.35)]"
-              disabled={pending}
+              // `!hydrated` disables the one tap that could submit this form natively. The label is
+              // deliberately unchanged: the window is short, and a creator who sees "Sign in" go
+              // briefly inactive on a cold load learns nothing useful from a different word.
+              disabled={pending || !hydrated}
             >
               {pending ? "Signing in…" : "Sign in"}
             </Button>
