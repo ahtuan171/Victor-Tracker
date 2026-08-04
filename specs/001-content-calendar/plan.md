@@ -59,6 +59,13 @@ items plus one holding the single creator account.
 > `app/db.py` already covers the dropped-connection half. **This makes SC-001 harder to meet, and
 > measuring it is exactly what T072 does** — the result is reported as measured, including if it
 > fails.
+>
+> **Measured at T072 (2026-08-05): it fails cold.** Capture is 3 interactions and **1.89s warm**
+> against a 15s budget; the first interaction of the day is **47.27s**, of which the `/calendar`
+> document alone is **44.18s**. Warm, the same walk is **3.92s**. The prediction in this paragraph
+> was correct and the cost is real — **SC-001 holds warm and misses cold by about three times the
+> budget**, with the interaction count unaffected. Reported as measured, unsoftened, as this note
+> promised. Remedy (paid tier or keep-warm ping) is deferred out of v0.1.
 
 **Testing**: pytest against a dedicated test database (models and endpoints); Playwright for the E2E
 flow. No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.

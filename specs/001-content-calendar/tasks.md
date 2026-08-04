@@ -1156,7 +1156,7 @@ the contract did not say what it enforced, and the client guessed a subset of it
 - [x] T069 Audit the three routes and **four** overlay surfaces under `frontend/app/` at 375px for horizontal body scroll **and for content leaving the viewport**, and fix any that do (FR-021, SC-003) — **task line amended, see below**
 - [x] T070 Handle a stale item acted on from another device in `frontend/lib/items.ts` — a 404 on update or delete removes it from local state and reports it, without leaving a phantom chip on the grid (FR-023a, spec Edge Cases) — **task line amended, see below: the delete half was settled at T056 and must *not* report**
 - [x] T071 [P] Configure Render deployment for `backend/` and Vercel deployment for `frontend/`, with the proxy target and cookie domain set per research.md R-001 — **the database moved to Neon; substitution stated in `plan.md` as the constitution requires, see below**
-- [ ] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether the **stacked Render and Neon** cold starts are a real problem (quickstart.md, research.md Open items) — **task line amended at T074: this said "Render's spin-down", one cold start; since T071 the database is Neon and its free tier auto-suspends too, so the first request of the day crosses two. SC-001 is the 15-second, 3-interaction *capture* budget, not a page-load budget — the cold start has to fit inside it**
+- [x] T072 Run every quickstart scenario V1–V9 against the deployed environment and record the results, measuring the first load of the day against SC-001 to see whether the **stacked Render and Neon** cold starts are a real problem (quickstart.md, research.md Open items) — **done 2026-08-05, results in the T072 note below; V1–V9 and US4 all pass, and SC-001 fails cold** — **task line amended at T074: this said "Render's spin-down", one cold start; since T071 the database is Neon and its free tier auto-suspends too, so the first request of the day crosses two. SC-001 is the 15-second, 3-interaction *capture* budget, not a page-load budget — the cold start has to fit inside it**
 - [x] T073 [P] Write `frontend/README.md` and `backend/README.md` covering the commands in quickstart.md — `frontend/README.md` was still create-next-app boilerplate; **also fixed a self-contradiction in quickstart.md's prerequisites table, found while writing them**
 - [x] T074 Re-run `/speckit-analyze` and a `reviewer` pass to catch spec drift introduced during implementation, then write `CHANGELOG.md` (workflow.md stages 6 and 7) — **task line amended: the v0.1 tag is split out of this task and held until after T072**, decided with the human 2026-08-03, because tagging a release that no deployment has been walked against is backwards. See the T074 note under Phase 8
 - [x] T075 Amend the Auth row of `.claude/rules/tech-defaults.md` to permit sliding reissue explicitly, via `/speckit-constitution` if the constitution is touched — this is the Reflect-stage amendment research.md R-002 defers (constitution IV) — **the constitution was not touched, so `/speckit-constitution` was not needed; R-002's "queued for Reflect" paragraph is marked discharged in the same MR**
@@ -1185,6 +1185,67 @@ Scoped as a surface and nothing beneath it — the client function, the proxy be
 route are all built and tested. `window.location.replace` rather than a router push, for the reason in
 `frontend/AGENTS.md`: the `(app)` guard is a server component and App Router layouts are not
 re-executed on soft navigations.
+
+### T072 note (2026-08-05): the deployed walk passes, and SC-001 fails cold
+
+**Every quickstart scenario passes against the deployed environment**, plus US4. Walked at 375×667
+through `frontend/scripts/t072-walk.mjs` — browser → Vercel → Render → Neon, nothing stubbed, which
+is the point: every automated frontend test stubs the proxy because CI has no FastAPI behind it.
+
+| Scenario | Result |
+|---|---|
+| V1 nothing visible signed out | **PASS** — `/` and `/calendar` 307 to `/login`, no item title in any body, `/api/content-items` 401 |
+| V2 capture under 15s | **PASS** — 3 interactions, **1.89s warm** |
+| V2b empty title refused | **PASS** — save is `disabled` while the title is empty, and re-disables when cleared; item count unchanged |
+| V3 status readable without colour | **PASS** — idea/draft/posted dated onto the grid, greyscale screenshot inspected: hollow / half / solid fill, plus the overdue dashed border |
+| V4 whole journey, no drag | **PASS** — refused with *"Pick a platform before moving this item out of ideas."*, then idea→draft→posted by tap alone; URL never changed |
+| V5 invariants under abuse | **PASS** — 409 `platform_required`; platform+status in **one** PATCH → 200; 409 `platform_locked`; posted→draft→idea preserved platform and link |
+| V6 fits at 375px | **PASS** — five surfaces, body 375/375, zero controls off screen |
+| V7 delete needs confirmation | **PASS** — confirmation required, "keep" left the item intact |
+| V8 survives reload, link reachable | **PASS** — persisted across reload **and a real sign-out/sign-in**; `rel="noopener noreferrer"`, `target="_blank"` |
+| V9 a week's planning under 60s | **PASS** — five ideas dragged from the peek strip onto five days in **3.25s** |
+| US4 platform filter | **PASS** — 5 chips → 1 → 5 restored in **0.44s** (SC-005 budget 1s) |
+
+**SC-001 is the one criterion that fails, and only cold. Both numbers are recorded rather than the
+flattering one.** Capture costs 3 interactions and **1.89s warm — inside the 15s budget**. The first
+interaction of the day is **47.27s**, because the first request crosses **two** suspended services:
+Render's free tier spins down *and* Neon's auto-suspends, and they stack. The `/calendar` document
+alone took **44.18s**; the cold penalty is ~43s of the 47.27s. Warm, the same walk is **3.92s**.
+**So SC-001 holds warm and fails cold by a factor of three**, and the cause is the hosting tier, not
+the capture path — the interaction count, which is the half of SC-001 the product controls, is 3
+either way. Fixing it means a paid tier or a keep-warm ping, both out of scope for v0.1.
+
+**Four scenarios failed on the first pass and every one was a defect in the walk, not in the
+product.** Recorded because the corrections are the reusable part:
+
+- **V2b clicked a button the product had correctly disabled.** The scenario assumed "click save, the
+  sheet stays open"; the sheet refuses *earlier* than that. A timeout on an inert control reads as a
+  product failure in a summary table and is the exact opposite.
+- **V3 counted status cues against a grid that had rendered but not yet loaded.** `waitForSelector`
+  on the 42-cell grid resolves before the items arrive, so it counted zero. Same shape as the
+  `status === "ready"` half of the first-run condition: *empty* and *not loaded yet* are different
+  states and only one of them is a finding.
+- **V6 reported the peek strip as broken.** `quickstart.md` V6 and `tests/e2e/viewport-audit.spec.ts`
+  both name the backlog peek strip as the one surface allowed to clip a control — a single line by
+  design, with the expanded drawer as the compensation. The walk lacked that exemption and so
+  reported the design as a defect on every surface the strip was visible behind.
+- **V9 asked the DOM a question only the server could answer.** `getByText` searches the whole page,
+  and a *scheduled* item's title is still present as the month grid's `sr-only` chip title — so all
+  five reported "still in the backlog" when all five had in fact been scheduled. Replaced with a
+  `scheduled_date` check against the API, which is what the US2 scenario 4 partition actually means.
+
+**The sign-in trap the fix created, which cost the first two full walks.** `fix/001-login-form-pre-hydration`
+disables the submit control until hydration, so Playwright's click already auto-waits for it. Filling
+the fields *first* still fails, and silently: values typed into a React-controlled input before
+hydration live only in the DOM, and hydration resets the input to React's own empty state. The click
+then submits an empty form, the API answers 401, the page stays on `/login`, and the symptom is a
+navigation timeout that looks like a dead backend or a wrong password. **Wait for hydration before
+typing, not merely before clicking.**
+
+**Fixture hygiene.** The walk creates items prefixed `T072` and deletes every one of them at the end,
+matched on the prefix rather than on what this run recorded — so wreckage from an aborted run is swept
+up too. Thirteen such items from earlier broken runs were removed; production finished at **zero**
+items.
 
 ### T074 note and amendment (2026-08-04): the tag is split off, and the drift pass found twelve
 
