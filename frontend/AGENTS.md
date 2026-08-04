@@ -244,6 +244,17 @@ a URL, and a **hydration guard** (`useSyncExternalStore`, module-scope callbacks
 rule above) disabling the submit control until handlers exist. Verified by breaking each half and
 confirming the matching test — and only that test — went red.
 
+**The guard changes what a script must wait for, and getting it wrong looks like a wrong password.**
+Wait for hydration **before typing**, not merely before clicking. Playwright's `click()` already
+auto-waits for an enabled control, so the guard appears to be handled for free — but values typed
+into a React-controlled input *before* hydration live only in the DOM, and hydration then resets the
+input to React's own empty state. The click submits an **empty** form, the API answers 401, the page
+stays on `/login`, and the symptom is a navigation timeout indistinguishable from a dead backend, a
+suspended Neon, or a bad credential. It cost two full walks against production at T072, with a
+credential that was correct the whole time and returned 200 to `curl` throughout. The shape to
+remember: **auto-waiting protects the interaction you can see, not the state you established before
+it.** `scripts/t072-walk.mjs` polls the submit control's `disabled` state before filling anything.
+
 The general form, which outlives this component: **every native HTML default is live until
 hydration.** Anything whose correctness depends on a React handler running is unprotected in that
 window, and `<form>` is the dangerous case because its default action *transmits*. This is also the

@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# T072's walk against the deployed environment writes screenshots and a results file here.
+# They are evidence for one run, not source — and a Playwright storageState written beside them
+# would be a live production session cookie inside the checkout.
+scripts/t072-shots/

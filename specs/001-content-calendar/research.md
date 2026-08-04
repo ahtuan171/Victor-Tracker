@@ -425,7 +425,8 @@ allowlist is what actually gates access.
 
 **Status swept at T074 (2026-08-04).** Three of the four are discharged and are kept — struck
 through — rather than deleted, because an Open item that simply vanishes leaves no record of how it
-resolved. Only the last one is still open, and it is what T072 measures.
+resolved. **All four are now discharged** — the last one at T072 (2026-08-05), which measured the
+cold start and found SC-001 failing cold and holding warm.
 
 - ~~**No git remote exists.**~~ **DISCHARGED at T025 (2026-07-31).** `origin` is
   `gitlab.com/ahtuan1701/creator-hub`, private; `main`'s allowed-to-push is **no one** and
@@ -452,8 +453,20 @@ resolved. Only the last one is still open, and it is what T072 measures.
   Primary Dependencies was corrected at T074 — it had named `passlib[bcrypt]` for the whole build.
   Inherited constraint: bcrypt still refuses passwords over 72 bytes rather than truncating them.
 
-- **Cold-start latency against SC-001 is still unmeasured. This is the one open item, and T072 is the
-  measurement.** ~~Render free-tier spin-down~~ — **amended at T074, because T071 doubled it.** The
+- ~~**Cold-start latency against SC-001 is still unmeasured.**~~ **DISCHARGED at T072 (2026-08-05) —
+  measured, and SC-001 fails cold.** Capture costs 3 interactions and **1.89s warm**, inside the 15s
+  budget. The first interaction of the day costs **47.27s** — the `/calendar` document alone was
+  **44.18s**, so ~43s of it is the two stacked cold starts; the same walk warm is **3.92s**. **SC-001
+  therefore holds warm and fails cold by roughly three times the budget.** The interaction count — the
+  half of SC-001 the product controls — is 3 either way, so the failure is the hosting tier and not
+  the capture path. The fix named below (a paid tier or a keep-warm ping) is confirmed as the only
+  remedy and stays out of scope for v0.1; it is carried into `docs/retro-01.md` and
+  `.claude/memory.md` under Deferred rather than left here. **Both numbers are recorded, unsoftened,
+  as the last line of this item required.** The method below was followed exactly: idle ≥20 minutes,
+  time the first request, then a warm second one.
+
+  The original framing, kept because it is what the measurement was designed against — ~~Render
+  free-tier spin-down~~ — **amended at T074, because T071 doubled it.** The
   original item named one cold start: a spun-down Render service taking tens of seconds to wake.
   Since T071 the database is **Neon**, reached over the public internet rather than Render's internal
   network, and **Neon's free tier auto-suspends too** — so the first request of the day now crosses

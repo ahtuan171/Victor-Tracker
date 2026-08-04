@@ -67,6 +67,29 @@ const eslintConfig = defineConfig([
     files: ["lib/dates.ts", "tests/client/dates.spec.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
+
+  {
+    /*
+     * `scripts/` is operational tooling, not shipped code — the T072 walk against the deployed
+     * environment (browser -> Vercel -> Render -> Neon), which nothing in `app/` or `lib/` imports
+     * and no bundle contains.
+     *
+     * Two rules are lifted, and only for the reasons that make them rules elsewhere:
+     *
+     * - `no-console` — stdout IS this script's output. A walk whose findings are recorded in
+     *   tasks.md has nowhere else to put them.
+     * - `no-restricted-syntax` — the ban exists for `new Date("YYYY-MM-DD")`, which parses as UTC
+     *   midnight and renders as the previous day west of Greenwich. These scripts use the
+     *   *argumentless* `new Date()` to type today into a native date input, formatted through
+     *   local-time getters, which is the case the rule was never about. Scoped here rather than
+     *   globally ignored so the rest — unused vars, eqeqeq — still applies.
+     *
+     * These are exempt from the linter, not from `.claude/rules/design.md`: the walk runs at
+     * 375x667 because that is the floor the product is measured against.
+     */
+    files: ["scripts/**"],
+    rules: { "no-console": "off", "no-restricted-syntax": "off" },
+  },
 ]);
 
 export default eslintConfig;
