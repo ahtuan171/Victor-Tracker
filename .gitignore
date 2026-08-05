@@ -30,3 +30,9 @@ Thumbs.db
 
 # Agent worktrees — transient, never committed
 .claude/worktrees/
+
+# Reference recordings dropped in for review — large, and not project history.
+# `*.mp4`, not `.mp4`: the latter matches only a file literally named ".mp4".
+*.mp4
+*.mov
+*.webm
