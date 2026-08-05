@@ -2,10 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-05: **all 77 tasks done — walked against production and retro'd**
+## Status as of 2026-08-05: **v0.1.0 is tagged. The iteration is closed.**
 
-On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** Phases 3–8 are
-all closed. **T072 and T076 are done; the only step left is the v0.1 tag.**
+All 77 tasks done, all 8 phases closed, **`v0.1.0` tagged at `a1eb269`** and pushed. On `main`,
+**271 backend tests and 432 frontend tests passing, and nothing skipped.** MRs !1 through !57.
+
+**There is no remaining work in feature 001** except one credential chore (below). The next
+substantive action is a **new module iteration** — Growth Tracker, Media Kit Generator or Deal/Collab
+Tracker — which restarts the full eight-stage workflow with its own `spec.md` against the same
+constitution. Use the `new-feature` skill; do not extend `001-content-calendar`.
 
 **T072 walked every quickstart scenario against the deployed environment on 2026-08-05, and V1–V9
 plus US4 all pass.** Results and reasoning are in the T072 note in `tasks.md`; the retro is
@@ -215,9 +220,10 @@ and neither is duplicated here.
      same MR — the sixth instance of the drift trap, and this time in the exception record itself.
      **The fifth was found only by an unscoped, repo-wide grep**: the first search was narrowed to the
      files that seemed likely and missed `CHANGELOG.md`. Search the whole repo, then filter.
-   - **The v0.1 tag is the last step**, and it was deliberately split out of T074 and held until T072
-     had walked the deployment. `CHANGELOG.md` has an `[Unreleased]` section carrying a
-     `### v0.1.0 — Content Calendar, awaiting its tag` heading to promote when tagging.
+   - **`v0.1.0` is tagged** (2026-08-05, `a1eb269`, annotated, pushed) — the last step of the
+     iteration, deliberately split out of T074 and held until T072 had walked the deployment.
+     `CHANGELOG.md`'s `[0.1.0]` section carries the walk results and both SC-001 numbers;
+     `[Unreleased]` is empty and belongs to the next module.
    - **Still owed: rotate `SEED_CREATOR_PASSWORD`.** The working credential is in the gitignored
      `.env`, it leaked into a transcript in an earlier session, and rotating it needs the **Neon**
      connection string, which is in Render's environment and not in CI.
