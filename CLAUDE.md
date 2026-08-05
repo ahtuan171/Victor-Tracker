@@ -2,15 +2,38 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-05: **v0.1.0 is tagged. The iteration is closed.**
+## Status as of 2026-08-05: **the product has pivoted. v0.1.0 is tagged; v0.2 is a travel map.**
 
-All 77 tasks done, all 8 phases closed, **`v0.1.0` tagged at `a1eb269`** and pushed. On `main`,
-**271 backend tests and 432 frontend tests passing, and nothing skipped.** MRs !1 through !57.
+**Read this before anything else, because most of this file describes v0.1 and v0.1 is no longer what
+this product is.** The constitution was amended to **2.0.0** on 2026-08-05: CreatorHub is now a
+**personal travel memory map** — a world map of places visited and places wanted, where a visited pin
+opens the photographs and notes kept against it. The three unbuilt creator modules (Growth Tracker,
+Media Kit Generator, Deal/Collab Tracker) are **cancelled**, not deferred.
 
-**There is no remaining work in feature 001** except one credential chore (below). The next
-substantive action is a **new module iteration** — Growth Tracker, Media Kit Generator or Deal/Collab
-Tracker — which restarts the full eight-stage workflow with its own `spec.md` against the same
-constitution. Use the `new-feature` skill; do not extend `001-content-calendar`.
+**The name did not change and does not describe the product.** The repository, the GitLab project,
+both deploy targets and the GitHub mirror all still say "CreatorHub". Renaming touches the project
+path, the remotes, the mirror URL and two live services in exchange for something purely cosmetic, so
+it is deferred with a trigger in `.claude/memory.md`. Do not be misled by it, and do not rename it on
+your own initiative.
+
+**Content Calendar survives, unchanged, as a secondary surface.** It is 271 backend and 432 frontend
+tests of working software; rewriting `content_item` into a trip itinerary would destroy most of that
+while moving the map forward by nothing. It moves behind the navigation drawer and keeps its
+behaviour. **Retargeting it to trips is a later iteration with its own `spec.md`** — not a side
+effect of building the map.
+
+**Everything below about feature 001 is still accurate about the code**, and the durable lessons
+still apply — they were bought at real cost and none of them is about content calendars specifically.
+
+All 77 tasks of feature 001 done, all 8 phases closed, **`v0.1.0` tagged at `a1eb269`** and pushed.
+On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** MRs !1 through
+!59.
+
+**The next substantive action is iteration `002-travel-map`**, which restarts the full eight-stage
+workflow with its own `spec.md` against constitution 2.0.0. Use the `new-feature` skill; do not
+extend `001-content-calendar`. **Spike MapLibre under headless Playwright before writing tasks that
+depend on it** — WebGL in that environment is the one genuine unknown, and learning the answer at
+task 3 is far cheaper than at task 30.
 
 **T072 walked every quickstart scenario against the deployed environment on 2026-08-05, and V1–V9
 plus US4 all pass.** Results and reasoning are in the T072 note in `tasks.md`; the retro is
@@ -203,7 +226,19 @@ and neither is duplicated here.
    `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
    Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
    throttles that write; the live process is the evidence, not the timestamp.
-3. **All 77 tasks are done. What remains is the v0.1 tag, and one credential chore.**
+3. **Feature 001 is finished and closed. The open work is iteration `002-travel-map`.**
+
+   - **Next**: spike MapLibre under headless Playwright at 375px, then run the `new-feature` skill to
+     drive stages 1–3 for `002-travel-map`. The spike comes first because WebGL in headless Chromium
+     is the one thing about this module nobody here has verified, and the whole test strategy depends
+     on the answer.
+   - **Do not extend `001-content-calendar`**, and do not retarget `content_item` to trips — the
+     constitution names that a separate iteration. Content Calendar keeps its behaviour and moves
+     behind the navigation drawer.
+   - **Still owed from 001: rotate `SEED_CREATOR_PASSWORD`** (details at the end of this list). It
+     survived the pivot because it is a credential chore, not a feature.
+
+   What 001 finished with, kept because the reasoning is still load-bearing:
 
    - **T072 is done (2026-08-05)** — V1–V9 and US4 all pass against the deployed environment,
      re-runnable with `frontend/scripts/t072-walk.mjs`. **SC-001 fails cold and holds warm**; the
@@ -295,13 +330,20 @@ The binary's path is non-standard and not on the PATH of a shell that predates t
 
 ## What this is
 
-CreatorHub — a personal brand operating system for a content creator. Four planned modules:
-Content Calendar, Growth Tracker, Media Kit Generator, Deal/Collab Tracker.
+A **personal travel memory map** for one person. A world map carrying two kinds of pin — places
+visited and places wanted — where tapping a visited pin opens the photographs, notes and experiences
+kept against it. Still named CreatorHub for infrastructure reasons; see the status section.
 
-**v0.1 ships Content Calendar only.** The other three are later iterations, each re-running the full
-8-stage workflow with a new `spec.md` against the same constitution. Do not add fields, endpoints, or
-screens for the other modules while working on v0.1 — that is the main failure mode this project is
-structured to avoid.
+**v0.2 ships the Travel Map only.** Its one capability, in the sense constitution III means, is the
+map itself. Content Calendar rides along from v0.1 as a secondary scheduling surface behind the
+navigation drawer, unchanged.
+
+**The failure mode this project is structured to avoid has not changed, only its shape.** At v0.1 it
+was building four creator modules at once. Here it is the adjacent travel feature that is always one
+small step away — route planning, budgets, a public sharing page, and above all **automatic location
+capture from the phone**. The constitution names that last one first among the exclusions precisely
+because it is the most attractive and the one principle II most clearly forbids adding casually. Do
+not add fields, endpoints, or screens for any of them.
 
 ## Where knowledge lives
 

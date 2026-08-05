@@ -4,14 +4,26 @@ All notable changes to CreatorHub are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-CreatorHub ships one module per iteration. **v0.1 is Content Calendar only** — Growth Tracker, Media
-Kit Generator, and Deal/Collab Tracker each restart the full eight-stage workflow with their own
-`spec.md` against the same constitution.
+This project ships one module per iteration, each restarting the full eight-stage workflow with its
+own `spec.md`. **The product pivoted after v0.1**: it is now a personal travel memory map, not a
+content-creator brand operating system. The name "CreatorHub" is retained for infrastructure reasons
+and no longer describes what is built here.
 
 ## [Unreleased]
 
-Nothing yet. The next entry starts a new module iteration — Growth Tracker, Media Kit Generator or
-Deal/Collab Tracker — with its own `spec.md` against the same constitution.
+### Changed
+
+- **The product pivoted to a personal travel memory map**, and the constitution was amended to
+  **2.0.0** to say so — a MAJOR bump, because principle III's module set is replaced and the Scope
+  Constraints section is rewritten. Principle II is renamed and **strengthened**: a location history
+  with photographs is a pattern of life, so no public object-store bucket is permitted and no
+  third-party request — map tiles included — may carry a place name, pin label or record id.
+  Growth Tracker, Media Kit Generator and Deal/Collab Tracker are **cancelled**, not deferred.
+- `tech-defaults.md` gains a **Map** row (MapLibre GL JS, dark basemap) and an **Object storage** row
+  (Cloudflare R2, presigned PUT and expiring presigned GET). Media file upload, excluded at v0.1, is
+  in scope from v0.2.
+- **Content Calendar is retained unchanged** as a secondary scheduling surface behind the navigation
+  drawer. Retargeting `content_item` to trip itineraries is a later iteration with its own `spec.md`.
 
 ## [0.1.0] — 2026-08-05
 

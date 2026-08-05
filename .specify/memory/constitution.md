@@ -1,26 +1,32 @@
 <!--
 Sync Impact Report
 ==================
-Version change: (template, unversioned) → 1.0.0
-Bump rationale: MINOR-type content on an initial ratification collapses to 1.0.0 — first
-  concrete adoption of the constitution, replacing the unfilled template.
+Version change: 1.0.0 → 2.0.0
+Bump rationale: MAJOR. Principle III is redefined (its module set is replaced, not extended) and
+  the Scope Constraints section is replaced wholesale as the product pivots from a content-creator
+  brand operating system to a personal travel memory map. Principle II is renamed and strengthened.
+  Both are backward-incompatible redefinitions under the versioning policy below.
 
-Principles defined (all new, template placeholders replaced):
-  [PRINCIPLE_1_NAME] → I. Mobile-First, Thumb-First
-  [PRINCIPLE_2_NAME] → II. Creator Data Is Private By Default
-  [PRINCIPLE_3_NAME] → III. One Core Capability Per Module
-  [PRINCIPLE_4_NAME] → IV. The Spec Is The Source Of Truth
-  [PRINCIPLE_5_NAME] → V. Working And Deployed Beats Polished And Local
-  (added beyond template) → VI. Merges Are Gated, Not Trusted
-  (added beyond template) → VII. Build For One User Until There Is A Second
+Principles modified:
+  II. Creator Data Is Private By Default → II. Personal Data Is Private By Default
+      (renamed and strengthened: location history and photographs added as the most sensitive
+       classes the product holds; third-party map tile requests named explicitly)
+  III. One Core Capability Per Module
+      (rule unchanged — CRUD plus exactly one capability — module set replaced)
 
-Sections filled:
-  [SECTION_2_NAME]   → Scope Constraints
-  [SECTION_3_NAME]   → Development Workflow
-  Governance         → amendment procedure, versioning policy, compliance review
+Principles unchanged: I, IV, V, VI, VII.
 
-Removed sections: none.
-Deferred TODOs: none. All placeholder tokens replaced.
+Sections replaced: Scope Constraints (v0.1 four-module enumeration → v0.2 travel map).
+Sections added: none.
+Sections removed: none.
+
+Deferred TODOs: none. All placeholder tokens remain replaced.
+
+Note on the project name: "CreatorHub" is retained across this document, the repository, the GitLab
+project, both deploy targets and the GitHub mirror. The name no longer describes the product.
+Changing it would touch the project path, the git remotes, the mirror URL and two deployed services
+in exchange for something purely cosmetic, so it is recorded as deferred in `.claude/memory.md`
+with a trigger rather than done here.
 -->
 
 # CreatorHub Constitution
@@ -29,33 +35,42 @@ Deferred TODOs: none. All placeholder tokens replaced.
 
 ### I. Mobile-First, Thumb-First
 
-The creator uses this on a phone, one-handed, between shoots. Every screen MUST be designed at
+The owner uses this on a phone, one-handed, away from a desk. Every screen MUST be designed at
 phone width first and MUST be fully usable there; desktop is an enhancement, never the baseline.
-The page body MUST NOT scroll horizontally at 375px — wide content such as calendar grids scrolls
-inside its own container. Primary actions MUST sit within thumb reach. A feature that works only on
-desktop is not done.
+The page body MUST NOT scroll horizontally at 375px — wide content such as calendar grids and world
+maps scrolls, pans, or zooms inside its own container. Primary actions MUST sit within thumb reach.
+A feature that works only on desktop is not done.
 
-Rationale: the moments when this product earns its place — capturing an idea mid-conversation,
-checking the week's plan before filming — happen away from a desk.
+Rationale: the moments when this product earns its place — pinning somewhere on the way home from
+it, adding a place to the list mid-conversation — happen away from a desk.
 
-### II. Creator Data Is Private By Default
+### II. Personal Data Is Private By Default
 
-Follower counts, revenue, brand deals, and unpublished content ideas are commercially sensitive.
-No endpoint MAY return data belonging to another user. No analytics, telemetry, or third-party
-script MAY be given access to entity data. Anything intended to be publicly shareable — media kit
-pages in a later iteration — MUST be an explicit per-resource opt-in carrying its own access token,
-and MUST NOT become reachable as a side effect of an existing endpoint.
+Where a person has been, when they were there, and the photographs they took are the most sensitive
+data this product has ever held. A location history is a pattern of life; it is not recoverable once
+disclosed.
+
+- No endpoint MAY return data belonging to another user.
+- Stored photographs MUST NOT be reachable without an explicit, expiring grant. A publicly readable
+  object store bucket is prohibited: it turns the entire archive into guessable URLs.
+- No analytics, telemetry, or third-party script MAY be given access to entity data.
+- **No third-party request MAY carry entity data.** This binds map tiles specifically: a tile request
+  MUST NOT contain a place name, a pin label, a note, a photograph, or any identifier of a stored
+  record. Tile requests necessarily disclose viewport coordinates to the tile provider; that
+  disclosure MUST be stated in `plan.md` rather than left implicit.
+- Anything intended to be publicly shareable MUST be an explicit per-resource opt-in carrying its own
+  access token, and MUST NOT become reachable as a side effect of an existing endpoint.
 
 ### III. One Core Capability Per Module
 
 Each module ships CRUD plus exactly one capability that makes it worth using, and nothing else.
-Content Calendar's is the status pipeline view. Growth Tracker's is the trend chart. Media Kit's is
-the generated document. Deal Tracker's is the payment-status pipeline. A proposed feature absent
-from the current `spec.md` MUST NOT be built in the current iteration; it is recorded as input for
-the next one.
+Travel Map's is the world map itself. Content Calendar's is the status pipeline view. A proposed
+feature absent from the current `spec.md` MUST NOT be built in the current iteration; it is recorded
+as input for the next one.
 
-Rationale: this project's defining risk is scope sprawl across four attractive modules, which
-produces four half-built ones.
+Rationale: this project's defining risk is scope sprawl across attractive adjacent ideas, which
+produces several half-built surfaces instead of one that works. The rule survived the pivot
+unchanged because the pivot is exactly the pressure it exists to resist.
 
 ### IV. The Spec Is The Source Of Truth
 
@@ -66,11 +81,10 @@ Design work that implies a new data field REQUIRES a spec amendment before imple
 
 ### V. Working And Deployed Beats Polished And Local
 
-At v0.1, a rough screen running in production is worth more than a refined one on localhost. Visual
-polish is deferred to a dedicated pass after the pipeline runs end to end. This principle licenses
-skipping decoration only. It MUST NOT be invoked to skip tests, responsive behaviour, focus states,
-or confirmation on destructive actions — those are structural and cost more to retrofit than to
-build.
+A rough screen running in production is worth more than a refined one on localhost. Visual polish is
+deferred to a dedicated pass after the pipeline runs end to end. This principle licenses skipping
+decoration only. It MUST NOT be invoked to skip tests, responsive behaviour, focus states, or
+confirmation on destructive actions — those are structural and cost more to retrofit than to build.
 
 ### VI. Merges Are Gated, Not Trusted
 
@@ -80,8 +94,8 @@ teammate. Failing tests MUST block merge, including on one's own merge requests.
 
 ### VII. Build For One User Until There Is A Second
 
-v0.1 serves a single creator. Multi-tenancy, roles, organization entities, and speculative owner
-columns MUST NOT be added in anticipation of future users. Multi-user support becomes a real
+This product serves a single person. Multi-tenancy, roles, organization entities, and speculative
+owner columns MUST NOT be added in anticipation of future users. Multi-user support becomes a real
 migration when a real second user exists.
 
 Rationale: speculative multi-tenancy taxes every query and migration for a requirement that may
@@ -89,18 +103,32 @@ never arrive in the form imagined.
 
 ## Scope Constraints
 
-**v0.1 delivers Content Calendar only.** Growth Tracker, Media Kit Generator, and Deal/Collab
-Tracker are separate iterations, each restarting the full workflow with its own `spec.md` against
-this constitution.
+**v0.2 delivers the Travel Map only.** A world map recording places visited and places wanted, each
+visited place opening the photographs and notes kept against it.
 
-The technology stack is fixed for v0.1 and recorded in `.claude/rules/tech-defaults.md`: FastAPI on
+**Content Calendar, shipped at v0.1, is retained unchanged as a secondary scheduling surface** and
+moves behind the navigation drawer. Retargeting its `content_item` entity from content pipeline to
+trip itinerary is a separate iteration with its own `spec.md`; it MUST NOT be attempted as a side
+effect of building the map.
+
+The technology stack is fixed and recorded in `.claude/rules/tech-defaults.md`: FastAPI on
 Python 3.13 with `uv`, SQLModel and Alembic over PostgreSQL, Next.js App Router with TypeScript,
-Tailwind, and shadcn/ui, JWT authentication for a single seeded user, GitLab CI, and deployment to
-Render and Vercel. Substituting any of these REQUIRES an explicit stated reason in `plan.md`, never
-a silent change.
+Tailwind, and shadcn/ui, MapLibre GL JS for the map, Cloudflare R2 for object storage, JWT
+authentication for a single seeded user, GitLab CI, and deployment to Render and Vercel.
+Substituting any of these REQUIRES an explicit stated reason in `plan.md`, never a silent change.
 
-Out of scope for v0.1: TikTok, Instagram, and YouTube API integrations; media file upload or
-storage; recurring or templated content series; notifications; and collaboration of any kind.
+**Media file upload and storage, excluded at v0.1, is in scope from v0.2** — photographs are the
+substance of a memory, not an attachment to it. It arrives through object storage under the
+constraints principle II places on it, never as bytes in the database and never through a public
+bucket.
+
+Out of scope for v0.2: automatic location capture from the device — no GPS, no background tracking,
+no check-in; every pin is placed deliberately by hand. Also out of scope: route planning or
+navigation; trip budgeting and expenses; any public or shared view of the map; and integration with
+any social platform.
+
+Rationale for naming automatic location capture first: it is the most attractive feature to add
+mid-build and the one principle II most clearly forbids adding casually.
 
 ## Development Workflow
 
@@ -135,9 +163,11 @@ removals or redefinitions. MINOR for a new principle or materially expanded guid
 clarifications and wording that do not change meaning.
 
 **Compliance review.** Every merge request is checked against these principles before it lands; the
-`reviewer` agent defined in `.claude/agents/reviewer.md` performs this check, with principles III,
-IV, and VII as the recurring offenders. A constitution conflict found during `/speckit-analyze` is
+`reviewer` agent defined in `.claude/agents/reviewer.md` performs this check, with principles II,
+III, IV, and VII as the recurring offenders. Principle II joins that list at v0.2: the product now
+holds location and photographic data, so a privacy regression is both easier to introduce and
+harder to reverse than it was at v0.1. A constitution conflict found during `/speckit-analyze` is
 CRITICAL and MUST be resolved by adjusting the spec, plan, or tasks — never by diluting,
 reinterpreting, or silently ignoring the principle.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-05

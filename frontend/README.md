@@ -116,7 +116,7 @@ Two things worth knowing before trusting a green run:
 - **[`../.claude/rules/design.md`](../.claude/rules/design.md)** — the mobile-first constraints.
 
 `app/globals.css` is **the only file allowed to contain a colour**. The tokens there come from the
-design export and are shared by all four planned modules, so a hex written into a component is a
+design export and are shared by every module, so a hex written into a component is a
 project-wide decision taken in the wrong place.
 
 When code and `specs/` disagree, one of them is wrong: decide which, fix that one, and say so in the

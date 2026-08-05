@@ -124,6 +124,27 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 
 ## Traps
 
+**Headless Chromium here has WebGL 2 and it genuinely draws — measured 2026-08-05, before any map
+code existed.** The spike ran the probe in both modes at 375×667 and read a cleared pixel back:
+`[51,102,153,255]` in each, exactly the colour written. That second half is the evidence that
+matters, because **a context that reports fine is not a context that paints** — MapLibre would fail
+in precisely that way, silently, on a canvas that reports every capability and stays black.
+
+Two things came out of it that will bite later, and neither is about whether the map works:
+
+- **`webgl1: false` in the spike's output was an artefact of the probe, not a finding.** It asked for
+  `webgl2` first on the same canvas, and a canvas holds exactly one context type, so the later
+  `getContext("webgl")` had to return `null`. Do not repeat the measurement that way, and do not read
+  the recorded result as "WebGL 1 is unavailable here".
+- **Headless and headed do not use the same renderer**, so a map canvas cannot go into any
+  byte-comparison test. Headless is ANGLE over **SwiftShader** (software, `MAX_TEXTURE_SIZE` 8192);
+  headed on this machine is ANGLE over an **AMD Radeon 780M** via D3D11 (16384). Same page, different
+  pixels, and a CI runner is a third answer. `focus-states.spec.ts` compares screenshot **bytes** —
+  which is the only mechanism that has ever caught a focus ring clipped away by `clip-path`, so it is
+  worth protecting — and a map anywhere in its frame would make it flake for a reason no one would
+  connect to the map. Assert the map through the DOM and through pure functions in `lib/`, never
+  through its canvas.
+
 **A focus ring that a computed style calls perfect can be painted and then thrown away, and only
 pixels can tell you.** Found twice in T067, after the class was applied and the whole style sweep was
 green. **`.notch-card` is a `clip-path`, and a clip-path clips the element's outline** — so

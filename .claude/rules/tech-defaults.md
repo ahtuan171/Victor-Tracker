@@ -1,13 +1,15 @@
 # Tech defaults
 
-Locked for v0.1. Changing any row is a Reflect-stage decision, not an in-flight one.
+Locked for v0.2. Changing any row is a Reflect-stage decision, not an in-flight one.
 
 | Layer | Choice | Notes |
 |---|---|---|
 | Backend | FastAPI, Python 3.13, `uv` | `uv` is the package manager — never pip or poetry |
 | ORM | SQLModel + Alembic | one class for DB model and API schema unless they genuinely diverge |
 | DB | PostgreSQL | docker-compose locally, **Neon** managed in prod — amended at T071, reason in `plan.md` |
+| Object storage | Cloudflare R2 (S3-compatible) | **Added at the 2.0.0 amendment.** Photographs only. Presigned PUT and presigned GET, both expiring — see [Object storage](#object-storage) |
 | Frontend | Next.js App Router, TypeScript, Tailwind, shadcn/ui, `pnpm` | App Router, not Pages |
+| Map | MapLibre GL JS + a dark raster basemap | **Added at the 2.0.0 amendment.** The first library in this project that earns its place — see [The map](#the-map) |
 | Auth | JWT, single user seeded by script | login + access token only; **sliding reissue permitted, no refresh token**. No register, reset, or multi-tenant columns — see [Sliding reissue](#sliding-reissue) |
 | Tests | pytest (backend), Playwright (one E2E flow) | no Jest/RTL in v0.1 — UI still moving |
 | CI/CD | GitLab CI: build → test → review → deploy | `main` protected, MR required |
@@ -44,6 +46,45 @@ indefinite access rather than at most 30 days, because v0.1 has no denylist and 
 Accepted for a single-user tool, and the first thing to revisit if this ever serves a second person.
 Sign-out clears the cookie and ends the session from the browser's point of view; the token itself
 stays valid until expiry, which is the honest reading of a stateless token without a denylist.
+
+## The map
+
+**Added at the 2.0.0 amendment**, alongside the pivot to a travel map.
+
+A world map is the first place in this project where a library is worth its weight, and that is not a
+reversal of the calendar decision — it is the same test applied to a different problem. The calendar
+was hand-built because every calendar library's value is time-of-day layout, which FR-012a removed:
+the library scored **zero**, so its cost bought nothing. A world map needs a projection, tiled raster
+loading, inertial pan and zoom, and pin placement that survives both; none of that is a weekend's
+work, and all of it is what MapLibre already does.
+
+**The basemap MUST be dark.** It is the product's primary direction and it is what makes pins legible
+over terrain. Free options that need no API key exist (CARTO's dark basemaps among them); whichever
+is chosen, **its attribution requirement is a licence term and MUST be rendered on the map**.
+
+**Tile requests leave the machine, and principle II governs what may ride along.** A tile request
+necessarily tells the provider which part of the world is on screen. That is a disclosure and
+`plan.md` MUST state it rather than let it pass silently. What MUST NOT happen is anything more: no
+place name, pin label, note, photograph, or record identifier may appear in a tile URL, a style URL,
+or any header sent with them. Pins are drawn client-side over the tiles; the provider learns the
+viewport and nothing else.
+
+## Object storage
+
+**Added at the 2.0.0 amendment.** Photographs, and nothing else — this is not a general file store.
+
+**Presigned PUT, straight from the browser.** The upload MUST NOT pass through FastAPI: Render's
+filesystem is ephemeral, and pushing image bytes through a service that may be cold-starting is the
+fastest way to rebuild the latency problem T072 measured. The backend's job is to mint a short-lived
+upload URL and to record the resulting object key.
+
+**Presigned GET to read, expiring, never a public bucket.** Principle II states this outright and the
+reason is that a public bucket converts an entire personal archive into guessable URLs. The database
+stores the **key**; a URL is minted per read and dies on its own.
+
+Never store image bytes in Postgres. It is the tempting shortcut because it needs no new credential,
+and it makes every backup, every migration and every query pay for data that has no business being in
+a row.
 
 ## Repo layout
 
@@ -91,3 +132,9 @@ Do not re-propose these — they were considered and dropped for stated reasons:
 - **Pages Router** — Claude Design exports assume modern React; App Router is the forward path.
 - **Jest/RTL component tests at v0.1** — the UI changes faster than the tests would survive.
 - **Multi-tenant schema "for later"** — see constitution principle VII.
+- **A static SVG world map instead of MapLibre** — considered seriously at the 2.0.0 amendment and
+  rejected on one point: it cannot zoom past country outlines, and a memory is attached to a place,
+  not to a country. Its advantages were real (no third-party request at all, tiny, trivially themed)
+  and are the reason the tile disclosure is written down rather than waved through.
+- **Image bytes in Postgres (`bytea` or base64)** — see [Object storage](#object-storage). It taxes
+  every backup, migration, and row read to avoid provisioning one bucket.
