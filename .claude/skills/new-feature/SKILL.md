@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: Start a new CreatorHub module iteration — drives the Plan and Design stages (1-3 of 8) for a feature like Growth Tracker, Media Kit Generator, or Deal Tracker. Use when beginning work on a module that has no spec yet, or when the user says they are starting the next version.
+description: Start a new module iteration — drives the Plan and Design stages (1-3 of 8) for a module that has no spec yet, such as the Travel Map. Use when beginning work on a module with no spec, or when the user says they are starting the next version.
 ---
 
 # Starting a new module iteration
@@ -55,6 +55,9 @@ data model → API → frontend client → UI → the module's one core capabili
 ## Scope discipline
 
 Constitution principle III: each module ships CRUD plus exactly one capability that makes it worth
-using. Growth Tracker's is the trend chart. Media Kit's is the generated document. Deal Tracker's is
-the payment-status pipeline. Anything beyond that becomes input for the iteration after this one —
-write it down, do not build it.
+using. Travel Map's is the world map itself. Content Calendar's is the status pipeline view. Anything
+beyond that becomes input for the iteration after this one — write it down, do not build it.
+
+Read the module list out of `.specify/memory/constitution.md` rather than from here. It was rewritten
+once already, at the 2.0.0 pivot, and a copy in a skill file is exactly the kind of artifact that
+drifts unnoticed — see the drift trap in `.claude/memory.md`.

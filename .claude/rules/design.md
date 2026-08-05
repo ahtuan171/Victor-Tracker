@@ -15,8 +15,10 @@ width first and must be fully usable there. Desktop is an enhancement.
 - Components are exported from claude.ai/design into `design/<feature>/`, then adapted into
   `frontend/`. The export is the starting point, not a drop-in.
 - shadcn/ui provides the component base. Prefer extending a shadcn primitive over hand-rolling one.
-- Content Calendar establishes the tokens — colour, spacing, type scale — for all four modules.
-  Later modules consume them; they do not introduce competing ones.
+- Content Calendar established the tokens — colour, spacing, type scale — and they are now the
+  project's, not that module's. **Later modules consume them; they do not introduce competing ones.**
+  This survived the 2.0.0 pivot unchanged and is the reason a new module's design stage is far
+  cheaper than the first one was.
 
 ## Status must be readable at a glance
 

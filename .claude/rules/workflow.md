@@ -1,7 +1,7 @@
 # Workflow rules
 
 Every module iteration runs eight stages: plan → design → load → impl → test → review → ship →
-reflect. A new module (Growth Tracker, Media Kit, Deal Tracker) restarts at stage 1 with a fresh
+reflect. A new module restarts at stage 1 with a fresh
 `spec.md` against the same constitution.
 
 ## Where SpecKit puts things

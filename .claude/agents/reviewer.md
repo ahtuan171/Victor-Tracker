@@ -27,7 +27,13 @@ A finding you cannot make concrete is a hunch — drop it.
 - Does it violate `.specify/memory/constitution.md`? The recurring offenders: multi-tenant columns
   added "for later"
   (principle VII), desktop-only layouts (I), and features belonging to a different module (III).
-- Does anything belong to Growth Tracker, Media Kit, or Deal Tracker? v0.1 is Content Calendar only.
+- Does anything belong to an adjacent travel feature the spec does not describe — route planning,
+  budgets, a public or shared map, and above all **automatic location capture from the device**?
+  v0.2 is the Travel Map only. The constitution names automatic location capture first among the
+  exclusions because it is the most attractive to add and the one principle II most clearly forbids.
+- Does anything weaken principle II? A publicly readable object-store bucket, a non-expiring image
+  URL, or a place name, pin label or record id riding along in a third-party request (map tiles are
+  the case to check) are all regressions, and they are cheap to introduce and expensive to reverse.
 
 ## 3. Gates
 

@@ -98,8 +98,8 @@ racing is worse than neither. The `alembic upgrade head` above is for the *dev* 
 - **[`../specs/001-content-calendar/`](../specs/001-content-calendar/)** — the source of truth.
   `spec.md` (what and why), `data-model.md` (INV-1…INV-4), `contracts/openapi.yaml` (the eight
   operations), `quickstart.md` (the V1–V9 validation walk).
-- **[`../.specify/memory/constitution.md`](../.specify/memory/constitution.md)** — the principles all
-  four modules share.
+- **[`../.specify/memory/constitution.md`](../.specify/memory/constitution.md)** — the principles
+  every module shares.
 
 When code and `specs/` disagree, one of them is wrong: decide which, fix that one, and say so in the
 merge request. Never code around the gap.

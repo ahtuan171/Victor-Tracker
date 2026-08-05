@@ -18,9 +18,13 @@ single conversation.
 
 ## Decisions
 
-**2026-07-29 — v0.1 is Content Calendar only.** Growth Tracker, Media Kit, and Deal Tracker each get
-their own full 8-stage iteration. The goal of the first cycle is a working pipeline end to end, not
-a feature-complete product; four modules at once would produce neither.
+**2026-07-29, superseded 2026-08-05 — one module per iteration.** The original entry said v0.1 was
+Content Calendar only and that Growth Tracker, Media Kit and Deal Tracker would each get their own
+8-stage iteration. **Those three are cancelled** (see the 2026-08-05 pivot entry below); the rule
+they were an instance of is not, and it is the half worth keeping: the goal of a cycle is a working
+pipeline end to end, not a feature-complete product, because several modules at once produces
+neither. That reasoning is what the pivot was measured against, and it is why Content Calendar was
+kept rather than rewritten.
 
 **2026-07-29 — Idea capture requires only a title.** Platform and scheduled date are both optional at
 creation. Reason: ideas arrive mid-task, and any required field is enough friction to send the
@@ -106,6 +110,38 @@ task count; if two tasks would edit one file, they are one track.
 One thing the split cost: the worktree has no `.env` of its own and `app/config.py` refuses to import
 without one, so an agent working in `backend/` there has to copy the root file in. Worth saying in the
 prompt rather than letting it discover this.
+
+**2026-08-05 — the product pivoted, and the constitution went to 2.0.0 to say so.** CreatorHub is now
+a personal travel memory map: a world map of places visited and places wanted, a visited pin opening
+the photographs and notes kept against it. Growth Tracker, Media Kit Generator and Deal/Collab
+Tracker are **cancelled**, not deferred — do not treat them as a backlog.
+
+Three things about *how* this was done are worth keeping, because each was a real choice with a
+rejected alternative:
+
+- **The amendment happened at the Reflect stage and nowhere else.** Iteration 001 had just closed
+  there — retro written, `v0.1.0` tagged — which is the only window the constitution's own amendment
+  procedure allows. Doing it later, mid-002, would have been the exact move principle IV's governance
+  section forbids: amending the rules to fit work already underway.
+- **Principle II was strengthened rather than merely carried over.** A location history plus
+  photographs is a pattern of life, and it is not recoverable once disclosed — a stronger claim than
+  anything v0.1 held. The rule that follows and that a later session will be tempted to soften: **no
+  public object-store bucket, ever**, and no third-party request may carry a place name, pin label or
+  record id. Map tiles are the case that makes this concrete, since a tile request necessarily
+  discloses the viewport and it would be easy to let a label ride along with it.
+- **Content Calendar was kept, not rewritten.** It is 271 backend and 432 frontend tests of working
+  software, and retargeting `content_item` to trips would have destroyed most of that while moving
+  the map forward by nothing (principle V). It moves behind the nav drawer and keeps its behaviour.
+
+**2026-08-05 — a map is the first library this project has accepted, and that is consistent rather
+than a reversal.** The calendar was hand-built because every calendar library's value is time-of-day
+layout, which FR-012a had removed — the library scored **zero**, so any cost bought nothing. That was
+a *measurement*, not a preference for hand-rolling, and the same measurement comes out the other way
+for a world map: projection, tiled loading, inertial pan/zoom and pin placement over all three are not
+a weekend's work. A static SVG world map was considered seriously and rejected on one point — it
+cannot zoom past country outlines, and a memory attaches to a place, not to a country. Its real
+advantage (no third-party request at all) is why the tile disclosure is written down in
+`tech-defaults.md` rather than waved through.
 
 ## Traps
 
@@ -230,6 +266,23 @@ place it could resurface. **This one stays at root** because it bites while edit
 where the backend file does not load.
 
 ## Deferred
+
+**2026-08-05 — renaming the project away from "CreatorHub".** The name stopped describing the product
+at the 2.0.0 amendment and was deliberately left alone. It appears in the repository, the GitLab
+project path, `origin`, the GitHub mirror URL, the Render and Vercel service names, and every
+document — so changing it means re-pointing two live deployments and a mirror for something purely
+cosmetic, with the mirror's force-push semantics in the middle of it. **Trigger for picking it up**:
+a second person is given access, or the product is shown publicly. Do it as its own iteration with
+the deployment steps written down first, never as a side quest inside a feature branch.
+
+**2026-08-05 — retargeting `content_item` from content pipeline to trip itinerary.** Content Calendar
+survives the pivot unchanged, behind the nav drawer. Its `platform`, `status` and `published_url`
+columns are meaningless for travel and its `title`/`scheduled_date` pair is exactly right, so the
+honest version of "a calendar for planning trips" is a migration plus a re-spec, not a rename of some
+labels. Deferred because the rewrite would break most of 271 backend and 432 frontend tests while
+moving the map forward by nothing. **Trigger**: you actually use the calendar to plan a trip and the
+three dead fields get in the way. It is a full iteration with its own `spec.md` — the constitution
+says so explicitly, so this is not a judgement call a future session gets to make on its own.
 
 **Social platform APIs (TikTok / Instagram / YouTube).** Out of scope for v0.1 — published links are
 pasted by hand. Picking this up means OAuth flows and rate-limit handling, so it needs its own
