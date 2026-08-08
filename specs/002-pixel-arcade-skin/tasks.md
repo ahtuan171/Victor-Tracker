@@ -78,7 +78,7 @@ these are. An agent working `backend/` in a worktree needs the root `.env` copie
 
 - [x] T006 Replace the token layer in `frontend/app/globals.css` — colour, type scale, spacing — in **one file**, keeping the two rules that travel with it: the accent colour is chrome and never meaning, and colour is decoration on the status cue rather than the cue itself. Both presentations get real values; light is no longer a placeholder. Screenshot afterwards: **a misspelled Tailwind class fails silently** and passes build, lint, typecheck and the whole suite.
 
-- [x] T007 Add the frame in `frontend/app/globals.css` plus `frontend/components/arcade/Frame.tsx` — responsive per FR-008, **6px per side at 375px**, thicker at wide viewports. The four corner elements are **decorative rivets, not controls**: a button-shaped thing that does nothing is a wasted tap target, and this iteration adds no actions.
+- [x] T007 Add the frame in `frontend/app/globals.css` plus `frontend/components/arcade/Frame.tsx` — responsive per FR-008, **6px per side at 375px**, thicker at wide viewports. The four corner elements are **decorative rivets, not controls**: a button-shaped thing that does nothing is a wasted tap target, and this iteration adds no actions. **Built at 10px, not 6px**: this line was written before T004's sign-off, which ran first in the actual sequence (Phase 1 before Phase 2) and superseded R-003's 6px working number. `.arcade-frame` in `globals.css` and `frontend/AGENTS.md` both carry 10px; this line is left as the original instruction rather than silently rewritten, per the project's own rule that a task's line records what was asked, not what superseded it.
 
 - [x] T008 Re-derive the focus indicator in `frontend/app/globals.css` against the new shapes. `.notch-card` / `.notch-sheet` are going away, so the two `.focus-ring-inset` cases must be re-established from scratch — **do not carry the old list over**. Keep `outline`, never a `ring-*` box-shadow, and keep `outline-offset`. Verify by breaking it: `focus-states.spec.ts` compares focused against unfocused **bytes** and is the only check that has ever caught a ring clipped away by a `clip-path`.
 
@@ -105,20 +105,20 @@ and controls. One surface left in the previous presentation fails it (SC-001).
 red for any reason other than a deliberate class change, the restyle broke something FR-003 forbids
 breaking.
 
-- [ ] T014 [P] [US1] Restyle `frontend/app/login/` — the one surface that already has a light presentation, so it is the cheapest place to find out whether the new light tokens work. Keep `h-11` fields and `h-12` submit, keep `text-base` on inputs (iOS zooms below 16px), keep `method="post"` and the hydration guard.
-- [ ] T015 [P] [US1] Restyle the header in `frontend/components/calendar/CalendarShell.tsx` — the period title and the overdue count. Sign-out stays here until T030 moves it.
-- [ ] T016 [US1] Restyle `frontend/components/calendar/PeriodNav.tsx` and the action band, **applying T003's decision**. Re-run `viewport-audit.spec.ts` as part of this task, not after it.
-- [ ] T017 [P] [US1] Restyle `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx`. The 42-day span and the two-chip cap are behaviour and stay; if 18px content pushes six rows past 667px, that is T004's fallback question resurfacing and it is a conversation, not a silent cap change.
-- [ ] T018 [P] [US1] Restyle `frontend/components/calendar/WeekList.tsx` — seven vertical sections, still no chip cap.
-- [ ] T019 [US1] Restyle `ItemChip`, `StatusCue` and `PlatformCue`. **The greyscale criterion is checked in this task, not deferred to Phase 7**: three statuses plus overdue, distinguishable with colour removed, in both presentations (SC-004). Overdue stays a dashed left border — `[border-left-style:dashed]`, asserted as a *computed* style.
-- [ ] T020 [P] [US1] Restyle `frontend/components/backlog/` — the peek strip and the expanded drawer, including the drawer's own `+ CAPTURE`.
-- [ ] T021 [P] [US1] Restyle `frontend/components/capture/CaptureSheet.tsx`. Capture stays **three interactions** — `autoFocus` is load-bearing, not decoration.
-- [ ] T022 [US1] Restyle `frontend/components/item/ItemSheet.tsx`, including the published-link row and its open control. The link keeps its **own full-width row**; T065 measured 35 characters visible there against ~20 in a shared row.
-- [ ] T023 [P] [US1] Restyle `frontend/components/item/DeleteConfirm.tsx`. `KEEP ITEM` stays first in the DOM and focused; the destructive action keeps the **lower** visual weight. Watch the width trap: a `truncate`d title's min-content is the whole string, which once made this dialog **561px wide on a 375px screen**.
-- [ ] T024 [P] [US1] Restyle `PlatformFilter`, `FirstRun` and `FilteredEmpty`. All three empty states stay distinct — `FirstRun` accompanies the grid, `FilteredEmpty` replaces it.
-- [ ] T025 [P] [US1] Restyle the shadcn primitives in `frontend/components/ui/` that the surfaces above extend, so no surface hand-rolls a control the primitive should carry.
-- [ ] T026 [P] [US1] Add `nextDue()` to `frontend/lib/items.ts` as an exported pure function beside `countOverdue()`, with unit tests in `frontend/tests/client/items.spec.ts`. Pure function, not logic inside a hook — this project has **no renderer**, so anything inside a component is only reachable through a browser.
-- [ ] T027 [US1] Build the strip in `frontend/components/arcade/Ticker.tsx`, fed `visible` from `CalendarShell` and rendering `countOverdue(visible)` and `nextDue(visible)`. **One value, two presentations** (FR-028): it must narrow with the platform filter exactly as the header count does. Content fits 375px stationary; motion is a repeating band, off under `prefers-reduced-motion`. Empty state is a sentence, never a blank (FR-030).
+- [x] T014 [P] [US1] Restyle `frontend/app/login/` — the one surface that already has a light presentation, so it is the cheapest place to find out whether the new light tokens work. Keep `h-11` fields and `h-12` submit, keep `text-base` on inputs (iOS zooms below 16px), keep `method="post"` and the hydration guard.
+- [x] T015 [P] [US1] Restyle the header in `frontend/components/calendar/CalendarShell.tsx` — the period title and the overdue count. Sign-out stays here until T030 moves it.
+- [x] T016 [US1] Restyle `frontend/components/calendar/PeriodNav.tsx` and the action band, **applying T003's decision**. Re-run `viewport-audit.spec.ts` as part of this task, not after it.
+- [x] T017 [P] [US1] Restyle `frontend/components/calendar/MonthGrid.tsx` and `DayCell.tsx`. The 42-day span and the two-chip cap are behaviour and stay; if 18px content pushes six rows past 667px, that is T004's fallback question resurfacing and it is a conversation, not a silent cap change.
+- [x] T018 [P] [US1] Restyle `frontend/components/calendar/WeekList.tsx` — seven vertical sections, still no chip cap.
+- [x] T019 [US1] Restyle `ItemChip`, `StatusCue` and `PlatformCue`. **The greyscale criterion is checked in this task, not deferred to Phase 7**: three statuses plus overdue, distinguishable with colour removed, in both presentations (SC-004). Overdue stays a dashed left border — `[border-left-style:dashed]`, asserted as a *computed* style.
+- [x] T020 [P] [US1] Restyle `frontend/components/backlog/` — the peek strip and the expanded drawer, including the drawer's own `+ CAPTURE`.
+- [x] T021 [P] [US1] Restyle `frontend/components/capture/CaptureSheet.tsx`. Capture stays **three interactions** — `autoFocus` is load-bearing, not decoration.
+- [x] T022 [US1] Restyle `frontend/components/item/ItemSheet.tsx`, including the published-link row and its open control. The link keeps its **own full-width row**; T065 measured 35 characters visible there against ~20 in a shared row.
+- [x] T023 [P] [US1] Restyle `frontend/components/item/DeleteConfirm.tsx`. `KEEP ITEM` stays first in the DOM and focused; the destructive action keeps the **lower** visual weight. Watch the width trap: a `truncate`d title's min-content is the whole string, which once made this dialog **561px wide on a 375px screen**.
+- [x] T024 [P] [US1] Restyle `PlatformFilter`, `FirstRun` and `FilteredEmpty`. All three empty states stay distinct — `FirstRun` accompanies the grid, `FilteredEmpty` replaces it.
+- [x] T025 [P] [US1] Restyle the shadcn primitives in `frontend/components/ui/` that the surfaces above extend, so no surface hand-rolls a control the primitive should carry.
+- [x] T026 [P] [US1] Add `nextDue()` to `frontend/lib/items.ts` as an exported pure function beside `countOverdue()`, with unit tests in `frontend/tests/client/items.spec.ts`. Pure function, not logic inside a hook — this project has **no renderer**, so anything inside a component is only reachable through a browser.
+- [x] T027 [US1] Build the strip in `frontend/components/arcade/Ticker.tsx`, fed `visible` from `CalendarShell` and rendering `countOverdue(visible)` and `nextDue(visible)`. **One value, two presentations** (FR-028): it must narrow with the platform filter exactly as the header count does. Content fits 375px stationary; motion is a repeating band, off under `prefers-reduced-motion`. Empty state is a sentence, never a blank (FR-030).
 - [ ] T028 [US1] **Phase checkpoint.** Full `viewport-audit.spec.ts` and `text-size-audit.spec.ts` sweep across every surface **in both presentations**, plus a hand-walk of quickstart V1–V5. Run all three gates — the hand-walk, `/speckit-analyze`, and the `reviewer` agent — because each has found what the other two could not.
 
 ---
@@ -296,3 +296,59 @@ actually supposed to do that restyle. What T008 did do: rewrote `.focus-ring-ins
 so it no longer hard-codes 001's two clipping cases as if they were permanent, and left the
 `outline`/`outline-offset` mechanism itself untouched. `focus-states.spec.ts` still 9/9 green — the
 mechanism was never broken, only its stale explanation.
+
+**2026-08-08 — Phase 3 closed (T014–T027), MVP delivered.** Every surface restyled onto the
+pixel-arcade tokens, in one pass per component rather than per task in strict numeric order — T025
+(primitives) first since T014/T019/T021–T024 extend them, then the independent surfaces, then the
+sequential trio T016→T019→T022 plus T026→T027 last (T027 consumes T026). `.notch-card`/`.notch-sheet`
+— which T008 deliberately left in place — **are now actually gone**, replaced with sharp-cornered
+chrome matching the reference, as each surface's own restyle task reached it. `+ Capture` is `+ New`
+everywhere it appeared (the action band, the backlog's own capture button, both empty-state copies
+that named it), consistently, once T016 renamed the band's copy first. Two correctness fixes rode
+along, found while restyling, not scoped in advance: several surfaces read `text-brand`/`brand-hi`
+for error/destructive states, which was correct under 001's single accent but not after 002 split it
+into chrome-cyan and a dedicated `danger` red — all moved to `danger`/`danger-hi`. And `DayCell`'s
+"+N more" button needed `h-3.5` (14px) bumped to `h-4` (16px) to fit FR-033-compliant text — the one
+place this restyle changed a dimension rather than only a colour/font, because the floor is not
+optional.
+
+**A real bug in T009's own test, found by running the full suite rather than each surface in
+isolation.** `text-size-audit.spec.ts`'s content-floor check keyed off `item-chip`, which also wraps
+`PlatformCue`'s monogram and `StatusCue`'s checkmark — both correctly kept at the 12px floor by T019,
+not the 16px content floor, since they are chrome standing in for a value rather than the value
+itself. The wider selector flagged both as false violations the moment T019 landed a correctly-sized
+chip. Narrowed to the `item-title` testid specifically. Also caught in the same full-suite pass: one
+`FilteredEmpty` button T024 missed on its first edit of that file (font-display still present) and a
+`CalendarShell` violation pre-dating this iteration's own restyle tasks (the stale-notice dismiss
+button, 10px Silkscreen) — both fixed alongside the test bug.
+
+**A tracking gap, disclosed rather than quietly corrected**: T014–T027 were implemented, verified,
+and committed correctly, but their checkboxes were not ticked until this checkpoint — the brief for
+the agent that did most of Phase 3's restyle work was told not to touch `tasks.md` (to avoid a
+concurrent-edit conflict with the frontend track), and updating it afterward was deferred and then
+missed until `/speckit-analyze` read the file against the actual commit history and found the
+mismatch. No code was affected; this is a documentation-only correction, made in the same pass as the
+rest of this checkpoint rather than filed separately.
+
+**T028's own two required audits ("in both presentations") needed a real fix, not just a run.** The
+theme switch is Phase 5 and does not exist yet, so both `viewport-audit.spec.ts` and
+`text-size-audit.spec.ts` were parameterised over a temporary light-mode override for this checkpoint.
+The first two mechanisms tried — removing the `dark` class via `addInitScript`, then an injected
+`<style>` tag via the same — were both silently reverted by React hydration (`RootLayout` renders
+`<html>` itself), which a screenshot comparison caught: the "light" run was byte-identical to dark.
+The mechanism that works applies the override with `page.evaluate` *after* `page.goto`/`page.reload`
+resolves, once hydration has already happened. Full reasoning is in `viewport-audit.spec.ts`'s
+comment, so a third attempt does not rediscover the same two dead ends.
+
+**Results**: `viewport-audit.spec.ts` 28/28 and `text-size-audit.spec.ts` 18/18, both presentations.
+SC-004's greyscale requirement — inherited from 001, verified by hand there and verified by hand
+again here rather than assumed carried over, since the actual colour values are new — holds in both:
+outline/half-filled/solid+check and the dashed overdue border all stay distinguishable with colour
+removed, confirmed against real screenshots of all three statuses plus an overdue item, dark and
+light alike. Full `mobile-375` project (all four Playwright projects, not just this one): 473 passed,
+1 known flake (`capture.spec.ts`'s cancel test, the documented `next dev`-only overlay intercept,
+confirmed passing in isolation and unrelated to this iteration). `pnpm build`/`typecheck`/`lint` all
+clean throughout.
+
+**`/speckit-analyze` and the `reviewer` agent are the other two required gates for T028** — see below
+for what each found.
