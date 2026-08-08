@@ -634,21 +634,27 @@ function CalendarHeader({
            * `1e` headers. The eyebrow carries the week number rather than the title, because the title
            * has to name the actual days and there is not room at 375px for both.
            */}
+          {/*
+           * 002-pixel-arcade-skin, T015: dropped `font-display` here — FR-034 forbids the display
+           * face (Silkscreen) below 16px, and this eyebrow was 10px, which also broke FR-033's
+           * absolute 12px floor on its own. VT323 (the ambient `font-sans`) at the 12px floor now.
+           */}
           <p
-            className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase"
+            className="text-brand mb-1.5 text-xs leading-none font-semibold tracking-[0.24em] uppercase"
             data-testid="calendar-eyebrow"
           >
             {period === null ? "Content Calendar" : periodEyebrow(period, view)}
           </p>
           {/*
-           * `-skew-x-6` and the uppercase Oswald are the export's display treatment, not decoration
-           * added here. An empty string rather than a fallback month while `period` is null: a
-           * placeholder month would be a wrong month for a moment, which is the exact failure the
-           * after-mount read exists to prevent.
+           * The uppercase Silkscreen is the display treatment (T015 dropped the export's `-skew-x-6`
+           * — the reference's pixel lettering is set upright, and a skew reads as a leftover from the
+           * outgoing Oswald-condensed language rather than a pixel-arcade choice). An empty string
+           * rather than a fallback month while `period` is null: a placeholder month would be a wrong
+           * month for a moment, which is the exact failure the after-mount read exists to prevent.
            */}
           <h1
             className={cn(
-              "font-display -skew-x-6 leading-none font-bold tracking-wide uppercase",
+              "font-display leading-none font-bold tracking-wide uppercase",
               // The week title names days and a month, so it is longer than `MARCH 2026` and drops a
               // size — the export's own `1c`/`1e` difference. A cross-boundary week is longer still,
               // which is why the range abbreviates its months in `lib/period.ts`.
@@ -664,14 +670,17 @@ function CalendarHeader({
           {/*
            * `h-11` is the 44px floor, as everywhere else — every shadcn size variant is desktop-scaled,
            * so the height is explicit rather than inherited. The label is a written word for the same
-           * reason the rest of the product's controls are (`+ CAPTURE`, `MONTH`, `CLEAR`): a lone glyph
+           * reason the rest of the product's controls are (`+ NEW`, `MONTH`, `CLEAR`): a lone glyph
            * would be the only icon-only control here, and this is the worst one to leave ambiguous.
+           *
+           * `font-display` dropped (T015) for the same FR-033/FR-034 reason as the eyebrow above — it
+           * was 10px Silkscreen, under both floors at once.
            */}
           <button
             type="button"
             onClick={() => void signOut()}
             disabled={signingOut}
-            className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
+            className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 flex-none rounded-sm border px-2.5 text-xs font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
             data-testid="sign-out-action"
           >
             {signingOut ? "Signing out…" : "Sign out"}
@@ -709,9 +718,11 @@ function CalendarHeader({
        * the case that always happens.
        */}
       {signOutError === null ? null : (
+        // `text-danger-hi`, not `text-brand-hi` (T015): 002 split the accent into a chrome-only cyan
+        // and a dedicated danger red, the same fix T022 applied to the item sheet's error states.
         <p
           role="alert"
-          className="text-brand-hi pt-2 text-xs leading-relaxed"
+          className="text-danger-hi pt-2 text-xs leading-relaxed"
           data-testid="sign-out-message"
         >
           {signOutError}
@@ -733,9 +744,15 @@ function CalendarHeader({
  * They are passed in as children rather than built here so this band stays what it is — a layout with
  * one rule about where a thumb can reach — while `PeriodNav` owns what the controls do.
  *
- * **The band is the tightest row in the product**: toggle, two arrows and `+ CAPTURE` inside 375px
- * with 16px of padding either side. `gap-1.5` rather than the export's 8px buys the margin that keeps
- * it from clipping, and `tests/e2e/viewport.spec.ts` asserts the body never scrolls sideways.
+ * **The band is the tightest row in the product**, and 002-pixel-arcade-skin's T016 re-solved it
+ * rather than inheriting the export's numbers, per the decision recorded in `frontend/AGENTS.md`
+ * ("002's action band (T003)") and `research.md` R-003: VT323 in the labels (narrower than the
+ * outgoing Oswald despite looking larger), `+ Capture` → `+ New`, and the band's own horizontal
+ * padding **32px → 16px** (`px-4` → `px-2` below). Silkscreen never appears in this band at any
+ * size — R-003 measured it at 1.84× the advance width, which fails even before the frame's own
+ * padding is subtracted from 375px. `gap-1.5` is unchanged from before the restyle; the arithmetic
+ * still leaves ~18px spare against the 10px frame set at T004, and `viewport-audit.spec.ts` is what
+ * actually confirms it now that the real fonts are in place, never a `scrollWidth` check.
  */
 function CalendarActionBar({
   onCapture,
@@ -745,18 +762,23 @@ function CalendarActionBar({
   children: ReactNode;
 }) {
   return (
-    <div className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-4 pt-2.5 pb-4">
+    <div className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-2 pt-2.5 pb-4">
       {children}
 
       <span className="flex-1" />
 
+      {/*
+       * `notch-card` dropped and `focus-ring-inset` reverted to the outset `focus-ring` (T016): the
+       * clip-path this button used to wear is exactly what forced the inset variant in the first
+       * place, and the reference's chrome is sharp-cornered, not notched — `rounded-none` matches it.
+       */}
       <button
         type="button"
         onClick={onCapture}
-        className="bg-brand notch-card font-display focus-ring-inset h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+        className="bg-brand focus-ring h-11 flex-none rounded-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
         data-testid="capture-action"
       >
-        + Capture
+        + New
       </button>
     </div>
   );

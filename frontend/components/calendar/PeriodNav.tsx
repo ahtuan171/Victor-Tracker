@@ -65,7 +65,10 @@ export function PeriodNav({
             aria-checked={view === candidate}
             onClick={() => onViewChange(candidate)}
             className={cn(
-              "font-display focus-ring-inset h-11 px-3 text-xs leading-none font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
+              // `font-display` dropped (002 T016): Silkscreen below 16px breaks FR-034, and these
+              // labels are 12px. `focus-ring-inset` stays — the group's `overflow-hidden` wrapper
+              // still clips an outset ring the same way it did before this restyle.
+              "focus-ring-inset h-11 px-3 text-xs leading-none font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
               view === candidate ? "bg-brand text-white" : "text-ink-lo",
             )}
             data-testid={`view-${candidate}`}
