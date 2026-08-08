@@ -74,6 +74,7 @@ async function openCalendar(
 
   await page.clock.setFixedTime(MARCH_2026);
   await page.goto("/calendar");
+  await applyTheme(page);
   await expect(page.getByTestId("capture-action")).toBeVisible();
 }
 
@@ -175,9 +176,62 @@ async function auditSurface(page: Page, surface: string): Promise<void> {
   expect(await textSizeViolations(page), `${surface}: text-size violations`).toEqual([]);
 }
 
-test.describe("the routes", () => {
-  test("/login", async ({ page }) => {
+/**
+ * 002 T028 (Phase 3 checkpoint): both presentations. **Do not "simplify" this to
+ * `classList.remove("dark")`, and do not move the override into `addInitScript`** —
+ * `viewport-audit.spec.ts`'s comment on its own copy of this mechanism records two mechanisms that
+ * were tried and both silently failed: `RootLayout` renders `<html>` itself, so React hydrates that
+ * element and strips *any* attribute or child it does not recognise as its own output, including an
+ * injected `<style>` tag and a directly-set inline `style` attribute, both applied via
+ * `addInitScript`. What works is applying the override with `page.evaluate` **after**
+ * `page.goto`/`page.reload` resolves, once hydration has already run. Kept in sync with
+ * `app/globals.css`'s `:root` block by hand, for the reason given in that file's comment.
+ */
+const LIGHT_TOKEN_OVERRIDES: Readonly<Record<string, string>> = {
+  "--ch-void": "#dbe8ea",
+  "--ch-surface-0": "#eef5f5",
+  "--ch-surface-1": "#ffffff",
+  "--ch-surface-2": "#e4eef0",
+  "--ch-surface-3": "#d3e4e7",
+  "--ch-hairline": "#b6ccd0",
+  "--ch-ink-hi": "#0b2027",
+  "--ch-ink-mid": "#4c6b72",
+  "--ch-ink-lo": "#6d8990",
+  "--ch-brand": "#0a90a8",
+  "--ch-brand-hi": "#067083",
+  "--ch-brand-sunk": "#d7f0f4",
+  "--ch-danger": "#c23b32",
+  "--ch-danger-hi": "#a12e26",
+  "--ch-status-idea": "#5c7178",
+  "--ch-status-draft": "#a06a1f",
+  "--ch-status-posted": "#1f7a4f",
+  "--ch-overdue": "#5c5240",
+};
+
+/** Set by each theme's `beforeEach`; read by `applyTheme` — see `viewport-audit.spec.ts` for why
+ * module state is safe here (one test at a time per worker process). */
+let currentTheme: "dark" | "light" = "dark";
+
+/** Call after every `page.goto` in this file, never inside `beforeEach` or `addInitScript`. */
+async function applyTheme(page: Page): Promise<void> {
+  if (currentTheme !== "light") return;
+  await page.evaluate((overrides) => {
+    for (const [name, value] of Object.entries(overrides)) {
+      document.documentElement.style.setProperty(name, value, "important");
+    }
+  }, LIGHT_TOKEN_OVERRIDES);
+}
+
+for (const theme of ["dark", "light"] as const) {
+  test.describe(`[${theme}]`, () => {
+    test.beforeEach(() => {
+      currentTheme = theme;
+    });
+
+    test.describe("the routes", () => {
+      test("/login", async ({ page }) => {
     await page.goto("/login");
+    await applyTheme(page);
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
     await auditSurface(page, "/login");
   });
@@ -242,3 +296,5 @@ test.describe("the overlay surfaces", () => {
     await auditSurface(page, "delete confirmation");
   });
 });
+  });
+}

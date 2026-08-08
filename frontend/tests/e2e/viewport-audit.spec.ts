@@ -101,6 +101,7 @@ async function openCalendar(
 
   await page.clock.setFixedTime(MARCH_2026);
   await page.goto("/calendar");
+  await applyTheme(page);
   await expect(page.getByTestId("capture-action")).toBeVisible();
 }
 
@@ -184,9 +185,88 @@ async function auditSurface(page: Page, surface: string): Promise<void> {
   expect(await bodyScrollsSideways(page), `${surface}: body scrolls horizontally`).toBe(false);
 }
 
-test.describe("the routes", () => {
-  test("/login", async ({ page }) => {
+/**
+ * 002 T028 (Phase 3 checkpoint): every surface, in **both** presentations. The theme switch itself
+ * is Phase 5 (T032–T036) and does not exist yet, and `app/layout.tsx` hard-codes `class="dark"` on
+ * `<html>` until T033 replaces it — so light is forced here, temporarily, by a different mechanism
+ * than the real switch will use. This is not a substitute for T036's own theme tests (persistence,
+ * first-paint correctness, account/device reconciliation); it is purely "does every surface still
+ * fit and still show every control" under the light token values T006 already shipped.
+ *
+ * **Two mechanisms were tried before this one, and both failed silently — worth recording so a
+ * third attempt does not rediscover the same two dead ends.** `RootLayout` renders `<html>` itself,
+ * so React hydrates that exact element. (1) `classList.remove("dark")` via `addInitScript`: hydration
+ * reconciles the class back to what the unchanged source computes, within the same page load, before
+ * any assertion can see the difference. (2) An injected `<style>` element appended to
+ * `document.documentElement` via `addInitScript`, and even a direct inline `style` attribute set the
+ * same way: **both were silently removed by hydration too** — React strips DOM children and
+ * attributes on an element it manages that it does not recognise as its own output. A screenshot
+ * comparison and a `getComputedStyle` check both showed the unmodified dark values in every case;
+ * that is what caught it, not a passing-for-the-wrong-reason test.
+ *
+ * **What works: apply the override with `page.evaluate` *after* `page.goto`/`page.reload` resolves,
+ * never inside `addInitScript`.** By the time the navigation promise resolves, hydration has already
+ * run — confirmed by reading `<html>`'s class immediately after `goto()`, which already shows the
+ * reconciled value — so a mutation applied at that point lands after React's one-time hydration pass
+ * rather than before or during it, and nothing re-touches `<html>` afterwards (`RootLayout` is a
+ * Server Component with static output; nothing client-side re-renders it). `applyTheme()` below is
+ * called at every navigation point in this file rather than once in `beforeEach`, because
+ * `beforeEach` runs *before* each test's own `goto`.
+ *
+ * Kept in sync with `app/globals.css`'s `:root` block by hand — there is no live way to read "the
+ * light values" from a document that already has `.dark` applied, since both selectors target the
+ * same `<html>` element and the cascade always resolves to one winner. This block is scaffolding for
+ * exactly the gap T033 closes; once the real switch exists, prefer driving these audits through it
+ * instead of this override.
+ */
+const LIGHT_TOKEN_OVERRIDES: Readonly<Record<string, string>> = {
+  "--ch-void": "#dbe8ea",
+  "--ch-surface-0": "#eef5f5",
+  "--ch-surface-1": "#ffffff",
+  "--ch-surface-2": "#e4eef0",
+  "--ch-surface-3": "#d3e4e7",
+  "--ch-hairline": "#b6ccd0",
+  "--ch-ink-hi": "#0b2027",
+  "--ch-ink-mid": "#4c6b72",
+  "--ch-ink-lo": "#6d8990",
+  "--ch-brand": "#0a90a8",
+  "--ch-brand-hi": "#067083",
+  "--ch-brand-sunk": "#d7f0f4",
+  "--ch-danger": "#c23b32",
+  "--ch-danger-hi": "#a12e26",
+  "--ch-status-idea": "#5c7178",
+  "--ch-status-draft": "#a06a1f",
+  "--ch-status-posted": "#1f7a4f",
+  "--ch-overdue": "#5c5240",
+};
+
+/**
+ * Set by each theme's `beforeEach` below; read by `applyTheme`. Module state is safe here because
+ * Playwright runs one test at a time per worker process — `beforeEach` and the test body that follows
+ * it never interleave with another test's `beforeEach` in the same process.
+ */
+let currentTheme: "dark" | "light" = "dark";
+
+/** Call after every `page.goto`/`page.reload` in this file — see the comment above for why there. */
+async function applyTheme(page: Page): Promise<void> {
+  if (currentTheme !== "light") return;
+  await page.evaluate((overrides) => {
+    for (const [name, value] of Object.entries(overrides)) {
+      document.documentElement.style.setProperty(name, value, "important");
+    }
+  }, LIGHT_TOKEN_OVERRIDES);
+}
+
+for (const theme of ["dark", "light"] as const) {
+  test.describe(`[${theme}]`, () => {
+    test.beforeEach(() => {
+      currentTheme = theme;
+    });
+
+    test.describe("the routes", () => {
+      test("/login", async ({ page }) => {
     await page.goto("/login");
+    await applyTheme(page);
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
 
     await auditSurface(page, "/login");
@@ -202,6 +282,7 @@ test.describe("the routes", () => {
     });
 
     await page.goto("/login");
+    await applyTheme(page);
     await page.getByLabel("Email").fill("creator@example.com");
     await page.getByLabel("Password").fill("wrong-password");
     await page.getByRole("button", { name: /sign in/i }).click();
@@ -242,6 +323,7 @@ test.describe("the routes", () => {
     // header row with the sign-out control (T077).
     await page.clock.setFixedTime(Date.UTC(2026, 11, 30, 3, 0, 0));
     await page.reload();
+    await applyTheme(page);
     // The view is client state, so a reload lands back on the month grid.
     await page.getByTestId("view-week").click();
     await expect(page.getByTestId("week-list")).toBeVisible();
@@ -271,6 +353,7 @@ test.describe("the routes", () => {
    */
   test("/ redirects to a surface this file audits", async ({ page }) => {
     await page.goto("/");
+    await applyTheme(page);
     await expect(page).toHaveURL(/\/login$/);
 
     await auditSurface(page, "/ after redirect");
@@ -346,3 +429,5 @@ test.describe("the overlay surfaces", () => {
     await auditSurface(page, "delete confirmation");
   });
 });
+  });
+}
