@@ -87,12 +87,18 @@ async function openCalendar(
 async function textSizeViolations(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     /*
-     * FR-032's closed set: an item's title, its hook, and any value shown inside a cell or row.
-     * `item-chip` wraps the title (and, on a `full` chip, the hook) everywhere a chip appears — the
-     * month grid, the week list, and the backlog drawer all compose it rather than each drawing its
-     * own text. The item sheet's own title/hook fields are the editable form of the same two values.
+     * FR-032's closed set: an item's title, its hook, and any value shown inside a cell or row —
+     * **not** everything a chip happens to render alongside them. `item-title` is the title text
+     * itself, present on every chip size; `item-title-input`/`item-hook-input` are the item sheet's
+     * editable form of the same two values.
+     *
+     * `item-chip` was tried first and was too broad: it also wraps `PlatformCue`'s single-letter
+     * monogram and `StatusCue`'s checkmark, which T019 correctly kept at the 12px floor (FR-033) —
+     * they are chrome standing in for a value, not the value itself, the same distinction FR-032
+     * draws between a status *cue* and a status. The wider selector flagged both as false content-
+     * floor violations the moment T019 landed a correctly-sized chip.
      */
-    const CONTENT_ANCESTOR_TESTIDS = ["item-chip", "item-title-input", "item-hook-input"];
+    const CONTENT_ANCESTOR_TESTIDS = ["item-title", "item-title-input", "item-hook-input"];
 
     function isContentText(el: Element): boolean {
       return CONTENT_ANCESTOR_TESTIDS.some(
