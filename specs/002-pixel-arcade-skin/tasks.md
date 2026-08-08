@@ -119,7 +119,7 @@ breaking.
 - [x] T025 [P] [US1] Restyle the shadcn primitives in `frontend/components/ui/` that the surfaces above extend, so no surface hand-rolls a control the primitive should carry.
 - [x] T026 [P] [US1] Add `nextDue()` to `frontend/lib/items.ts` as an exported pure function beside `countOverdue()`, with unit tests in `frontend/tests/client/items.spec.ts`. Pure function, not logic inside a hook — this project has **no renderer**, so anything inside a component is only reachable through a browser.
 - [x] T027 [US1] Build the strip in `frontend/components/arcade/Ticker.tsx`, fed `visible` from `CalendarShell` and rendering `countOverdue(visible)` and `nextDue(visible)`. **One value, two presentations** (FR-028): it must narrow with the platform filter exactly as the header count does. Content fits 375px stationary; motion is a repeating band, off under `prefers-reduced-motion`. Empty state is a sentence, never a blank (FR-030).
-- [ ] T028 [US1] **Phase checkpoint.** Full `viewport-audit.spec.ts` and `text-size-audit.spec.ts` sweep across every surface **in both presentations**, plus a hand-walk of quickstart V1–V5. Run all three gates — the hand-walk, `/speckit-analyze`, and the `reviewer` agent — because each has found what the other two could not.
+- [x] T028 [US1] **Phase checkpoint.** Full `viewport-audit.spec.ts` and `text-size-audit.spec.ts` sweep across every surface **in both presentations**, plus a hand-walk of quickstart V1–V5. Run all three gates — the hand-walk, `/speckit-analyze`, and the `reviewer` agent — because each has found what the other two could not.
 
 ---
 
@@ -352,3 +352,70 @@ clean throughout.
 
 **`/speckit-analyze` and the `reviewer` agent are the other two required gates for T028** — see below
 for what each found.
+
+**`/speckit-analyze` found one finding, MEDIUM, and it was fixed in the same pass.** `quickstart.md`'s
+V4 still framed content text as an open "18px or 20px" decision for the hand-walker to make live —
+*"This is the scenario where the owner decides whether 18px is enough... Deciding it here... is much
+cheaper than deciding it after eleven surfaces are drawn."* T004 had already closed that on
+2026-08-08, and `research.md` R-001 already says so in as many words. Left as written, the V4 step
+about to run below would have re-litigated a settled call using the wrong mechanism — a side-by-side
+comparison page, not the real restyled surfaces. Rewritten to state 20px as chosen and reframe the
+step as verification, not decision. A LOW finding alongside it (T017's "if 18px pushes six rows past
+667px" framing, doubly stale — the actual value is 20px, and the grid scrolls in its own container
+per `CalendarShell`'s `h-dvh`/`min-h-0` chain, so nothing gets "pushed") needed no artifact fix, only
+eyes-on during the hand-walk below.
+
+**The `reviewer` agent found three findings, all CONFIRMED, none caught by the automated sweeps
+because none of them are geometry or font-size:**
+
+1. **`/login` was never actually restyled off the outgoing `.notch-card`/`.notch-sheet` chrome.** T014
+   fixed only the two FR-034 text violations `text-size-audit` had found; the panel and the submit
+   button kept the clipped-corner shape from 001's presentation, on the one screen every session opens
+   first. Direct contradiction of FR-001/SC-001, and of this checkpoint's own note above claiming both
+   classes were "actually gone... as each surface's own restyle task reached it" — that claim was false
+   for `/login` until this fix. Both classes are now unused repo-wide and removed from `globals.css`.
+2. **`CalendarShell`'s list-load error banner still read `border-brand-hi`/`bg-brand-sunk`** — the one
+   error surface T015 missed when every sibling (sign-out, `ItemSheet`, `CaptureSheet`,
+   `DeleteConfirm`) moved to `danger`/`danger-hi` for the brand-is-chrome-only split. No
+   `--ch-danger-sunk` token exists, so the fix follows the pattern every sibling error state already
+   uses — a plain danger border and text, no background tint — rather than inventing one.
+3. **`DayCell`'s "+N more" button was 16px tall against FR-006's unqualified 44px floor.** T017 bumped
+   it 14px→16px for FR-033's text floor and left FR-006 unaddressed, with no documented exception the
+   way the micro chips beside it have one. Bumped to `h-11` (44px) rather than documented away: this is
+   genuinely "a control a person taps" in FR-006's sense, and the cost — a taller cell, only on the
+   rare day that overflows two chips — is bounded, since the cell already grows in place for the
+   `expanded` state.
+
+All three fixed in the same pass (`git log`: "002 T028: fix three findings from the Phase 3 reviewer
+pass"). Re-verified after: `pnpm typecheck`/`lint`/`build` clean; full suite green (259/260
+`mobile-375` with the one known flake reproducing as a pass in isolation, 214/214 across
+`contract`+`proxy`+`client`); both `/login` presentations screenshotted at 375px to confirm the
+sharp-cornered chrome now matches the rest of the product.
+
+**The hand-walk (V1–V5) is done, scripted against a `pnpm build && pnpm start` production server on
+127.0.0.1:3100, real sign-in, at 375×667.** One local-only snag first: the seed account's password in
+`.env` didn't match the running database — `docker exec creatorhub-backend-1 uv run python -m
+app.scripts.seed_user` reported *creating* the row rather than updating it, meaning the account had
+been lost (likely a volume recreated without a re-seed) despite the container's 10-hour uptime. Fixed
+by re-seeding; not a product defect, and the test item this walk captured (`T028 hand-walk check`) was
+deleted afterward so the account finishes at zero items, same convention T072's walk used.
+
+- **V1** (one machine): login and calendar both carry the same frame, lettering and sharp-cornered
+  chrome — confirmed after, not before, the `/login` fix above.
+- **V2/V3** (thumb reach, 44px): action band, platform filter, backlog drawer's own `+ NEW`/`CLOSE
+  DRAWER`, capture sheet's `SAVE TO BACKLOG`, item sheet's status/platform columns and `SAVE
+  CHANGES`/`DELETE ITEM` — all comfortably sized, nothing clipped at 375px.
+  Capture is confirmed still **three interactions** (tap `+ NEW`, type, tap save) — FR-003, SC-010.
+- **V4** (text legibility): a captured item's title reads clearly at 20px both in the backlog's
+  collapsed peek strip (truncated with an ellipsis, not clipped mid-glyph) and in the item sheet;
+  status labels, platform toggles and field labels all legible at the 12px floor. No cell measured
+  looked cramped — the U1 finding above about the six-row grid's vertical budget didn't manifest with
+  a live item on screen.
+- **V5** (greyscale): the full calendar screen — chrome, ticker, empty-state copy, controls — stays
+  legible and structurally distinguishable with `filter: grayscale(1)` applied. Status-cue shape/fill
+  distinguishability specifically was already verified with real dark/light screenshots of all three
+  statuses plus an overdue item at T019, which this walk's empty-then-single-item account couldn't
+  re-exercise on its own — not re-litigated here, only confirmed the walk's general screens don't
+  regress it.
+
+**All three T028 gates pass.** No open findings remain from any of them.
