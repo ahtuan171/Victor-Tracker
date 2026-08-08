@@ -272,20 +272,21 @@ export function ItemSheet({
         // that the page never scrolls sideways *or* pushes its primary action off screen: at a 667px
         // viewport this sheet's content is taller than the space it has, so the fields scroll inside
         // their own container and `SAVE CHANGES` stays anchored under the thumb.
-        className="notch-sheet bg-surface-1 border-hairline max-h-[88dvh] gap-0 p-0 shadow-e2"
+        className="bg-surface-1 border-hairline max-h-[88dvh] gap-0 border-t p-0 shadow-e2"
         aria-describedby={errorId}
       >
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
           {/* Decorative, straight from the export — this sheet is not draggable. */}
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
-          <SheetTitle className="font-display text-ink text-[13px] leading-none font-semibold tracking-[0.18em] uppercase">
-            Edit item
-          </SheetTitle>
+          {/* `ui/sheet.tsx`'s own `SheetTitle` is already font-display at the 16px floor (T025);
+              no local override needed here any more. */}
+          <SheetTitle>Edit item</SheetTitle>
           <span className="flex-1" />
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="font-display text-ink-mid focus-ring -mr-2 h-11 px-2 text-[11px] font-semibold tracking-[0.16em] uppercase"
+            // VT323, not Silkscreen — 12px is below FR-034's 16px floor for the display face.
+            className="text-ink-mid focus-ring -mr-2 h-11 px-2 text-xs font-semibold tracking-[0.1em] uppercase"
             data-testid="item-sheet-close"
           >
             Close
@@ -306,9 +307,9 @@ export function ItemSheet({
               // Mirrors the contract's 200 rather than letting the creator type a 201st character
               // and be refused afterwards.
               maxLength={200}
-              // `text-base` is 16px and is a platform constraint, not a style choice: iOS zooms the
-              // page in when focusing any input below 16px, which throws away a 375px layout.
-              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring h-12 w-full rounded-sm border px-3 text-base"
+              // 20px (T004): a typed value is content. Comfortably clears the 16px iOS zoom floor
+              // this field always needed too.
+              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring h-12 w-full rounded-sm border px-3 text-xl"
               data-testid="item-title-input"
             />
           </Field>
@@ -325,7 +326,7 @@ export function ItemSheet({
               maxLength={500}
               rows={2}
               placeholder="Open on the ledge shot, cut on the siren."
-              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring min-h-[66px] w-full resize-none rounded-sm border p-3 text-base leading-relaxed"
+              className="border-hairline bg-surface-3 text-ink placeholder:text-ink-lo focus-ring min-h-[76px] w-full resize-none rounded-sm border p-3 text-xl leading-snug"
               data-testid="item-hook-input"
             />
           </Field>
@@ -436,7 +437,7 @@ export function ItemSheet({
                   edit({ scheduled_date: event.target.value === "" ? null : event.target.value })
                 }
                 className={cn(
-                  "border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-base",
+                  "border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-xl",
                   // The export's overdue treatment on this field: dashed on the **left only**, the
                   // same encoding `ItemChip` carries, so the two surfaces agree about what a dashed
                   // left edge means. `border-l-dashed` is not a Tailwind utility.
@@ -455,7 +456,8 @@ export function ItemSheet({
                 type="button"
                 onClick={() => edit({ scheduled_date: null })}
                 disabled={current?.scheduled_date === null}
-                className="border-hairline text-ink-mid font-display focus-ring h-12 flex-none rounded-sm border px-3 text-[11px] font-semibold tracking-[0.14em] uppercase disabled:opacity-40"
+                // VT323, not Silkscreen — below the 16px floor FR-034 sets for the display face.
+                className="border-hairline text-ink-mid focus-ring h-12 flex-none rounded-sm border px-3 text-xs font-semibold tracking-[0.1em] uppercase disabled:opacity-40"
                 data-testid="item-date-clear"
               >
                 Clear
@@ -464,7 +466,7 @@ export function ItemSheet({
 
             {overdue ? (
               <p
-                className="text-overdue mt-1.5 text-[11px] leading-relaxed"
+                className="text-overdue mt-1.5 text-xs leading-relaxed"
                 data-testid="item-overdue-note"
               >
                 Date has passed — overdue
@@ -510,8 +512,8 @@ export function ItemSheet({
                  */
                 aria-invalid={linkRefused || undefined}
                 className={cn(
-                  "border-hairline bg-surface-3 text-ink placeholder:text-ink-mid focus-ring h-12 min-w-0 flex-1 rounded-sm border px-3 text-base",
-                  linkRefused && "border-brand-hi",
+                  "border-hairline bg-surface-3 text-ink placeholder:text-ink-mid focus-ring h-12 min-w-0 flex-1 rounded-sm border px-3 text-xl",
+                  linkRefused && "border-danger",
                 )}
                 data-testid="item-link-input"
               />
@@ -541,7 +543,7 @@ export function ItemSheet({
              */}
             {current?.status === "posted" && current.published_url === null ? (
               <p
-                className="text-ink-mid mt-1.5 text-[11px] leading-relaxed"
+                className="text-ink-mid mt-1.5 text-xs leading-relaxed"
                 data-testid="item-link-prompt"
               >
                 Posted — add the link to the live post when you have it. Optional.
@@ -555,7 +557,7 @@ export function ItemSheet({
           role={error !== null ? "alert" : undefined}
           className={cn(
             "px-4 pt-2 text-xs leading-relaxed",
-            error !== null ? "text-brand-hi" : "text-ink-mid",
+            error !== null ? "text-danger-hi" : "text-ink-mid",
           )}
           data-testid="item-sheet-message"
         >
@@ -567,7 +569,7 @@ export function ItemSheet({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="bg-brand notch-card font-display focus-ring-inset h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
+            className="bg-brand font-display focus-ring-inset h-12 flex-1 text-base font-semibold tracking-[0.1em] text-white uppercase shadow-e1 disabled:opacity-50"
             data-testid="item-save"
           >
             {saving ? "Saving…" : "Save changes"}
@@ -585,7 +587,8 @@ export function ItemSheet({
             onClick={() => {
               if (item !== null) onRequestDelete(item);
             }}
-            className="border-hairline text-ink-mid font-display focus-ring h-11 w-full rounded-sm border bg-transparent text-[11px] font-semibold tracking-[0.18em] uppercase"
+            // VT323, not Silkscreen — below the 16px floor FR-034 sets for the display face.
+            className="border-hairline text-ink-mid focus-ring h-11 w-full rounded-sm border bg-transparent text-xs font-semibold tracking-[0.1em] uppercase"
             data-testid="item-delete"
           >
             Delete item
@@ -625,7 +628,8 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="font-display text-ink-mid mb-1.5 block text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+        // VT323, not Silkscreen — below the 16px floor FR-034 sets for the display face.
+        className="text-ink-mid mb-1.5 block text-xs leading-none font-semibold tracking-[0.1em] uppercase"
       >
         {label}
       </label>
@@ -654,8 +658,9 @@ function GroupLabel({
     <span
       id={id}
       className={cn(
-        "font-display mb-1.5 block text-[10px] leading-none font-semibold tracking-[0.2em] uppercase",
-        invalid ? "text-brand-hi" : "text-ink-mid",
+        // VT323, not Silkscreen — below the 16px floor FR-034 sets for the display face.
+        "mb-1.5 block text-xs leading-none font-semibold tracking-[0.1em] uppercase",
+        invalid ? "text-danger-hi" : "text-ink-mid",
       )}
     >
       {children}

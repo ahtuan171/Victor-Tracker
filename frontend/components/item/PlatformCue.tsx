@@ -37,7 +37,9 @@ export function PlatformCue({
       data-platform={cue.platform}
       data-testid="platform-cue"
       className={cn(
-        "font-display text-ink-mid flex-none text-center font-semibold",
+        // VT323 (font-sans, the default), not Silkscreen — FR-034 forbids the display face below
+        // 16px, and every one of these badges is smaller than that.
+        "text-ink-mid flex-none text-center font-semibold",
         BADGE[size],
         className,
       )}
@@ -53,7 +55,9 @@ export function PlatformCue({
  * whose line-height centres the glyph without a flex context.
  */
 const BADGE: Readonly<Record<CueSize, string>> = {
-  micro: "text-[9px] leading-none",
-  peek: "border-hairline size-[18px] rounded-sm border text-[10px] leading-4",
-  full: "border-hairline size-5 rounded-sm border text-[11px] leading-[18px]",
+  // 12px is the FR-033 floor (nothing anywhere renders below it); the box in `peek`/`full` grows by
+  // 2px each over the outgoing sizes to keep the now-larger glyph from crowding its border.
+  micro: "text-xs leading-none",
+  peek: "border-hairline size-5 rounded-sm border text-xs leading-[18px]",
+  full: "border-hairline size-6 rounded-sm border text-xs leading-[22px]",
 };
