@@ -26,6 +26,7 @@ from datetime import date, datetime
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -64,6 +65,19 @@ class Platform(StrEnum):
     TIKTOK = "tiktok"
     INSTAGRAM = "instagram"
     YOUTUBE = "youtube"
+
+
+class Theme(StrEnum):
+    """FR-010, FR-011, FR-012 (iteration 002). Exactly two values.
+
+    `dark` is what an account has before anyone chooses (FR-012) — the column default, not a null.
+    `data-model.md` explains why the column is `NOT NULL` with a default rather than nullable:
+    nothing in the product ever needs to distinguish "never chosen" from "chosen, and happens to be
+    the default".
+    """
+
+    DARK = "dark"
+    LIGHT = "light"
 
 
 STATUS_ORDER: tuple[Status, ...] = (Status.IDEA, Status.DRAFT, Status.POSTED)
@@ -113,6 +127,22 @@ class Creator(SQLModel, table=True):
     password_hash: str = Field(sa_column=Column(String(255), nullable=False))
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    )
+
+    # 002-pixel-arcade-skin, data-model.md: the account's presentation and sound choices. Both
+    # `NOT NULL` with a default rather than nullable — see that file for why a third "never chosen"
+    # state would add a value no requirement ever reads.
+    theme: Theme = Field(
+        default=Theme.DARK,
+        sa_column=Column(
+            _pg_enum(Theme, "theme"),
+            nullable=False,
+            server_default=Theme.DARK.value,
+        ),
+    )
+    sound_enabled: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default=text("false")),
     )
 
 
