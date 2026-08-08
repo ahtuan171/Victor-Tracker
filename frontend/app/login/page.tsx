@@ -15,7 +15,7 @@ import { LoginForm } from "./login-form";
  * ask for, and `/` (T026) is what owns "where does a signed-in creator belong".
  */
 export const metadata: Metadata = {
-  title: "Sign in · CreatorHub",
+  title: "Sign in · VictorHub",
 };
 
 export default function LoginPage() {

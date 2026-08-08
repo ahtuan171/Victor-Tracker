@@ -75,7 +75,7 @@ test.describe("status cues", () => {
   test("no cue carries a colour literal", () => {
     // `app/globals.css` is the only file in this project allowed to contain a colour. A hex reaching
     // this module would be a project-wide design decision taken in a mapping file — the design export
-    // establishes the tokens for all four CreatorHub modules, not just this one.
+    // establishes the tokens for all four VictorHub modules, not just this one.
     const classNames = STATUSES.flatMap((status): string[] => {
       const cue: StatusCue = statusCue(status);
       return [cue.borderClass, cue.fillClass, cue.textClass];

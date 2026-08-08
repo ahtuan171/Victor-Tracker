@@ -78,7 +78,7 @@ succeeds rather than deadlocking.
 previously expected an empty body, on the reasoning that "the redirect happens before markup is
 generated". That reasoning is right about *content* and wrong about the envelope: Next 16.2.12 answers
 a server-component `redirect()` with a 307 carrying a ~6–7 KB `__next_error__` document — the route's
-static metadata (`<title>Calendar · CreatorHub</title>`, the layout's description) and its script
+static metadata (`<title>Calendar · VictorHub</title>`, the layout's description) and its script
 preloads, and nothing else. **Both `next dev` and `next start` do this**; the production bundle is not
 the empty-bodied case an earlier note in `frontend/AGENTS.md` claimed. The page component never runs,
 so nothing derived from the creator's data is in it.

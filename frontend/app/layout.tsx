@@ -32,7 +32,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CreatorHub",
+  title: "VictorHub",
   description: "Content calendar for a single creator.",
 };
 

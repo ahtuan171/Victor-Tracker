@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to CreatorHub are recorded here. The format follows
+All notable changes to VictorHub are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 This project ships one module per iteration, each restarting the full eight-stage workflow with its
 own `spec.md`. **The product pivoted after v0.1**: it is now a personal travel memory map, not a
-content-creator brand operating system. The name "CreatorHub" is retained for infrastructure reasons
+content-creator brand operating system. The name "VictorHub" is retained for infrastructure reasons
 and no longer describes what is built here.
 
 ## [Unreleased]
@@ -165,7 +165,7 @@ Accepted for a single-user tool at v0.1, each with the trigger that would make i
 - **A leaked token cannot be revoked.** Reissue-on-use plus no denylist means a token that escapes
   grants indefinite access rather than at most 30 days. Sign-out clears the cookie and ends the
   session from the browser's point of view, but the token stays valid until expiry. This is the first
-  thing to revisit if CreatorHub ever serves a second person.
+  thing to revisit if VictorHub ever serves a second person.
 - **Last write wins, silently.** No version marker and no conflict branch (FR-023a). The only person
   who can be overwritten is the creator, from their own second window.
 - **Nothing pushes updates to an open view.** A second device's change appears on the next load.

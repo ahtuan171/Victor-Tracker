@@ -225,7 +225,7 @@ and the note at the bottom of `tasks.md`; no task from T018 to T070 needs a git 
 export. But "does not block implementation" was hiding a cost that grows, so:
 
 - **`glab` 1.110.0 installed.** Not in `Program Files` — path is in `CLAUDE.local.md`. Not authenticated.
-- **Claude Design project created** — `CreatorHub Design System`, through `DesignSync create_project`
+- **Claude Design project created** — `VictorHub Design System`, through `DesignSync create_project`
   rather than by hand, because project type is immutable at creation. It is empty.
 - **`design/content-calendar/BRIEF.md` written** — the constraints the export must respect, the exact
   surface list, and the data-shape audit checklist, derived from `data-model.md`'s "Not present" table.
@@ -646,14 +646,14 @@ that assumes a real session, so the first hand-verified sign-in has to happen be
 ## Stage 2 — the design export lands, and the audit runs
 
 **2026-08-01.** The export arrived as a shared link to a claude.ai *design canvas*, and the first
-useful discovery was that it is **not in the `CreatorHub Design System` project** created at stage 2
+useful discovery was that it is **not in the `VictorHub Design System` project** created at stage 2
 groundwork (`756a66ad-…`, still empty). It lives in a regular project, `32445b82-…`
 ("Thiết kế v0.1 hoàn thành"). `DesignSync` read it anyway — `get_file` does not require a
 design-system project type; only pushing a component library back would. Nothing was lost, but the
 project-type decision recorded in `CLAUDE.md`'s Decisions table turned out to protect a workflow this
 export never used.
 
-One file, `CreatorHub-Content-Calendar.dc.html`, 203KB, carrying **both** turns: dark at panels
+One file, `VictorHub-Content-Calendar.dc.html`, 203KB, carrying **both** turns: dark at panels
 `1a`–`1l` and a light counterpart at `2a`–`2l`. All eleven surfaces the brief asked for are present,
 each drawn at 375px.
 

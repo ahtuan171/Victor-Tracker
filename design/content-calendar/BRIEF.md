@@ -6,7 +6,7 @@ The input to the Claude Design export, and the checklist the export must pass be
 The export itself lands in this directory alongside screenshots. It is a **starting point, not a
 drop-in** (`.claude/rules/design.md`).
 
-> Content Calendar establishes the colour, spacing, and type tokens for **all four** CreatorHub
+> Content Calendar establishes the colour, spacing, and type tokens for **all four** VictorHub
 > modules. Later modules consume these; they do not introduce competing ones. Decisions here are
 > effectively project-wide.
 
@@ -110,10 +110,10 @@ ran are indistinguishable unless the outcome is recorded. Append findings to the
 
 **2026-08-01 — export received, audit run, result: CLEAN. No spec amendment required.**
 
-Export: `CreatorHub-Content-Calendar.dc.html` (one Claude Design canvas, two turns — dark at `1a`–`1l`,
+Export: `VictorHub-Content-Calendar.dc.html` (one Claude Design canvas, two turns — dark at `1a`–`1l`,
 light counterpart at `2a`–`2l`). Pulled with `DesignSync get_file` from project
 `32445b82-32e5-4ac4-86d3-4fcc885a5484` ("Thiết kế v0.1 hoàn thành") — **not** the empty
-`CreatorHub Design System` project recorded in `CLAUDE.md`. `support.js` is the canvas runtime, kept
+`VictorHub Design System` project recorded in `CLAUDE.md`. `support.js` is the canvas runtime, kept
 so the file renders offline.
 
 ### Coverage — all eleven surfaces present, at 375px

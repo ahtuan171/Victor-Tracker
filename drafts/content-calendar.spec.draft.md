@@ -1,6 +1,6 @@
 # Feature Spec (draft): Content Calendar
 
-**Iteration:** v0.1 — the first module of CreatorHub.
+**Iteration:** v0.1 — the first module of VictorHub.
 **Contains no technology decisions.** Those belong in `plan.md`.
 
 ## Problem
@@ -73,7 +73,7 @@ TikTok only and sees just those items.
 - Recurring or templated content series.
 - Notifications and reminders.
 - Multiple users, sharing, or collaboration.
-- The other three CreatorHub modules.
+- The other three VictorHub modules.
 
 ## Open questions for `/speckit.clarify`
 
