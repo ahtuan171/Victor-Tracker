@@ -358,12 +358,13 @@
  *
  * **Re-derived at T008 (002), and the old fixed list of two cases is deliberately not carried over.**
  * Both of 001's cases — `.notch-card`'s `clip-path`, and the view toggle's `overflow-hidden`
- * wrapper — belonged to the outgoing visual language, and `.notch-card`/`.notch-sheet` are going
- * away as each surface using them gets restyled in Phase 3, not in this task. Writing a fixed list
- * here would either go stale the moment the first surface changes shape, or (worse) survive as
- * plausible-looking documentation for a case that no longer exists.
+ * wrapper — belonged to the outgoing visual language. `.notch-card`/`.notch-sheet` are now gone
+ * entirely (Phase 3 dropped every surface's usage, `/login`'s included, as the last holdout) and
+ * removed from this file below. Writing a fixed list here would either go stale the moment the first
+ * surface changes shape, or (worse) survive as plausible-looking documentation for a case that no
+ * longer exists.
  *
- * So the rule going forward: **whichever Phase 3 task gives a control a shape that clips its own
+ * So the rule going forward: **whichever future task gives a control a shape that clips its own
  * outline reaches for this class**, and `focus-states.spec.ts`'s pixel-comparison tests — not the
  * computed-style sweep, which cannot see a clip — are what catch it if a task forgets. The mechanism
  * is unchanged from 001: `outline`, never a `ring-*` box-shadow, kept for the same red-on-red reason
@@ -371,20 +372,12 @@
  * of on a surface a clip would remove; ink rather than brand colour so it still reads on the
  * unselected half of a toggle group, which is never brand-filled.
  *
- * Use `.focus-ring` by default. Reach for this only when something clips the control's own box.
+ * Use `.focus-ring` by default. Reach for this only when something clips the control's own box —
+ * today that is the period-nav view toggle's `overflow-hidden` wrapper, and nothing else.
  */
 .focus-ring-inset:focus-visible {
   outline: 2px solid var(--ch-ink-hi);
   outline-offset: -4px;
-}
-
-/* Angular panel treatment — clipped corners, not uniform pill radii. */
-.notch-card {
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
-}
-
-.notch-sheet {
-  clip-path: polygon(0 18px, 18px 0, 100% 0, 100% 100%, 0 100%);
 }
 
 /*

@@ -386,10 +386,13 @@ export function CalendarShell() {
          */}
         <main className="min-h-0 flex-1 overflow-y-auto" aria-busy={status === "loading"}>
           {status === "error" ? (
+            // `border-danger-hi`/`text-danger-hi`, not `brand` (002): brand is chrome-only now that
+            // the accent split into cyan (chrome) and a dedicated danger red for errors/refusals —
+            // the same fix T015/T021/T022 applied to this surface's other error states.
             <p
               id="calendar-error"
               role="alert"
-              className="border-brand-hi bg-brand-sunk text-ink m-4 border-l-4 px-3 py-2 text-sm"
+              className="border-danger-hi text-danger-hi m-4 border-l-4 px-3 py-2 text-sm"
             >
               {error}
             </p>

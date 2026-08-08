@@ -97,15 +97,18 @@ export function DayCell({
       ))}
 
       {hidden > 0 ? (
-        // 002 T017: 8px broke FR-033 outright. text-xs (12px) needs a touch more box than the
-        // original h-3.5 (14px) comfortably gives it, so the button grows to h-4 (16px) -- the
-        // smallest bump that stops the text clipping. Height is otherwise unchanged (FR-003): this
-        // is the one place the restyle has to nudge a dimension rather than only recolour/refont it,
-        // because FR-033 is not optional here.
+        // 002 T017 bumped 14px -> 16px to stop FR-033's 12px text floor clipping, but left the
+        // control itself under FR-006's 44px tap-target floor — a real `<button>`, unlike the two
+        // chips beside it, whose own 44px exemption is documented and this one never was (found at
+        // the Phase 3 checkpoint's reviewer pass). Bumped to h-11 (44px) here rather than documenting
+        // an exception: this is genuinely "a control a person taps" in FR-006's sense, the cost is a
+        // taller cell only on the rare day that actually overflows two chips, and the cell already
+        // grows in place for `expanded` — this is the same shape of growth, just from a taller
+        // trigger rather than more chips.
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-4 rounded-sm border text-xs leading-none font-semibold"
+          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-11 rounded-sm border text-xs leading-none font-semibold"
           data-testid="day-overflow"
         >
           +{hidden} more

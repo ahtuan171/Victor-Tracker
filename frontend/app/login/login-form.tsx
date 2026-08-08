@@ -144,7 +144,7 @@ export function LoginForm() {
           </h1>
         </div>
 
-        <div className="notch-sheet border-hairline bg-surface-1 shadow-e2 border-t px-6 pt-6 pb-8">
+        <div className="border-hairline bg-surface-1 shadow-e2 border-t px-6 pt-6 pb-8">
           {/* Native validation is left on: `required` plus `type="email"` is free, localised, and
               already the behaviour a phone browser gives. The backend still validates.
 
@@ -226,7 +226,7 @@ export function LoginForm() {
 
             <Button
               type="submit"
-              className="notch-card font-display focus-ring-inset shadow-e1 mt-1 h-[52px] w-full rounded-none text-base font-semibold tracking-[0.18em] uppercase"
+              className="font-display focus-ring shadow-e1 mt-1 h-[52px] w-full rounded-none text-base font-semibold tracking-[0.18em] uppercase"
               // `!hydrated` disables the one tap that could submit this form natively. The label is
               // deliberately unchanged: the window is short, and a creator who sees "Sign in" go
               // briefly inactive on a cold load learns nothing useful from a different word.
