@@ -22,14 +22,13 @@ Sections removed: none.
 
 Deferred TODOs: none. All placeholder tokens remain replaced.
 
-Note on the project name: "CreatorHub" is retained across this document, the repository, the GitLab
-project, both deploy targets and the GitHub mirror. The name no longer describes the product.
-Changing it would touch the project path, the git remotes, the mirror URL and two deployed services
-in exchange for something purely cosmetic, so it is recorded as deferred in `.claude/memory.md`
-with a trigger rather than done here.
+Note on the project name: the brand text is "VictorHub" as of 2026-08-08. The repository path, the
+GitLab project, both deploy targets and the GitHub mirror still say "creator-hub" — renaming those
+touches the project path, the git remotes, the mirror URL and two deployed services, so that part is
+tracked as a separate manual pass in `.claude/memory.md` rather than done here.
 -->
 
-# CreatorHub Constitution
+# VictorHub Constitution
 
 ## Core Principles
 

@@ -38,7 +38,7 @@ import { hasSessionCookie, sessionCookieName } from "@/lib/session";
  * switched on in the same commit.
  */
 export const metadata: Metadata = {
-  title: "Calendar · CreatorHub",
+  title: "Calendar · VictorHub",
 };
 
 export default async function CalendarPage() {

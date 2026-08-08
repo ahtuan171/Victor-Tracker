@@ -1,13 +1,13 @@
-# Claude Design prompt — CreatorHub Content Calendar v0.1
+# Claude Design prompt — VictorHub Content Calendar v0.1
 
-Paste the block below into the `CreatorHub Design System` project at claude.ai/design.
+Paste the block below into the `VictorHub Design System` project at claude.ai/design.
 Derived mechanically from `BRIEF.md`; if the two ever disagree, `BRIEF.md` wins.
 
 ---
 
 ## 1. What you are designing
 
-**CreatorHub** is a personal brand operating system for a single content creator. Version 0.1 ships
+**VictorHub** is a personal brand operating system for a single content creator. Version 0.1 ships
 exactly one module: a **Content Calendar**. One person uses it, on a phone, one-handed, between
 shoots — to capture an idea in seconds, park it in a backlog, drag it onto a date, and advance it
 `idea → draft → posted`.
@@ -16,7 +16,7 @@ It is a working tool, not a marketing site. Every screen is judged by how fast a
 can act on it.
 
 This design system establishes the colour, spacing, and type tokens for **all four** future
-CreatorHub modules. Later modules consume these tokens; they never introduce competing ones.
+VictorHub modules. Later modules consume these tokens; they never introduce competing ones.
 
 ## 2. Visual direction
 

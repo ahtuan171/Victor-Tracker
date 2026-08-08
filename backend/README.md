@@ -1,4 +1,4 @@
-# CreatorHub — backend
+# VictorHub — backend
 
 FastAPI + SQLModel + Alembic on PostgreSQL, managed with [`uv`](https://docs.astral.sh/uv/). Serves
 the Content Calendar API for v0.1: authentication and CRUD over content items.

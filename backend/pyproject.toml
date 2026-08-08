@@ -1,7 +1,7 @@
 [project]
-name = "creatorhub-backend"
+name = "victorhub-backend"
 version = "0.1.0"
-description = "CreatorHub Content Calendar API"
+description = "VictorHub Content Calendar API"
 requires-python = ">=3.13"
 
 dependencies = [

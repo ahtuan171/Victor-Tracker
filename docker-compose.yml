@@ -1,4 +1,4 @@
-# CreatorHub v0.1 — local development only.
+# VictorHub v0.1 — local development only.
 #
 # Production is Render (backend) + Vercel (frontend), both of which build from source; neither reads
 # this file. That is why there are no Dockerfiles here: the services run the official base images with
@@ -7,7 +7,7 @@
 #
 # Copy .env.example to .env before the first run.
 
-name: creatorhub
+name: victorhub
 
 services:
   db:

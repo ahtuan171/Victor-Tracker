@@ -4,10 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * CreatorHub design tokens — stage 2.
+ * VictorHub design tokens — stage 2.
  *
  * These values come from the Claude Design export in `design/content-calendar/`
- * (`CreatorHub-Content-Calendar.dc.html`, panels `1a` dark / `2a` light). They replace the
+ * (`VictorHub-Content-Calendar.dc.html`, panels `1a` dark / `2a` light). They replace the
  * placeholder shadcn palette that used to live here, which this file always described as provisional
  * and disposable for exactly this moment.
  *
@@ -20,7 +20,7 @@
  *      and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour here
  *      cannot break FR-017, and no component may start depending on hue to say what a status is.
  *
- * Content Calendar establishes the tokens for all four CreatorHub modules (`.claude/rules/design.md`).
+ * Content Calendar establishes the tokens for all four VictorHub modules (`.claude/rules/design.md`).
  * Later modules consume these; they do not introduce competing ones.
  *
  * Chart and sidebar tokens stay absent on purpose — v0.1 has neither surface, and tokens for
@@ -169,7 +169,7 @@
   --color-ring: var(--ring);
 
   /*
-   * The CreatorHub names, exposed as Tailwind colours so the surfaces built from T033 onward can say
+   * The VictorHub names, exposed as Tailwind colours so the surfaces built from T033 onward can say
    * `bg-surface-1`, `text-ink-mid`, `border-hairline`, `text-status-draft` rather than re-deriving a
    * hex per component. This is the half of the token layer those tasks actually consume.
    */

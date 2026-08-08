@@ -5,16 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Status as of 2026-08-05: **the product has pivoted. v0.1.0 is tagged; v0.2 is a travel map.**
 
 **Read this before anything else, because most of this file describes v0.1 and v0.1 is no longer what
-this product is.** The constitution was amended to **2.0.0** on 2026-08-05: CreatorHub is now a
+this product is.** The constitution was amended to **2.0.0** on 2026-08-05: VictorHub is now a
 **personal travel memory map** — a world map of places visited and places wanted, where a visited pin
 opens the photographs and notes kept against it. The three unbuilt creator modules (Growth Tracker,
 Media Kit Generator, Deal/Collab Tracker) are **cancelled**, not deferred.
 
-**The name did not change and does not describe the product.** The repository, the GitLab project,
-both deploy targets and the GitHub mirror all still say "CreatorHub". Renaming touches the project
-path, the remotes, the mirror URL and two live services in exchange for something purely cosmetic, so
-it is deferred with a trigger in `.claude/memory.md`. Do not be misled by it, and do not rename it on
-your own initiative.
+**The product's brand text is now "VictorHub" (renamed 2026-08-08); the live infrastructure is not,
+yet.** Every user-facing string, doc and comment was renamed in one MR
+(`chore/rename-victorhub`). The GitLab project path, `origin`, the GitHub mirror and the Render/
+Vercel service names/URLs **still say "creator-hub"** — renaming those touches two live deployments
+and a mirror with force-push semantics, so it is a separate, manual pass with its own runbook
+(`.claude/memory.md`, Deferred). Do not assume the live URLs changed until that pass is done, and do
+not rename the remaining infrastructure on your own initiative without walking the runbook.
 
 **Content Calendar survives, unchanged, as a secondary surface.** It is 271 backend and 432 frontend
 tests of working software; rewriting `content_item` into a trip itinerary would destroy most of that
@@ -144,8 +146,8 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `docker-compose.yml`, `.env.example`, `scripts/init-test-db.sql` | Written. `db` and `backend` services **both verified** — Postgres 17.10 healthy, `creatorhub_test` created by the init script, and the backend serving `/health`. `pnpm dev` plus the proxy were verified end to end against those two at T022. The compose `frontend` service now has real pages to serve as of T025–T027, but has not been run. |
 | `.gitlab-ci.yml` | **Green end to end**, and it gates every merge: `build → test → review` all pass; both `deploy` jobs are `manual` per tech-defaults and **live since T071** — hook variables set, both fired for real. They still fail loudly if a hook variable goes missing. `test:e2e` runs against `pnpm start` (the production bundle) because `playwright.config.ts` branches on `CI` — so **CI has never had the dev overlay**. The `test:backend` gap is **closed by evidence**: the job runs `uv run pytest` with no `alembic upgrade head`, and the T017 harness demonstrably migrates an empty service container itself — so **do not add a migration step**; two racing is worse than neither. **Runs on a project-owned runner** since 2026-08-03; see `CLAUDE.local.md`. |
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
-| `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `CreatorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
-| Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `CreatorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
+| `design/` | **Stage 2 is done.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `VictorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). |
+| Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `VictorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
 | `docs/` | Does not exist. Correct — **T076** creates it (`retro-01.md`). `CHANGELOG.md` (T074) is at the repo root, not here. |
 | GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **Every task since T025 has merged through an MR behind a green pipeline — !1 through !50**, covering T025–T070 plus T073, T075, T077, the phase checkpoints and the docs sweeps. **Pipelines run on a project-owned runner** since 2026-08-03, after the free-tier quota ran out; the gate was never relaxed. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
@@ -332,7 +334,7 @@ The binary's path is non-standard and not on the PATH of a shell that predates t
 
 A **personal travel memory map** for one person. A world map carrying two kinds of pin — places
 visited and places wanted — where tapping a visited pin opens the photographs, notes and experiences
-kept against it. Still named CreatorHub for infrastructure reasons; see the status section.
+kept against it. Still named VictorHub for infrastructure reasons; see the status section.
 
 **v0.2 ships the Travel Map only.** Its one capability, in the sense constitution III means, is the
 map itself. Content Calendar rides along from v0.1 as a secondary scheduling surface behind the

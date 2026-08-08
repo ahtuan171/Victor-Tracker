@@ -1,14 +1,14 @@
-# CreatorHub
+# VictorHub
 
 Run it locally, look at it, and give feedback. That is what this file is for — if you want to
 *change* the code, read [`backend/README.md`](backend/README.md) and
 [`frontend/README.md`](frontend/README.md) instead, and the agent guidance in
 [`CLAUDE.md`](CLAUDE.md).
 
-> **The name does not describe the product any more.** The repository, the GitLab project, both
-> deploy targets and the GitHub mirror all still say "CreatorHub". The product is pivoting to a
-> personal travel memory map; renaming would mean re-pointing two live deployments and a mirror for
-> something purely cosmetic, so it is deliberately deferred.
+> **Renamed to VictorHub in text and UI (2026-08-08); the live infrastructure has not caught up
+> yet.** The repository path, the GitLab project, both deploy targets and the GitHub mirror still say
+> "creator-hub" — renaming those means re-pointing two live deployments and a mirror, so that part is
+> a separate, manual pass (see `.claude/memory.md`).
 
 ## What actually exists right now
 

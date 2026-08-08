@@ -57,7 +57,7 @@ one merge that predates even the local branch-per-task convention.
 
 **2026-08-01 — stage 2 is closed, and the export is not where the earlier decision expected it.**
 The design lives in claude.ai project `32445b82-32e5-4ac4-86d3-4fcc885a5484`, a **regular** project —
-not the `CreatorHub Design System` project created at stage-2 groundwork specifically so its type
+not the `VictorHub Design System` project created at stage-2 groundwork specifically so its type
 would be right. That project is still empty. Nothing was lost: `DesignSync get_file` reads a regular
 project fine, and the project-type decision only ever protected *pushing a component library back*,
 which this export never needed. Keep the `create_project` reasoning in `CLAUDE.md`'s Decisions table —
@@ -111,7 +111,7 @@ One thing the split cost: the worktree has no `.env` of its own and `app/config.
 without one, so an agent working in `backend/` there has to copy the root file in. Worth saying in the
 prompt rather than letting it discover this.
 
-**2026-08-05 — the product pivoted, and the constitution went to 2.0.0 to say so.** CreatorHub is now
+**2026-08-05 — the product pivoted, and the constitution went to 2.0.0 to say so.** VictorHub is now
 a personal travel memory map: a world map of places visited and places wanted, a visited pin opening
 the photographs and notes kept against it. Growth Tracker, Media Kit Generator and Deal/Collab
 Tracker are **cancelled**, not deferred — do not treat them as a backlog.
@@ -267,13 +267,26 @@ where the backend file does not load.
 
 ## Deferred
 
-**2026-08-05 — renaming the project away from "CreatorHub".** The name stopped describing the product
-at the 2.0.0 amendment and was deliberately left alone. It appears in the repository, the GitLab
-project path, `origin`, the GitHub mirror URL, the Render and Vercel service names, and every
-document — so changing it means re-pointing two live deployments and a mirror for something purely
-cosmetic, with the mirror's force-push semantics in the middle of it. **Trigger for picking it up**:
-a second person is given access, or the product is shown publicly. Do it as its own iteration with
-the deployment steps written down first, never as a side quest inside a feature branch.
+**2026-08-05, superseded 2026-08-08 — renaming the project away from "CreatorHub".** The name
+stopped describing the product at the 2.0.0 amendment and was deliberately left alone for the
+reasons below, until the owner asked for the rename explicitly on 2026-08-08.
+
+**Tier 1 is done as of 2026-08-08**: every brand-text occurrence of "CreatorHub" in documentation,
+UI strings, page titles and comments is now "VictorHub", the `docker-compose.yml` project name is
+`victorhub`, and the backend package name is `victorhub-backend` — all through a single MR
+(`chore/rename-victorhub`), gated by the usual pipeline. **Deliberately left unchanged**: the local
+Postgres user/database defaults (`creatorhub` / `creatorhub_test`), the session/theme cookie names
+(`ch_session`, `ch_theme`) — none of these are user-visible, and changing them buys nothing while
+risking a live session or a stray Docker volume.
+
+**Tier 2 is still open**: the GitLab project path (`origin` = `.../creator-hub`), the GitHub mirror,
+and the Render/Vercel service names/URLs (`creator-hub-1dgs.onrender.com`,
+`creator-hub-hazel.vercel.app`) all still say the old name, because each is a **live** system that
+this session cannot safely change unattended — renaming touches remotes, mirror force-push
+semantics, and possibly the live URLs themselves. The runbook (order: GitHub mirror → GitLab
+push-mirror config → GitLab project path → `origin` → Render → Vercel → re-walk `t072-walk.mjs` →
+update docs with final URLs) is recorded in the rename plan from that session; do it as its own pass
+whenever dashboard access is available, not as a side quest inside a feature branch.
 
 **2026-08-05 — retargeting `content_item` from content pipeline to trip itinerary.** Content Calendar
 survives the pivot unchanged, behind the nav drawer. Its `platform`, `status` and `published_url`
