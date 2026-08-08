@@ -98,16 +98,20 @@ the bottom half. Sign-out does not, deliberately (FR-017).
 
 ## V4 — Text is readable *(SC-014, FR-032, FR-033, FR-034)*
 
-**Expect**: content text at 18px (research R-001 sets it there, above FR-032's 16px floor, because
-VT323's x-height is 21% under the Barlow it replaces); nothing anywhere below 12px; and nothing below
-16px set in the display face.
+**Expect**: content text at **20px** — decided at T004 (2026-08-08), from a real side-by-side of 18px
+and 20px in the actual VT323 file on a real day-cell shape, not from this walk. 20px is where VT323's
+x-height matches the outgoing Barlow's exactly; 18px was screenshotted alongside it and rejected. Also
+expect nothing anywhere below 12px, and nothing below 16px set in the display face.
 
 Read an item title in a month-grid day cell — the ~53px cell is where legibility dies first. Read the
 ticker. Read the smallest label you can find inside the frame.
 
-**This is the scenario where the owner decides whether 18px is enough.** R-001 records 20px as the
-fallback, at a cost in vertical space the month grid's two-chip cap feels first. Deciding it here, from
-a real screen, is much cheaper than deciding it after eleven surfaces are drawn.
+**This step verifies 20px reads well across the real, restyled surfaces — it is not where the size is
+chosen.** That decision is closed (`research.md` R-001, `tasks.md` T004). What is still worth watching
+here: 20px costs more vertical space than either the 18px estimate or the original 20px estimate this
+line used to compare against, and it is heavier than the number the month grid's six-row arithmetic was
+last checked against at T017. If a day cell or the grid's six-row span looks cramped at 20px, that is a
+real finding to raise — just not a size decision to make.
 
 ---
 
