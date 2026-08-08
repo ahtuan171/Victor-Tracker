@@ -97,22 +97,25 @@ export function CaptureSheet({
         // and a second dismissal affordance in the corner is a 44px tap target competing with the
         // one field on screen.
         showCloseButton={false}
-        className="notch-sheet bg-surface-1 border-hairline gap-0 p-0 shadow-e2"
+        // `notch-sheet` dropped (002 T021) — sharp-cornered chrome, matching the other overlays.
+        className="bg-surface-1 border-hairline gap-0 p-0 shadow-e2"
         aria-describedby={errorId}
       >
         <div className="flex items-center gap-2.5 px-4 pt-4">
           {/* Decorative grip, straight from the export. Hidden from assistive tech — it affords
               nothing here, because this sheet is not draggable. */}
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
-          <SheetTitle className="font-display text-ink text-[13px] leading-none font-semibold tracking-[0.18em] uppercase">
+          {/* 002 T021: dropped font-display (13px broke FR-034). */}
+          <SheetTitle className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
             Capture idea
           </SheetTitle>
         </div>
 
         <div className="px-4 pt-3.5">
+          {/* 002 T021: dropped font-display, 10px -> the 12px floor. */}
           <label
             htmlFor={titleId}
-            className="font-display text-ink-mid mb-2 block text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+            className="text-ink-mid mb-2 block text-xs leading-none font-semibold tracking-[0.2em] uppercase"
           >
             Title
           </label>
@@ -145,9 +148,11 @@ export function CaptureSheet({
           <SheetDescription
             id={errorId}
             role={error !== null ? "alert" : undefined}
+            // `text-danger-hi`, not `text-brand-hi` (002 T021): brand is chrome-only now that the
+            // accent split into cyan (chrome) and a dedicated danger red for errors/refusals.
             className={
               error !== null
-                ? "text-brand-hi mt-2 text-xs leading-relaxed"
+                ? "text-danger-hi mt-2 text-xs leading-relaxed"
                 : "text-ink-mid mt-2 text-xs leading-relaxed"
             }
           >
@@ -161,21 +166,26 @@ export function CaptureSheet({
         </div>
 
         <div className="flex gap-2.5 px-4 pt-4 pb-4.5">
+          {/* 002 T021: dropped font-display (12px broke FR-034). */}
           <button
             type="button"
             onClick={close}
-            className="border-hairline text-ink-mid font-display focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline text-ink-mid focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase"
           >
             Cancel
           </button>
 
+          {/*
+           * 002 T021: dropped font-display (14px broke FR-034) and notch-card (sharp-cornered
+           * chrome; it was the reason this needed focus-ring-inset instead of the plain outset ring).
+           */}
           <button
             type="button"
             onClick={() => void save()}
             // Disabled on an empty title rather than validated on submit: the button is the answer
             // to "is this saveable yet", and a submit that bounces is a worse answer.
             disabled={trimmed === "" || saving}
-            className="bg-brand notch-card font-display focus-ring-inset h-12 flex-1 text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
+            className="bg-brand focus-ring h-12 flex-1 rounded-none text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
             data-testid="capture-save"
           >
             {saving ? "Saving…" : "Save to backlog"}
