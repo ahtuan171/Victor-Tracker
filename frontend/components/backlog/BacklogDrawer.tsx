@@ -154,8 +154,9 @@ function PeekStrip({
     <section
       ref={setNodeRef}
       aria-label="Backlog"
+      // `notch-sheet` dropped (002 T020) — sharp-cornered chrome, matching the capture buttons.
       className={cn(
-        "border-hairline bg-surface-1 notch-sheet relative border-t shadow-e2",
+        "border-hairline bg-surface-1 relative border-t shadow-e2",
         isOver && "bg-brand-sunk ring-brand ring-2 ring-inset",
       )}
       data-over={isOver ? "" : undefined}
@@ -172,13 +173,15 @@ function PeekStrip({
         className="border-hairline focus-ring flex min-h-11 w-full items-center gap-2.5 border-b px-4 py-3 text-left"
         data-testid="backlog-toggle"
       >
+        {/* 002 T020: dropped `font-display` from both labels below (12px/10px broke FR-034), and
+            raised "Collapse"/"Expand" from 10px to the 12px floor. */}
         <span className="bg-ink-lo/50 h-[3px] w-[34px] flex-none rounded-sm" aria-hidden="true" />
-        <span className="font-display text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
+        <span className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
           Backlog
         </span>
         <BacklogCount count={backlog.length} />
         <span className="flex-1" />
-        <span className="font-display text-brand-hi text-[10px] leading-none font-semibold tracking-[0.16em] uppercase">
+        <span className="text-brand-hi text-xs leading-none font-semibold tracking-[0.16em] uppercase">
           {expanded ? "Collapse" : "Expand"}
         </span>
       </button>
@@ -195,8 +198,9 @@ function PeekStrip({
           {!hiddenByFilter ? (
             <>
               {/* The export's first-run copy. It names the capture action because T035 asks the
-                  empty state to point at it, and because "empty" alone reads as something broken. */}
-              Empty. Everything you capture starts here — tap <b className="text-ink">+ Capture</b>.
+                  empty state to point at it, and because "empty" alone reads as something broken.
+                  "+ New" (002 T020), matching the action band's own label since T016. */}
+              Empty. Everything you capture starts here — tap <b className="text-ink">+ New</b>.
             </>
           ) : (
             <>
@@ -282,7 +286,8 @@ function ExpandedBacklog({
         aria-label="Backlog"
         // `top-32` leaves the period header visible, which is what stops the expanded drawer reading
         // as a different screen — R-003a's whole point is that this is one surface.
-        className="border-hairline bg-surface-1 notch-sheet absolute inset-x-0 top-32 bottom-0 z-20 flex flex-col border-t shadow-e2"
+        // `notch-sheet` dropped (002 T020), same reason as the peek strip above.
+        className="border-hairline bg-surface-1 absolute inset-x-0 top-32 bottom-0 z-20 flex flex-col border-t shadow-e2"
         data-testid="backlog-expanded"
       >
         <header className="border-hairline border-b px-4 pt-4 pb-3">
@@ -291,13 +296,15 @@ function ExpandedBacklog({
               className="bg-ink-lo/50 h-[3px] w-[34px] flex-none rounded-sm"
               aria-hidden="true"
             />
-            <span className="font-display text-ink text-[13px] leading-none font-semibold tracking-[0.18em] uppercase">
+            {/* 002 T020: dropped font-display (13px broke FR-034). */}
+            <span className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
               Backlog
             </span>
             <BacklogCount count={backlog.length} />
           </div>
 
-          <p className="text-ink-lo mt-2 text-[11px] leading-snug">
+          {/* 002 T020: 11px -> the 12px floor. */}
+          <p className="text-ink-lo mt-2 text-xs leading-snug">
             {/*
              * The export's full line, restored at T054 now that the drag it describes exists. T035
              * deliberately shipped only the first half, because the second would have instructed the
@@ -324,10 +331,11 @@ function ExpandedBacklog({
         </ul>
 
         <div className="border-hairline flex items-center gap-2 border-t px-4 pt-2.5 pb-4">
+          {/* 002 T020: dropped font-display from "Close drawer" (12px broke FR-034). */}
           <button
             type="button"
             onClick={onCollapse}
-            className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring h-11 flex-1 rounded-sm border text-xs font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 flex-1 rounded-sm border text-xs font-semibold tracking-[0.16em] uppercase"
           >
             Close drawer
           </button>
@@ -337,14 +345,19 @@ function ExpandedBacklog({
            * is covered while this is open, and a creator browsing their backlog is precisely the
            * person most likely to think of the next idea — FR-022 wants it in reach, not one
            * collapse away.
+           *
+           * 002 T020: "+ New" (matching the action band's label since T016), `notch-card` dropped
+           * (sharp-cornered chrome per the reference, and it was the reason this needed
+           * `focus-ring-inset` — reverted to the plain outset `focus-ring`), `font-display` dropped
+           * (12px broke FR-034).
            */}
           <button
             type="button"
             onClick={onCapture}
-            className="bg-brand notch-card font-display focus-ring-inset h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+            className="bg-brand focus-ring h-11 flex-none rounded-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
             data-testid="backlog-capture-action"
           >
-            + Capture
+            + New
           </button>
         </div>
       </section>
@@ -388,9 +401,10 @@ function BacklogRow({
 
 /** The count badge, identical in both states — one definition so they cannot drift apart. */
 function BacklogCount({ count }: { count: number }) {
+  // 002 T020: 10px -> the 12px floor (FR-033).
   return (
     <span
-      className="bg-surface-3 text-ink-mid flex-none rounded-sm px-1.5 py-1 text-[10px] leading-none font-semibold"
+      className="bg-surface-3 text-ink-mid flex-none rounded-sm px-1.5 py-1 text-xs leading-none font-semibold"
       data-testid="backlog-count"
     >
       {count}
