@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow, Geist_Mono, Oswald, Silkscreen, VT323 } from "next/font/google";
 import "./globals.css";
+import { Frame } from "@/components/arcade/Frame";
 
 /**
  * The stage-2 type pairing (design/content-calendar/, panel `1a`).
@@ -74,7 +75,14 @@ export default function RootLayout({
       lang="en"
       className={`dark ${oswald.variable} ${barlow.variable} ${geistMono.variable} ${vt323.variable} ${silkscreen.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/*
+       * `h-dvh`, not `min-h-full`: this is the one true viewport-height authority now that `Frame`
+       * sits between `body` and every route (see `Frame.tsx`'s docstring for the full chain and why
+       * a `min-h-*` anywhere in it reproduces `CalendarShell`'s old "action band below the fold" bug.
+       */}
+      <body className="flex h-dvh flex-col">
+        <Frame>{children}</Frame>
+      </body>
     </html>
   );
 }

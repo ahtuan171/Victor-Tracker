@@ -275,12 +275,18 @@ export function CalendarShell() {
     // against this element, which is what keeps it *on* the calendar surface (R-003a) instead of
     // becoming a full-screen overlay that reads as a second screen.
     //
-    // **`h-dvh`, not `min-h-dvh`** — and the difference is the whole of FR-022 on this surface. With a
-    // minimum, the column's height is still its content's, so `flex-1` on `<main>` has nothing to
-    // shrink against: six rows of grid plus the drawer push the action band *below* the fold and the
-    // page scrolls vertically to reach it. A fixed height is what gives `<main>` a size to be
-    // `min-h-0` against, so the grid scrolls inside its own container the way
-    // `.claude/rules/design.md` requires and the band stays under the thumb.
+    // **`h-full`, not `min-h-*` — the difference is still the whole of FR-022 on this surface, only
+    // the *source* of the fixed height moved.** `002-pixel-arcade-skin` wired `Frame` in at
+    // `app/layout.tsx`, and `body` is now the one true `h-dvh` (`Frame.tsx`'s docstring has the full
+    // chain). This component just has to keep passing that height through rather than re-establishing
+    // it — `h-full` fills whatever `Frame` gives it. Using `h-dvh` again here would work by accident
+    // (it would still be a real pixel height), but it would be a *second* viewport-height authority
+    // nested inside the frame's padding, which is redundant now and wrong the day the frame's own
+    // thickness changes at a wider breakpoint. A `min-h-*` here reproduces the original bug regardless
+    // of what sits above it: with a minimum, the column's height is still its content's, so `flex-1`
+    // on `<main>` has nothing to shrink against — six rows of grid plus the drawer push the action
+    // band *below* the fold and the page scrolls vertically to reach it, which is exactly what
+    // `min-h-0` on `<main>` and a fixed height up the whole chain exist to prevent.
     <DndContext
       sensors={sensors}
       /*
@@ -299,7 +305,7 @@ export function CalendarShell() {
       onDragCancel={() => setDragging(null)}
       onDragEnd={onDragEnd}
     >
-      <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
+      <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
         {/*
          * Both counts describe **what is on screen**, so both narrow with the filter.
          *
