@@ -132,8 +132,20 @@ def test_creator_carries_no_role_or_organization_column(session: Session) -> Non
     `creator` is the table an ownership model would grow from, so the same rule applies to it: one
     account, no `role`, no `is_admin`, no `organization_id`. Asserted as an allowlist for the same
     reason as above.
+
+    `theme` and `sound_enabled` joined the allowlist at T013 (002-pixel-arcade-skin,
+    `data-model.md`): two columns on this same row, not a new table and not an owner column on
+    `content_item` — INV-2 there is unchanged and `content_item`'s own assertions in this file are
+    untouched.
     """
-    assert _columns(session, "creator") == {"id", "email", "password_hash", "created_at"}
+    assert _columns(session, "creator") == {
+        "id",
+        "email",
+        "password_hash",
+        "created_at",
+        "theme",
+        "sound_enabled",
+    }
 
 
 def test_the_pattern_check_matches_when_a_column_really_does_match(session: Session) -> None:
