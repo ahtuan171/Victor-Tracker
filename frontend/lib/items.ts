@@ -54,7 +54,7 @@ import {
   type ListContentItemsParams,
   type Platform,
 } from "./api";
-import { isBeforeDateOnly, nowInstant, type DateOnly } from "./dates";
+import { compareDateOnly, isBeforeDateOnly, nowInstant, type DateOnly } from "./dates";
 
 // --- Pending items --------------------------------------------------------------------------
 
@@ -449,6 +449,36 @@ export function isOverdue(item: ContentItem, today: DateOnly | null): boolean {
  */
 export function countOverdue(items: readonly ContentItem[], today: DateOnly | null): number {
   return items.filter((item) => isOverdue(item, today)).length;
+}
+
+/**
+ * The earliest not-yet-posted item due today or later — the Ticker's second fact (T027, FR-027).
+ *
+ * `null` when nothing qualifies: every loaded item is `posted`, undated, or `today` is not yet known
+ * (research.md R-006 addendum — there is no "next" before the browser's clock has been read). Mirrors
+ * `countOverdue` immediately above: same two inputs, same "derived from the list already in memory,
+ * never stored" reasoning (the stage-2 data-shape audit's finding, not a shortcut), and the same
+ * exclusion of `posted` items — something that has already shipped is not still due. Overdue items are
+ * excluded too: they are the *other* fact the Ticker reports, and a date already in the past is not
+ * "next".
+ *
+ * A pure function rather than logic inside `Ticker.tsx`, for the reason `lib/items.ts` gives at the
+ * top of this file — this project has no renderer, so anything with a case worth naming (today,
+ * tomorrow, an overdue item, an undated one, a `posted` item due "today") belongs where
+ * `tests/client/items.spec.ts` can reach it directly.
+ */
+export function nextDue(items: readonly ContentItem[], today: DateOnly | null): DateOnly | null {
+  if (today === null) return null;
+
+  let earliest: DateOnly | null = null;
+  for (const item of items) {
+    if (item.status === "posted" || item.scheduled_date === null) continue;
+    if (isBeforeDateOnly(item.scheduled_date, today)) continue;
+    if (earliest === null || compareDateOnly(item.scheduled_date, earliest) < 0) {
+      earliest = item.scheduled_date;
+    }
+  }
+  return earliest;
 }
 
 /**
