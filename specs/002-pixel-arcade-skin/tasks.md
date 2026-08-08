@@ -84,13 +84,13 @@ these are. An agent working `backend/` in a worktree needs the root `.env` copie
 
 - [x] T009 Add `frontend/tests/e2e/text-size-audit.spec.ts` — sweep every route and overlay like the viewport audit does, read computed `font-size` on every visible text node, fail below **12px** anywhere or below **16px** for content (SC-014, FR-032–FR-034). **Expected to be red until Phase 3 lands**; that is the test working.
 
-- [ ] T010 [P] Add `Theme` and the two columns to `backend/app/models.py`, plus one Alembic revision. `values_callable` on the enum or it persists member **names**; explicit `postgresql.ENUM(..., create_type=False)` or the second `upgrade` fails with "type theme already exists". Run `upgrade → downgrade base → upgrade` and `alembic check` before opening the MR.
+- [x] T010 [P] Add `Theme` and the two columns to `backend/app/models.py`, plus one Alembic revision. `values_callable` on the enum or it persists member **names**; explicit `postgresql.ENUM(..., create_type=False)` or the second `upgrade` fails with "type theme already exists". Run `upgrade → downgrade base → upgrade` and `alembic check` before opening the MR.
 
-- [ ] T011 [P] Implement `GET` and `PATCH /preferences` in `backend/app/api/preferences.py` with `PreferencesRead`/`PreferencesUpdate` in `backend/app/schemas.py`, registered in `backend/app/main.py`. Every 4xx declares `model=ErrorResponse`, and both routes go into `REACHABLE_4XX` in `backend/tests/test_errors.py`. Tests in `backend/tests/test_preferences.py`: an empty body is a **422**, an unknown key is a **422** (`additionalProperties: false`), no token is a **401** not a 403, and the response is the **full** object rather than the diff.
+- [x] T011 [P] Implement `GET` and `PATCH /preferences` in `backend/app/api/preferences.py` with `PreferencesRead`/`PreferencesUpdate` in `backend/app/schemas.py`, registered in `backend/app/main.py`. Every 4xx declares `model=ErrorResponse`, and both routes go into `REACHABLE_4XX` in `backend/tests/test_errors.py`. Tests in `backend/tests/test_preferences.py`: an empty body is a **422**, an unknown key is a **422** (`additionalProperties: false`), no token is a **401** not a 403, and the response is the **full** object rather than the diff.
 
-- [ ] T012 [P] Add the optional `preferences` property to the login response in `backend/app/api/auth.py`, and add it to the login schema in **`specs/001-content-calendar/contracts/openapi.yaml`** — the single edit this iteration makes to 001's contract, and an addition to an existing operation rather than a new operation. This is the one artifact pair most likely to drift; change both in the same MR.
+- [x] T012 [P] Add the optional `preferences` property to the login response in `backend/app/api/auth.py`, and add it to the login schema in **`specs/001-content-calendar/contracts/openapi.yaml`** — the single edit this iteration makes to 001's contract, and an addition to an existing operation rather than a new operation. This is the one artifact pair most likely to drift; change both in the same MR.
 
-- [ ] T013 [P] Amend `backend/tests/test_schema.py` so `creator`'s column allowlist grows by exactly two. **Leave every `content_item` assertion untouched** — INV-2 says that table is the same shape after this iteration as before, and a green run there is what proves it. Before trusting the amended assertions, make them fail: an absence test passes trivially when it is broken.
+- [x] T013 [P] Amend `backend/tests/test_schema.py` so `creator`'s column allowlist grows by exactly two. **Leave every `content_item` assertion untouched** — INV-2 says that table is the same shape after this iteration as before, and a green run there is what proves it. Before trusting the amended assertions, make them fail: an absence test passes trivially when it is broken.
 
 ---
 
@@ -263,3 +263,36 @@ in one MR. T005 taught both contract-reading tests to merge `paths`/`schemas` ac
 **Phase 2 is next and is not started.** T006–T009 (frontend: token layer, frame, focus indicator,
 text-size audit) and T010–T013 (backend: `Theme` column, `/preferences` routes, login response,
 schema test) run in parallel per the dependency graph — nothing here is a Phase 3 restyle yet.
+
+**2026-08-08 — Phase 2 closed (T006–T013), split across a worktree per `.claude/memory.md`'s rule
+that parallel tracks are worth it exactly when the trees are disjoint.** Frontend (T006–T009) ran in
+this checkout; backend (T010–T013) ran in an agent's isolated git worktree, merged back with
+`--no-ff` once independently re-verified in this checkout (285 backend tests, `ruff`/`mypy`/the
+`upgrade → downgrade base → upgrade` round trip all clean — not just trusted from the agent's own
+report).
+
+**The worktree agent's setup note, worth keeping**: its worktree was created from `main`'s tip, not
+from `002-pixel-arcade-skin` — `specs/002-pixel-arcade-skin/` was entirely absent until it
+fast-forwarded onto `ef52832` itself before starting. The brief assumed the worktree would inherit
+the branch it was spawned from; it did not. Say so explicitly next time rather than assuming it.
+
+**T006's font swap broke five passing test files it does not own, and this is expected, not a
+regression to chase down.** `viewport-audit.spec.ts` (7 cases), `first-run.spec.ts`,
+`period-nav.spec.ts`, `sign-out.spec.ts` and `stale-item.spec.ts` all went red the moment
+`--font-sans` became VT323, every one of them on the same root cause: `+ CAPTURE` in VT323 now
+overflows 375px, which is the **exact** failure `research.md` R-003 and T003 already measured and
+already assigned to T016 ("Restyle `PeriodNav.tsx` and the action band, applying T003's decision").
+Confirmed rather than fixed here, on purpose — fixing it now would be doing Phase 3's job inside
+Phase 2 and outside the plan. **Do not be alarmed by these five files being red between now and
+T016**; the Phase 3 checkpoint (T028) re-runs the full `viewport-audit.spec.ts` and
+`text-size-audit.spec.ts` sweep specifically to confirm they come back.
+
+**T008 narrowed rather than executed its own headline claim.** The task line says `.notch-card` /
+`.notch-sheet` "are going away", which read as an instruction to delete them now. They were not
+deleted: every current surface (login, capture sheet, item sheet, …) still wears them and Phase 3
+has not restyled any of them yet, so removing the CSS now would silently flatten every one of those
+surfaces for no test to catch (Tailwind's silent-failure mode, again) ahead of the tasks that are
+actually supposed to do that restyle. What T008 did do: rewrote `.focus-ring-inset`'s documentation
+so it no longer hard-codes 001's two clipping cases as if they were permanent, and left the
+`outline`/`outline-offset` mechanism itself untouched. `focus-states.spec.ts` still 9/9 green — the
+mechanism was never broken, only its stale explanation.
