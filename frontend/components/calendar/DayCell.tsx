@@ -76,9 +76,15 @@ export function DayCell({
       data-in-period={inPeriod ? "" : undefined}
       data-testid="day-cell"
     >
+      {/*
+       * 002 T017: 10px -> the 12px floor. `aria-hidden` exempts this from the automated text-size
+       * sweep (it also skips real focus-trap sentinels, which is what it was written for), but a
+       * sighted creator still reads this number regardless of what a screen reader does with it, so
+       * FR-033's floor applies in spirit even where the test cannot currently see it.
+       */}
       <span
         className={cn(
-          "absolute top-[3px] right-1 text-[10px] leading-none font-semibold",
+          "absolute top-[3px] right-1 text-xs leading-none font-semibold",
           inPeriod ? "text-ink-mid" : "text-ink-lo/60",
         )}
         aria-hidden="true"
@@ -91,10 +97,15 @@ export function DayCell({
       ))}
 
       {hidden > 0 ? (
+        // 002 T017: 8px broke FR-033 outright. text-xs (12px) needs a touch more box than the
+        // original h-3.5 (14px) comfortably gives it, so the button grows to h-4 (16px) -- the
+        // smallest bump that stops the text clipping. Height is otherwise unchanged (FR-003): this
+        // is the one place the restyle has to nudge a dimension rather than only recolour/refont it,
+        // because FR-033 is not optional here.
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-3.5 rounded-sm border text-[8px] leading-3 font-semibold"
+          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-4 rounded-sm border text-xs leading-none font-semibold"
           data-testid="day-overflow"
         >
           +{hidden} more

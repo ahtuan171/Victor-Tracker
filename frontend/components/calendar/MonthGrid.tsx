@@ -77,10 +77,14 @@ export function MonthGrid({
         aria-hidden="true"
         data-testid="month-weekdays"
       >
+        {/*
+         * 002 T017: dropped `font-display` and raised 9px to the 12px floor — the original broke
+         * both FR-033 (absolute floor) and FR-034 (display face below 16px) on the same span.
+         */}
         {WEEKDAY_INITIALS.map((initial, index) => (
           <span
             key={index}
-            className="font-display text-ink-lo text-center text-[9px] leading-6 font-semibold tracking-[0.1em]"
+            className="text-ink-lo text-center text-xs leading-6 font-semibold tracking-[0.1em]"
           >
             {initial}
           </span>
