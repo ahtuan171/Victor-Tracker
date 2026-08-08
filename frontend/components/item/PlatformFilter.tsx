@@ -63,8 +63,9 @@ export function PlatformFilter({
       className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-4 py-2"
       data-testid="platform-filter"
     >
+      {/* 002 T024: dropped font-display, 10px -> the 12px floor. */}
       <span
-        className="font-display text-ink-lo flex-none text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+        className="text-ink-lo flex-none text-xs leading-none font-semibold tracking-[0.2em] uppercase"
         id="platform-filter-label"
         aria-hidden="true"
       >
@@ -147,8 +148,9 @@ function FilterOption({
       onClick={onSelect}
       data-testid={testId}
       data-selected={selected ? "" : undefined}
+      // 002 T024: dropped font-display, 11px -> the 12px floor.
       className={cn(
-        "font-display focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-[11px] leading-none font-semibold tracking-[0.14em] uppercase",
+        "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-xs leading-none font-semibold tracking-[0.14em] uppercase",
         selected
           ? "border-brand bg-brand text-white"
           : "border-hairline bg-surface-2 text-ink-mid",

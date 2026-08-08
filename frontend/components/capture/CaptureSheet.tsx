@@ -105,10 +105,12 @@ export function CaptureSheet({
           {/* Decorative grip, straight from the export. Hidden from assistive tech — it affords
               nothing here, because this sheet is not draggable. */}
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
-          {/* 002 T021: dropped font-display (13px broke FR-034). */}
-          <SheetTitle className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
-            Capture idea
-          </SheetTitle>
+          {/*
+           * 002 T021: dropped the local `text-[13px]` (it was undercutting the primitive's own
+           * compliant `text-base font-display` by 3px, the same bug T023 found in
+           * AlertDialogTitle) — no size/family override needed, only the extra tracking.
+           */}
+          <SheetTitle className="text-ink leading-none tracking-[0.18em]">Capture idea</SheetTitle>
         </div>
 
         <div className="px-4 pt-3.5">

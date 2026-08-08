@@ -71,8 +71,9 @@ export function FirstRun() {
         Nothing scheduled yet
       </p>
 
+      {/* "+ New" (002 T024), matching the action band's label since T016 restyled it. */}
       <p className="text-ink-mid max-w-[260px] text-[13px] leading-relaxed">
-        Tap <b className="text-ink">+ Capture</b> to start one. It lands in the backlog below — drag
+        Tap <b className="text-ink">+ New</b> to start one. It lands in the backlog below — drag
         it onto a day when you know when it ships.
       </p>
     </div>
