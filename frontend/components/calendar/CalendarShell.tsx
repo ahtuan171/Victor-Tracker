@@ -13,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 
+import { Ticker } from "@/components/arcade/Ticker";
 import { BACKLOG_DROP_ID, BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { FirstRun } from "@/components/calendar/FirstRun";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
@@ -32,7 +33,7 @@ import {
   type Platform,
 } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
-import { countOverdue, selectByPlatform, useContentItems } from "@/lib/items";
+import { countOverdue, nextDue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
 import { cn } from "@/lib/utils";
 
@@ -196,6 +197,14 @@ export function CalendarShell() {
   const visible = selectByPlatform(items, platform);
 
   /**
+   * Computed once, handed to the header count and the Ticker alike (T027, FR-028) — "one value, two
+   * presentations", never two independent reads of `visible` that happen to agree today but carry no
+   * guarantee of it tomorrow.
+   */
+  const overdueCount = countOverdue(visible, today);
+  const dueDate = nextDue(visible, today);
+
+  /**
    * Both sensors, and the `PointerSensor`'s constraint is the whole of T055.
    *
    * Without an activation constraint the sensor claims the gesture the instant a finger moves on a
@@ -320,7 +329,7 @@ export function CalendarShell() {
           period={period}
           view={view}
           itemCount={visible.length}
-          overdueCount={countOverdue(visible, today)}
+          overdueCount={overdueCount}
           loading={status === "loading"}
         />
 
@@ -357,10 +366,11 @@ export function CalendarShell() {
              * the creator can miss entirely, and a timer is the kind of thing that makes a suite
              * flaky. `h-11` is the 44px floor, as everywhere else.
              */}
+            {/* 002 (found while wiring T027): dropped font-display, 10px -> the 12px floor. */}
             <button
               type="button"
               onClick={() => setStaleTitle(null)}
-              className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring -my-0.5 h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+              className="border-hairline bg-surface-2 text-ink-mid focus-ring -my-0.5 h-11 flex-none rounded-sm border px-2.5 text-xs font-semibold tracking-[0.14em] uppercase"
               data-testid="stale-notice-dismiss"
             >
               Dismiss
@@ -475,6 +485,14 @@ export function CalendarShell() {
             disabled={period === null}
           />
         </CalendarActionBar>
+
+        {/*
+         * The moving-text strip (T027) — "along the bottom" per the reference, so it sits below the
+         * action band as the surface's last row. Values computed once, above, and handed to both this
+         * and the header count (FR-028) — never recomputed here, which would be a second reading of
+         * the same fact rather than a guaranteed-identical one.
+         */}
+        <Ticker overdueCount={overdueCount} due={dueDate} />
 
         <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
 

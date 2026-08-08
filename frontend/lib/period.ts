@@ -180,3 +180,13 @@ export function periodTitle(period: DateOnly, view: CalendarView): string {
 function short(date: Date): string {
   return MONTH_NAMES[date.getMonth()]!.slice(0, 3);
 }
+
+/**
+ * `"12 Aug"` — the Ticker's format for `nextDue()` (T027, FR-027). Reuses the same three-letter
+ * abbreviation `periodTitle` builds a cross-boundary week title from, so there is one definition of
+ * "how a month is shortened" rather than two that could drift.
+ */
+export function formatDateOnlyShort(date: DateOnly): string {
+  const parsed = parseDateOnly(date);
+  return `${parsed.getDate()} ${short(parsed)}`;
+}

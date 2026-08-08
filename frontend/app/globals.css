@@ -424,6 +424,33 @@
 }
 
 /*
+ * The Ticker's decorative motion (T027, FR-025, FR-031). The text it moves behind is never scrolled
+ * or clipped — every fact it carries is fully rendered and readable in a single still frame, which is
+ * what FR-031 requires — so this is pure chrome: a scanning highlight with no information encoded in
+ * its motion at all. `animation`, not `transition`, is what the reduced-motion rule immediately below
+ * catches automatically; nothing Ticker-specific is needed there.
+ */
+@keyframes ticker-scan {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 160px 0;
+  }
+}
+
+.ticker-scan {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ch-brand) 0 2px,
+    transparent 2px 20px
+  );
+  background-size: 160px 100%;
+  animation: ticker-scan 5s linear infinite;
+  opacity: 0.3;
+}
+
+/*
  * Reduced motion is structural, not polish (constitution V). The export's motion language is
  * "snap and settle" — fast in, small overshoot — which is exactly the kind of movement that provokes
  * vestibular symptoms, so it is switched off wholesale rather than per-animation.
