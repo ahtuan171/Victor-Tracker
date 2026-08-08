@@ -4,68 +4,83 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * VictorHub design tokens — stage 2.
+ * VictorHub design tokens — 002-pixel-arcade-skin.
  *
- * These values come from the Claude Design export in `design/content-calendar/`
- * (`VictorHub-Content-Calendar.dc.html`, panels `1a` dark / `2a` light). They replace the
- * placeholder shadcn palette that used to live here, which this file always described as provisional
- * and disposable for exactly this moment.
+ * This iteration is the one permitted to replace this whole layer (`.claude/rules/design.md`), and
+ * it does: every value below is new, sourced from `spidey-tracker.mp4` via
+ * `design/002-pixel-arcade-skin/BRIEF.md` and the T004 sign-off (2026-08-08, 20px content / 10px
+ * frame) rather than from a Claude Design export — this iteration has none.
  *
- * Two rules travel with these values, and both outrank convenience:
+ * Two rules travel with these values, unchanged from the presentation they replace, and both
+ * outrank convenience:
  *
- *   1. **The brand red is chrome, never meaning.** It is for focus, primary action, and identity.
- *      Status is NEVER communicated with it. The status ramp below is neutral / amber / green and is
- *      kept visibly separable from the red at 16px.
- *   2. **Colour is decoration on the status cue, not the cue itself.** R-005 encodes status as shape
- *      and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour here
- *      cannot break FR-017, and no component may start depending on hue to say what a status is.
+ *   1. **The brand accent (cyan, chrome and instrument colour in the reference) is chrome, never
+ *      meaning.** It is for focus, primary action, and identity. Status is NEVER communicated with
+ *      it. Red is now reserved for `--destructive` alone — a genuine narrowing from the outgoing
+ *      palette, where one red family carried both brand and destructive. The status ramp below is
+ *      neutral / amber / green and is kept visibly separable from both accent hues at 16px.
+ *   2. **Colour is decoration on the status cue, not the cue itself.** R-005 (001) encodes status as
+ *      shape and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any
+ *      colour here cannot break FR-017 (001) / SC-004 (002), and no component may start depending on
+ *      hue to say what a status is.
  *
- * These are the project's tokens, not the calendar's (`.claude/rules/design.md`). A feature module
- * consumes them and may not introduce a competing set. They may be replaced outright, but only by an
- * iteration whose entire subject IS this layer and which restyles every existing surface in the same
- * iteration — `002-pixel-arcade-skin` is that iteration. Never as a side effect of building a feature.
+ * These are the project's tokens, not the calendar's, and not this iteration's either
+ * (`.claude/rules/design.md`) — later modules consume them and may not introduce a competing set.
  *
- * Chart and sidebar tokens stay absent on purpose — v0.1 has neither surface, and tokens for
- * components that will not be built are the speculative infrastructure constitution VII names.
+ * Component files are untouched by this change. Every existing surface reads these same variable
+ * *names* through Tailwind classes already (`bg-surface-1`, `text-ink-mid`, `border-hairline`, …), so
+ * swapping the values here re-colours and re-types the whole product without editing a component —
+ * which is also why a screenshot after this change, not a code review, is what confirms it worked
+ * (`frontend/AGENTS.md`'s "a misspelled Tailwind class fails silently" trap applies here too).
+ *
+ * Chart and sidebar tokens stay absent on purpose — nothing in this product has either surface, and
+ * tokens for components that will not be built are the speculative infrastructure constitution VII
+ * names.
  */
 
 /*
- * Light is the export's counterpart turn, kept in the shadcn `:root` slot so the convention holds.
- * The app renders dark by default — that is the export's primary direction — via `class="dark"` on
- * <html> in `app/layout.tsx`.
+ * Light is new work, not a re-check (`design/002-pixel-arcade-skin/BRIEF.md` — the reference
+ * recording has no light turn). Read as a daylit control-room panel rather than an inverted dark
+ * theme: pale steel/cyan neutrals, the same cyan chrome deepened for contrast on a light ground. The
+ * app renders dark by default via `class="dark"` on `<html>` (`app/layout.tsx`, FR-012) — light is
+ * reached only by the account's stored preference (002 US3).
  */
 :root {
   --radius: 0.125rem;
 
-  /* Surface stack — light */
-  --ch-void: #e9e9ee;
-  --ch-surface-0: #f6f6f9;
+  /* Surface stack — light, steel/cyan-tinted rather than neutral grey */
+  --ch-void: #dbe8ea;
+  --ch-surface-0: #eef5f5;
   --ch-surface-1: #ffffff;
-  --ch-surface-2: #fafafc;
-  --ch-surface-3: #f3f3f7;
-  --ch-hairline: #d5d7de;
+  --ch-surface-2: #e4eef0;
+  --ch-surface-3: #d3e4e7;
+  --ch-hairline: #b6ccd0;
 
   /* Ink */
-  --ch-ink-hi: #14141a;
-  --ch-ink-mid: #666c75;
-  --ch-ink-lo: #7c828b;
+  --ch-ink-hi: #0b2027;
+  --ch-ink-mid: #4c6b72;
+  --ch-ink-lo: #6d8990;
 
-  /* Brand red — chrome, focus, primary action only */
-  --ch-brand: #e8232f;
-  --ch-brand-hi: #c8102e;
-  --ch-brand-sunk: #fbe3e5;
+  /* Brand cyan — chrome, focus, primary action only. Never status, never a fourth meaning. */
+  --ch-brand: #0a90a8;
+  --ch-brand-hi: #067083;
+  --ch-brand-sunk: #d7f0f4;
 
-  /* Status ramp — decoration over the shape/fill encoding */
-  --ch-status-idea: #6a7079;
-  --ch-status-draft: #b5781a;
-  --ch-status-posted: #1e9455;
+  /* Destructive red — the reference's accent hue, now carrying exactly one meaning: refusal/delete. */
+  --ch-danger: #c23b32;
+  --ch-danger-hi: #a12e26;
+
+  /* Status ramp — decoration over the shape/fill encoding, distinct from both accent hues */
+  --ch-status-idea: #5c7178;
+  --ch-status-draft: #a06a1f;
+  --ch-status-posted: #1f7a4f;
 
   /* Overdue — a dashed left border, orthogonal to status, never a fourth state */
   --ch-overdue: #5c5240;
 
   /* Elevation */
-  --ch-e1: 0 2px 6px rgb(24 26 34 / 0.13);
-  --ch-e2: 0 -10px 30px rgb(24 26 34 / 0.13);
+  --ch-e1: 0 2px 6px rgb(11 32 39 / 0.16);
+  --ch-e2: 0 -10px 30px rgb(11 32 39 / 0.16);
 
   /* shadcn surface contract */
   --background: var(--ch-surface-0);
@@ -84,11 +99,11 @@
   --muted: var(--ch-surface-3);
   --muted-foreground: var(--ch-ink-mid);
   /* shadcn's `accent` is a hover/active surface, NOT the brand. Keeping them distinct is what stops
-     a hover state from turning red and reading as meaning. */
+     a hover state from turning cyan and reading as meaning. */
   --accent: var(--ch-surface-3);
   --accent-foreground: var(--ch-ink-hi);
 
-  --destructive: var(--ch-brand-hi);
+  --destructive: var(--ch-danger);
   --destructive-foreground: #ffffff;
 
   --border: var(--ch-hairline);
@@ -97,27 +112,33 @@
 }
 
 .dark {
-  /* Surface stack — dark */
-  --ch-void: #07070a;
-  --ch-surface-0: #0a0a0c;
-  --ch-surface-1: #101014;
-  --ch-surface-2: #16161b;
-  --ch-surface-3: #1d1d24;
-  --ch-hairline: #2a2a33;
+  /* Surface stack — dark, navy (the reference's map-area colour), not neutral black */
+  --ch-void: #04090c;
+  --ch-surface-0: #081720;
+  --ch-surface-1: #0e2029;
+  --ch-surface-2: #123039;
+  --ch-surface-3: #1a3f49;
+  --ch-hairline: #24515c;
 
-  --ch-ink-hi: #f2f3f5;
-  --ch-ink-mid: #8c939c;
-  --ch-ink-lo: #6b727b;
+  --ch-ink-hi: #e2f2f0;
+  --ch-ink-mid: #8fb3ba;
+  --ch-ink-lo: #5f8891;
 
-  --ch-brand: #e8232f;
-  --ch-brand-hi: #ff4b54;
-  --ch-brand-sunk: #3a0e13;
+  /* Brand cyan — the reference's chrome/instrument colour. Chrome, never meaning. */
+  --ch-brand: #33c7de;
+  --ch-brand-hi: #79e6f2;
+  --ch-brand-sunk: #0a2b33;
 
-  --ch-status-idea: #9aa0a8;
-  --ch-status-draft: #f0a63a;
-  --ch-status-posted: #4bc07a;
+  /* Destructive red — the reference's accent hue, one meaning only: refusal/delete. */
+  --ch-danger: #e35b52;
+  --ch-danger-hi: #ff7a6e;
 
-  /* Bone, dashed — separable from the solid red chrome in colour and in greyscale alike */
+  --ch-status-idea: #7d9aa1;
+  --ch-status-draft: #e0a33f;
+  --ch-status-posted: #3fbf82;
+
+  /* Bone, dashed — separable from both the cyan chrome and the red danger hue, in colour and in
+     greyscale alike (SC-004). */
   --ch-overdue: #dcd3be;
 
   --ch-e1: 0 2px 6px rgb(0 0 0 / 0.5);
@@ -141,7 +162,7 @@
   --accent: var(--ch-surface-3);
   --accent-foreground: var(--ch-ink-hi);
 
-  --destructive: var(--ch-brand-hi);
+  --destructive: var(--ch-danger);
   --destructive-foreground: #ffffff;
 
   --border: var(--ch-hairline);
@@ -190,6 +211,13 @@
   --color-brand-hi: var(--ch-brand-hi);
   --color-brand-sunk: var(--ch-brand-sunk);
 
+  /* New in 002: the accent hue split off `--brand` (cyan, chrome) so `--destructive` (red) is no
+     longer sharing a family with the primary/focus colour. Exposed for anything that needs the raw
+     hue rather than going through `bg-destructive` — the delete confirmation's refused-sign-out copy
+     and the Ticker's refusal cue are the two candidates named in tasks.md T027/T030. */
+  --color-danger: var(--ch-danger);
+  --color-danger-hi: var(--ch-danger-hi);
+
   --color-status-idea: var(--ch-status-idea);
   --color-status-draft: var(--ch-status-draft);
   --color-status-posted: var(--ch-status-posted);
@@ -207,9 +235,16 @@
   --radius-lg: 4px;
   --radius-xl: 6px;
 
-  /* Oswald for display and labels, Barlow for everything a person reads as content. */
-  --font-display: var(--font-oswald);
-  --font-sans: var(--font-barlow);
+  /*
+   * Silkscreen for display and section labels, VT323 for everything a person reads as content
+   * (research.md R-001). Oswald and Barlow stay loaded (`app/layout.tsx`) until every surface has
+   * actually restyled onto these — swapping the binding here is what makes the whole product's type
+   * flip at once rather than one component at a time, matching how this token layer's colours above
+   * work. VT323 ships one weight (400) and Silkscreen two (400/700): hierarchy comes from size, case,
+   * colour and the frame now, not from a weight ramp.
+   */
+  --font-display: var(--font-silkscreen);
+  --font-sans: var(--font-vt323);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -243,6 +278,52 @@
  */
 
 /*
+ * The machine frame (T007) — the reference's bevelled cyan/steel housing around the working area,
+ * consumed by `components/arcade/Frame.tsx`. A token-level decision like the two shapes above, so it
+ * lives here rather than in the component.
+ *
+ * FR-008: the frame MUST consume less width at narrow viewports than at wide ones, and MUST never be
+ * the reason FR-004 (a control leaves the 375px viewport) or FR-005 (the body scrolls horizontally)
+ * fails. Padding, not a `border`, so the bevelled gradient can be part of the frame's own body rather
+ * than a flat rule — a `border` cannot carry a gradient the way a padded background can.
+ *
+ * **10px per side at ≤375px** — the owner's T004 sign-off (2026-08-08), over the 6px this task line
+ * still names as its starting point; `research.md` R-003 and `frontend/AGENTS.md` carry the reasoning
+ * and the corrected action-band arithmetic (~18px of spare width, not ~26px). Thicker at `sm`/`lg`,
+ * where the frame has width to spend without touching the 44px targets or the action band.
+ */
+.arcade-frame {
+  background: linear-gradient(155deg, var(--ch-brand) 0%, var(--ch-hairline) 55%, var(--ch-surface-2) 100%);
+  padding: 10px;
+}
+
+@media (min-width: 640px) {
+  .arcade-frame {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .arcade-frame {
+    padding: 20px;
+  }
+}
+
+/*
+ * Decorative rivets at the frame's four corners — not controls. A button-shaped element that does
+ * nothing is a wasted tap target, and this iteration adds no actions (spec Out of Scope), so
+ * `Frame.tsx` gives each one `aria-hidden` and no interactive role at all.
+ */
+.arcade-frame__rivet {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--ch-void);
+  box-shadow: inset 0 0 0 1px var(--ch-brand);
+}
+
+/*
  * The one focus indicator (T067), defined here for the same reason the shape primitives below are:
  * it is a token-level decision, not a per-screen one, and by T067 it had more than twenty callers.
  *
@@ -270,22 +351,27 @@
 }
 
 /*
- * The same indicator drawn **inside** the control, for the two places an outset ring is painted and
- * then thrown away. Both were found by screenshot, not by review — a computed style cannot see a
- * clip, which is the whole reason `focus-states.spec.ts` also compares pixels.
+ * The same indicator drawn **inside** the control, for wherever an outset ring would be painted and
+ * then thrown away by something that clips the control's own box. Found by screenshot, not by
+ * review — a computed style cannot see a clip, which is the whole reason `focus-states.spec.ts` also
+ * compares pixels rather than stopping at `outline-style`.
  *
- *   1. **Anything wearing `.notch-card`.** That class is a `clip-path`, and a clip-path clips the
- *      element's outline along with everything else, so `+ CAPTURE`, the drawer's capture button,
- *      both sheet save buttons and the login submit drew a ring that was **entirely invisible**.
- *   2. **The view toggle.** `MONTH`/`WEEK` sit in a wrapper with `overflow-hidden` (it clips the two
- *      children to the group's rounded border), which left a 2px sliver showing on the inner edge
- *      only.
+ * **Re-derived at T008 (002), and the old fixed list of two cases is deliberately not carried over.**
+ * Both of 001's cases — `.notch-card`'s `clip-path`, and the view toggle's `overflow-hidden`
+ * wrapper — belonged to the outgoing visual language, and `.notch-card`/`.notch-sheet` are going
+ * away as each surface using them gets restyled in Phase 3, not in this task. Writing a fixed list
+ * here would either go stale the moment the first surface changes shape, or (worse) survive as
+ * plausible-looking documentation for a case that no longer exists.
  *
- * Ink rather than brand red, and that is forced rather than chosen: every control needing this is
- * brand-filled except the unselected half of the toggle, so a red ring inside a red button is the
- * red-on-red problem the outset version exists to avoid. Near-white reads on both.
+ * So the rule going forward: **whichever Phase 3 task gives a control a shape that clips its own
+ * outline reaches for this class**, and `focus-states.spec.ts`'s pixel-comparison tests — not the
+ * computed-style sweep, which cannot see a clip — are what catch it if a task forgets. The mechanism
+ * is unchanged from 001: `outline`, never a `ring-*` box-shadow, kept for the same red-on-red reason
+ * on brand-filled controls; `outline-offset: -4px` so it lands inside the control's own box instead
+ * of on a surface a clip would remove; ink rather than brand colour so it still reads on the
+ * unselected half of a toggle group, which is never brand-filled.
  *
- * Use `.focus-ring` by default. Reach for this **only** when something clips the control's own box.
+ * Use `.focus-ring` by default. Reach for this only when something clips the control's own box.
  */
 .focus-ring-inset:focus-visible {
   outline: 2px solid var(--ch-ink-hi);
