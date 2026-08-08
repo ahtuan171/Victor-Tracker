@@ -18,7 +18,7 @@ from sqlmodel import select
 from app.auth import PresentedToken, create_access_token, hash_password, verify_password
 from app.db import SessionDep
 from app.models import Creator
-from app.schemas import ErrorResponse
+from app.schemas import ErrorResponse, PreferencesRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -42,6 +42,12 @@ class TokenResponse(BaseModel):
     # `const`. Hence the bandit suppression.
     token_type: str = "bearer"  # noqa: S105
     expires_at: datetime
+    preferences: PreferencesRead | None = None
+    """Amended in 002-pixel-arcade-skin (T012). Declared optional in the contract — a client built
+    against 001 alone is still correct, because `GET /preferences` at app mount reaches the same
+    state one moment later — but `login` below always sets it. The proxy reads it from this same
+    response to write the `ch_theme` cookie with no extra round trip, which matters on a stack whose
+    cold first request was measured at 44.18s (T072)."""
 
 
 def normalise_email(email: str) -> str:
@@ -110,7 +116,8 @@ def login(body: LoginRequest, session: SessionDep) -> TokenResponse:
     # `creator.id` is Optional on the model only because it is None before the insert.
     assert creator.id is not None, "a row loaded from the database always has an id"
     token, expires_at = create_access_token(creator.id)
-    return TokenResponse(access_token=token, expires_at=expires_at)
+    preferences = PreferencesRead(theme=creator.theme, sound_enabled=creator.sound_enabled)
+    return TokenResponse(access_token=token, expires_at=expires_at, preferences=preferences)
 
 
 @router.post(

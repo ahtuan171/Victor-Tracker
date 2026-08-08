@@ -236,6 +236,21 @@ REACHABLE_4XX = [
         422,
         id="login-unparseable-json",
     ),
+    # 002-pixel-arcade-skin: the preferences routes. Both are scoped to the authenticated account's
+    # own row and take no identifier (INV-1, data-model.md), so the only 4xx either can produce
+    # without a dedicated request body is the shared no-credential 401 — the 422 cases (empty body,
+    # unknown key) live in test_preferences.py, which is about that endpoint's own validation rather
+    # than the uniform error shape this file pins.
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/preferences"),
+        401,
+        id="get-preferences-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.patch("/preferences", json={"theme": "light"}),
+        401,
+        id="update-preferences-no-credential",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.get("/no/such/path"),
         404,
