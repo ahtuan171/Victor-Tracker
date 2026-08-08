@@ -132,7 +132,7 @@ export function LoginForm() {
               aria-hidden="true"
               className="bg-brand size-3 [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]"
             />
-            <span className="font-display text-ink-mid text-[11px] leading-none font-semibold tracking-[0.28em] uppercase">
+            <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.28em] uppercase">
               VictorHub
             </span>
           </div>
@@ -157,7 +157,7 @@ export function LoginForm() {
             <div className="flex flex-col gap-[7px]">
               <Label
                 htmlFor="email"
-                className="font-display text-ink-lo text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+                className="text-ink-lo text-xs leading-none font-semibold tracking-[0.2em] uppercase"
               >
                 Email
               </Label>
@@ -190,7 +190,7 @@ export function LoginForm() {
             <div className="flex flex-col gap-[7px]">
               <Label
                 htmlFor="password"
-                className="font-display text-ink-lo text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+                className="text-ink-lo text-xs leading-none font-semibold tracking-[0.2em] uppercase"
               >
                 Password
               </Label>
@@ -226,7 +226,7 @@ export function LoginForm() {
 
             <Button
               type="submit"
-              className="notch-card font-display focus-ring-inset mt-1 h-[52px] w-full rounded-none text-[15px] font-semibold tracking-[0.18em] uppercase shadow-[0_8px_22px_rgb(232_35_47_/_0.35)]"
+              className="notch-card font-display focus-ring-inset shadow-e1 mt-1 h-[52px] w-full rounded-none text-base font-semibold tracking-[0.18em] uppercase"
               // `!hydrated` disables the one tap that could submit this form natively. The label is
               // deliberately unchanged: the window is short, and a creator who sees "Sign in" go
               // briefly inactive on a cold load learns nothing useful from a different word.
