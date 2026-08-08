@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Barlow, Geist_Mono, Oswald } from "next/font/google";
+import { Barlow, Geist_Mono, Oswald, Silkscreen, VT323 } from "next/font/google";
 import "./globals.css";
 
 /**
@@ -9,6 +9,11 @@ import "./globals.css";
  * high-legibility neutral that every piece of *content* is set in. Mixing the two up is the fastest
  * way to make this design illegible at 375px, which is why they are named by role below rather than
  * by typeface.
+ *
+ * `002-pixel-arcade-skin` replaces both — VT323 for content, Silkscreen for display and labels — but
+ * the outgoing pair stays loaded until the token layer and every surface actually switch over
+ * (design/002-pixel-arcade-skin/BRIEF.md). `next/font` self-hosts at build time, so no `preconnect`
+ * to a Google domain is added here — research R-009 exists to keep that request from ever happening.
  */
 const oswald = Oswald({
   variable: "--font-oswald",
@@ -31,6 +36,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const vt323 = VT323({
+  // Content face for 002. Ships one weight only (400) — research.md R-001 measured Press Start 2P's
+  // 16px advance width as unusable at the 375px floor and VT323 as the narrower, viable alternative.
+  variable: "--font-vt323",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+});
+
+const silkscreen = Silkscreen({
+  // Display face for 002 — headings and section labels only, per FR-034. Ships 400 and 700; with
+  // VT323 fixed at one weight, hierarchy has to come from size, case, colour and the frame rather
+  // than from weight (research.md R-001).
+  variable: "--font-silkscreen",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "VictorHub",
   description: "Content calendar for a single creator.",
@@ -48,7 +72,7 @@ export default function RootLayout({
     // and not a re-skin.
     <html
       lang="en"
-      className={`dark ${oswald.variable} ${barlow.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${oswald.variable} ${barlow.variable} ${geistMono.variable} ${vt323.variable} ${silkscreen.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

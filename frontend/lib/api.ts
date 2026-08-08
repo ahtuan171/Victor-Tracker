@@ -61,6 +61,15 @@ export const INVARIANT_CODES = ["platform_required", "platform_locked"] as const
 export type InvariantCode = (typeof INVARIANT_CODES)[number];
 
 /**
+ * `Theme` in `specs/002-pixel-arcade-skin/contracts/openapi.yaml`. FR-010 — exactly two, `dark`
+ * before any choice (FR-012). Declared here alongside the 001 enums above rather than in a second
+ * file: one place for "the closed sets this client trusts", same reasoning as R-007's typed fetch
+ * wrapper being enough without a second toolchain.
+ */
+export const THEMES = ["dark", "light"] as const;
+export type Theme = (typeof THEMES)[number];
+
+/**
  * `ContentItem` in the contract.
  *
  * The four nullable fields are **not** in the contract's `required` list, so a response may omit

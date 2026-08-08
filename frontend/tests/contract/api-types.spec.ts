@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { parse } from "yaml";
 
-import { INVARIANT_CODES, PLATFORMS, STATUSES } from "../../lib/api";
+import { INVARIANT_CODES, PLATFORMS, STATUSES, THEMES } from "../../lib/api";
 
 /**
  * `lib/api.ts` is hand-written from the contract, so this is what stops it drifting from one.
@@ -19,14 +19,21 @@ import { INVARIANT_CODES, PLATFORMS, STATUSES } from "../../lib/api";
  * and the enums are the part that would otherwise silently accept an unknown value at runtime.
  */
 
-const CONTRACT_PATH = resolve(__dirname, "../../../specs/001-content-calendar/contracts/openapi.yaml");
+const CONTRACT_001 = resolve(__dirname, "../../../specs/001-content-calendar/contracts/openapi.yaml");
+// The 002 contract is a delta on 001, not a second API (see its own header comment) — Theme lives
+// only here, so this file has to read both rather than just the one it started with.
+const CONTRACT_002 = resolve(__dirname, "../../../specs/002-pixel-arcade-skin/contracts/openapi.yaml");
 
-function contractEnum(schema: string): string[] {
-  const document: unknown = parse(readFileSync(CONTRACT_PATH, "utf8"));
+function schemasIn(contractPath: string): Record<string, unknown> {
+  const document: unknown = parse(readFileSync(contractPath, "utf8"));
   const schemas = (document as { components?: { schemas?: Record<string, unknown> } }).components?.schemas;
+  expect(schemas, `no components.schemas in ${contractPath}`).toBeTruthy();
+  return schemas as Record<string, unknown>;
+}
 
-  const target = schemas?.[schema];
-  expect(target, `no components.schemas.${schema} in ${CONTRACT_PATH}`).toBeTruthy();
+function contractEnum(schema: string, contractPath: string = CONTRACT_001): string[] {
+  const target = schemasIn(contractPath)[schema];
+  expect(target, `no components.schemas.${schema} in ${contractPath}`).toBeTruthy();
 
   const values = (target as { enum?: unknown }).enum;
   expect(Array.isArray(values), `components.schemas.${schema} declares no enum`).toBe(true);
@@ -44,9 +51,12 @@ test("Platform matches the contract — FR-010's closed set", () => {
 
 test("InvariantCode matches the contract's 409 codes", () => {
   // Nested one level deeper: `code` is a property of InvariantError, not a schema of its own.
-  const document: unknown = parse(readFileSync(CONTRACT_PATH, "utf8"));
-  const schemas = (document as { components?: { schemas?: Record<string, unknown> } }).components?.schemas;
-  const code = (schemas?.["InvariantError"] as { properties?: { code?: { enum?: unknown } } }).properties?.code;
+  const code = (schemasIn(CONTRACT_001)["InvariantError"] as { properties?: { code?: { enum?: unknown } } })
+    .properties?.code;
 
   expect([...INVARIANT_CODES]).toEqual(code?.enum);
+});
+
+test("Theme matches the 002 contract — FR-010's two presentations, dark first", () => {
+  expect([...THEMES]).toEqual(contractEnum("Theme", CONTRACT_002));
 });

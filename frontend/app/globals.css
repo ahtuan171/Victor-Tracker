@@ -20,8 +20,10 @@
  *      and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour here
  *      cannot break FR-017, and no component may start depending on hue to say what a status is.
  *
- * Content Calendar establishes the tokens for all four VictorHub modules (`.claude/rules/design.md`).
- * Later modules consume these; they do not introduce competing ones.
+ * These are the project's tokens, not the calendar's (`.claude/rules/design.md`). A feature module
+ * consumes them and may not introduce a competing set. They may be replaced outright, but only by an
+ * iteration whose entire subject IS this layer and which restyles every existing surface in the same
+ * iteration — `002-pixel-arcade-skin` is that iteration. Never as a side effect of building a feature.
  *
  * Chart and sidebar tokens stay absent on purpose — v0.1 has neither surface, and tokens for
  * components that will not be built are the speculative infrastructure constitution VII names.

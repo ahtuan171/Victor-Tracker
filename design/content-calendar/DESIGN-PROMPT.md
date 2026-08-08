@@ -3,6 +3,12 @@
 Paste the block below into the `VictorHub Design System` project at claude.ai/design.
 Derived mechanically from `BRIEF.md`; if the two ever disagree, `BRIEF.md` wins.
 
+> **Historical record — do not send this again.** This is the prompt as it was issued for stage 2 of
+> `001-content-calendar`, kept verbatim for provenance. Its "all four modules" framing and its visual
+> direction are both superseded: three modules were cancelled at the 2.0.0 pivot, and
+> `002-pixel-arcade-skin` replaces the token layer outright. See `.claude/rules/design.md` for the
+> current rule and `design/002-pixel-arcade-skin/BRIEF.md` for the direction that supersedes this one.
+
 ---
 
 ## 1. What you are designing

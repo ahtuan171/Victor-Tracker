@@ -1,0 +1,222 @@
+openapi: 3.1.0
+
+info:
+  title: CreatorHub — Preferences API (iteration 002)
+  version: 0.2.0
+  description: |
+    **This document is a delta, not the whole API.** It describes the two operations iteration 002
+    adds and the one existing response it widens. The API's full surface is the **union** of this
+    file and `specs/001-content-calendar/contracts/openapi.yaml`, which is unchanged and still
+    describes the eight operations it shipped.
+
+    Read the reason before deciding this is untidy. `specs/001-content-calendar/` is a closed
+    iteration, tagged at `v0.1.0` and walked against a deployment at T072. Adding 002's operations to
+    its contract would make that document stop describing what 001 shipped, which is the exact drift
+    this project has been bitten by at four checkpoints running. Two documents that each describe
+    their own iteration truthfully beat one that describes neither.
+
+    **Two things in the frontend read a contract file and both must be taught about this one**, or
+    they will silently vet only half the API:
+
+    * `frontend/tests/contract/proxy-allowlist.spec.ts` requires every operation in the contract to
+      be either in `PROXY_ALLOWLIST` or in `NOT_PROXIED` with a reason. It currently parses 001's
+      file alone. Pointed at only that file, the two operations below are neither allowed nor
+      excluded — they simply go unexamined, and an unexamined path through the proxy is what the
+      allowlist exists to prevent.
+    * `frontend/tests/contract/api-types.spec.ts` compares the client's enum constants against the
+      contract on disk. `Theme` below is a new enum and needs the same treatment `Status` and
+      `Platform` already get.
+
+    **Do not resolve this by copying these operations into 001's file.**
+
+    Auth is unchanged: a bearer token, attached server-side by the Next.js proxy from an httpOnly
+    cookie. Error bodies are unchanged and uniformly `{"detail": "<string>"}`.
+
+    Sliding reissue is unchanged and applies to both operations below: either MAY carry an
+    `X-Access-Token` header past the presented token's half-life, and the proxy rewrites its cookie
+    from it and strips it. See 001's contract for the full description — it is not restated here,
+    because two copies of that paragraph is how they come to disagree.
+
+servers:
+  - url: http://localhost:8000
+    description: Local docker-compose
+  - url: https://creator-hub-1dgs.onrender.com
+    description: |
+      Production (Render). Copy this hostname, never retype it — Render appends a random suffix to
+      service hostnames, and its edge answers an unknown host with a `404 text/plain "Not Found"`
+      that is byte-identical to what the Vercel proxy returns when `API_BASE_URL` is wrong.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /preferences:
+    get:
+      tags: [preferences]
+      summary: Read the account's presentation and sound choices
+      operationId: getPreferences
+      description: |
+        Returns the authenticated account's own preferences. **Takes no identifier** — there is one
+        account and the token names it (constitution VII, and INV-1 in this iteration's
+        `data-model.md`).
+
+        **This operation has exactly one caller and that is deliberate**: the app shell reads it once
+        per mount to reconcile the `ch_theme` cookie against the account (research R-002). It is
+        *not* on the first-paint path — the cookie is what the server renders from — and adding a
+        second caller that blocks rendering on it would undo the whole of FR-013a. The cold
+        `/calendar` document was measured at 44.18s at T072; nothing this iteration adds may sit in
+        front of that.
+
+        Both fields are always present. Neither is ever null: the columns are `NOT NULL` with
+        defaults, so "never chosen" and "chosen, and it is the default" are the same value on the
+        wire. `data-model.md` states why that is the right answer rather than a shortcut.
+      responses:
+        "200":
+          description: The account's preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+    patch:
+      tags: [preferences]
+      summary: Change one or both choices
+      operationId: updatePreferences
+      description: |
+        Partial update with the same semantics as `PATCH /content-items/{id}` in 001: **an omitted
+        key means "leave it"**. Unlike that operation there is no "clear it" case — neither field is
+        nullable, so an explicit `null` is a validation failure rather than a third meaning. That
+        difference is worth stating because the frontend client's `ContentItemUpdate` type spells its
+        fields `?: T | null` precisely to keep those two intentions apart, and copying that spelling
+        here would invent a meaning this endpoint does not have.
+
+        **A body with no keys at all is a 422**, matching the existing partial-update behaviour: an
+        empty change is not a change, and accepting it would let a caller mistake a no-op for a save.
+
+        Last write wins, with no version marker and no conflict detection — the same answer FR-023a
+        gives in 001, for the same reason. The only person who can overwrite this owner is the same
+        owner on another device.
+
+        The response is the **full** preferences object, not the diff, so a caller never has to
+        reconstruct the new state from what it sent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Theme:
+      type: string
+      enum: [dark, light]
+      description: |
+        Exactly two values. `dark` is what an account has before anyone chooses (FR-012), and it is
+        the column default rather than a null.
+
+        These strings are the same tokens the `ch_theme` cookie carries and the same ones the
+        `<html>` class is derived from. **One vocabulary, three places** — a mapping table between
+        them would be a fourth place to get wrong.
+
+    Preferences:
+      type: object
+      required: [theme, sound_enabled]
+      properties:
+        theme:
+          $ref: "#/components/schemas/Theme"
+        sound_enabled:
+          type: boolean
+          description: |
+            FR-020: false until the owner explicitly turns sound on, and false is the column default.
+            The product produces no sound while this is false, on any device.
+
+    PreferencesUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        theme:
+          $ref: "#/components/schemas/Theme"
+        sound_enabled:
+          type: boolean
+      description: |
+        At least one key. `additionalProperties: false` is declared rather than left implicit: the
+        server ignores unknown keys silently by default, so a client that misspells `sound_enabled`
+        would get a 200 describing a change that did not happen.
+
+  responses:
+    # Both responses below reference 001's `Error` schema across files rather than restating it.
+    # That is deliberate: `{"detail": "<string>"}` is the uniform error body for the whole API, and a
+    # second copy of it here is a second thing that can drift from the first. This project has been
+    # bitten by a duplicated claim at four checkpoints running; one definition, referenced, cannot
+    # disagree with itself.
+
+    Unauthenticated:
+      description: |
+        No credential, or one the server will not accept. The body says nothing about which — see
+        001's contract, where the same rule is stated for every authenticated operation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+  # ---------------------------------------------------------------------------
+  # Amended in this iteration: POST /auth/login
+  # ---------------------------------------------------------------------------
+  #
+  # The operation itself is unchanged and still lives in 001's contract. Its 200 response gains one
+  # OPTIONAL property:
+  #
+  #     preferences: { $ref: Preferences }
+  #
+  # Why it rides on the login response instead of being fetched separately: the proxy already reads
+  # that body to lift `access_token` out of it, so it can write the `ch_theme` cookie in the very
+  # same response that sets the session cookie. The first authenticated document is then correct with
+  # no extra round trip — which matters on a stack whose cold first request was measured at 44.18s.
+  #
+  # It is declared OPTIONAL on purpose. A client that ignores it is still correct: `GET /preferences`
+  # at app mount reaches the same state one moment later. Making it required would break any
+  # generated client written against 001's contract for no gain.
+  #
+  # This comment is the amendment record. The property must ALSO be added to 001's login response
+  # schema when the backend ships it — that is the one edit to 001's contract this iteration makes,
+  # and it is an addition to an existing operation rather than a new operation, which is exactly the
+  # line drawn at the top of this file.
+
+  # ---------------------------------------------------------------------------
+  # Explicitly NOT added
+  # ---------------------------------------------------------------------------
+  #
+  # * No DELETE /preferences. "Reset to defaults" is two PATCHes of known values and no requirement
+  #   asks for it.
+  # * No per-device preferences endpoint. The device's copy is a cookie, which is not an API concern.
+  # * No preferences on any unauthenticated path. The sign-in screen has no account to ask about and
+  #   FR-013b says what it does instead: it uses what this device last showed, and dark if it has
+  #   shown nothing.
