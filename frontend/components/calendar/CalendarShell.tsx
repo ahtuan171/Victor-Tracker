@@ -13,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 
+import { NavDrawer } from "@/components/arcade/NavDrawer";
 import { Ticker } from "@/components/arcade/Ticker";
 import { BACKLOG_DROP_ID, BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { FirstRun } from "@/components/calendar/FirstRun";
@@ -688,6 +689,15 @@ function CalendarHeader({
         </div>
 
         <div className="flex flex-none flex-col items-end gap-1.5">
+          {/*
+           * T029: the drawer's trigger, stacked **above** sign-out rather than beside it. Side by
+           * side the two would widen this column past the sign-out button's own width and eat into
+           * the period title's space (the same arithmetic T077 solved by putting sign-out above the
+           * counts instead of beside them); stacked, the column stays `max()` of its three rows
+           * rather than growing with their sum, and nothing here changes width.
+           */}
+          <NavDrawer />
+
           {/*
            * `h-11` is the 44px floor, as everywhere else — every shadcn size variant is desktop-scaled,
            * so the height is explicit rather than inherited. The label is a written word for the same

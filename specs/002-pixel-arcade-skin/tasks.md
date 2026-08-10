@@ -131,7 +131,7 @@ controls.
 **Independent test**: from each screen, open it, confirm every screen is listed, and confirm signing
 out works from it.
 
-- [ ] T029 [US2] Build `frontend/components/arcade/NavDrawer.tsx` and its trigger, present on every screen. It layers **above** the backlog drawer with its own scrim and its own dismissal; the backlog drawer is deliberately not a modal and cannot be relied on to get out of the way.
+- [x] T029 [US2] Build `frontend/components/arcade/NavDrawer.tsx` and its trigger, present on every screen. It layers **above** the backlog drawer with its own scrim and its own dismissal; the backlog drawer is deliberately not a modal and cannot be relied on to get out of the way.
 - [ ] T030 [US2] Move sign-out from the header into the drawer, at the **far end** of it (FR-017). Keep the refusal behaviour exactly as T077 built it: a refused sign-out keeps the owner on the calendar and says so, because only the proxy can clear an httpOnly cookie and a logout the server refused leaves the session alive.
 - [ ] T031 [US2] Tests in `frontend/tests/e2e/nav-drawer.spec.ts`: reachable from every screen; at most 2 interactions between any two screens (SC-007); dismissing over an open capture sheet **keeps the typed text** (FR-018); and neither drawer traps the person when both are open (FR-019).
 
@@ -419,3 +419,19 @@ deleted afterward so the account finishes at zero items, same convention T072's 
   regress it.
 
 **All three T028 gates pass.** No open findings remain from any of them.
+
+**2026-08-10 — T029.** `frontend/components/arcade/NavDrawer.tsx` built and wired into
+`CalendarShell`'s header, above the sign-out button rather than beside it — stacked vertically so the
+right-hand column stays `max()` of its rows (the same trick T077 used to add sign-out without
+widening it), not their sum. Own `open` state, own scrim (`z-30`) and panel (`z-40`) stacked above the
+backlog drawer's (`z-10`/`z-20`), no focus trap — Escape and a scrim click both dismiss, matching the
+backlog's own expanded panel, so FR-019 holds by construction (independent state means opening one
+cannot cancel the other) rather than by a rule enforced elsewhere. FR-015's screen list has one entry,
+`Content Calendar`, marked `aria-current="page"` rather than built as a dead link — there is nowhere
+else for it to go until a second screen exists. **Scope deliberately stops at the shell**: no
+sign-out, theme or sound control lives here yet — those are T030, T034 and T040, each its own task so
+the drawer is never wired to a control that does not work. Verified: `pnpm typecheck`/`lint`/`build`
+clean; `viewport-audit.spec.ts` (28/28), `sign-out.spec.ts` and `calendar.spec.ts` all still green in
+both presentations at 375px — the new stacked button changes the header's height, not its width, so
+none of the existing overflow assertions move. `nav-drawer.spec.ts` itself is T031's job, not this
+one's.
