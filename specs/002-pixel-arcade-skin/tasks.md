@@ -174,7 +174,7 @@ the choice survives reopening.
 - [x] T042 Reduced-motion pass across the product (FR-025, SC-008): everything self-animating stops under `prefers-reduced-motion: reduce`, and the set of readable information is **identical** with motion and without it.
 - [x] T043 Greyscale acceptance on every surface in **both** presentations (SC-004) — screenshots kept beside the brief in `design/002-pixel-arcade-skin/`, as 001 did.
 - [x] T044 Hand-walk [quickstart.md](./quickstart.md) V1–V11 against a production build at 375px, in both presentations, and record the results in this file **unsoftened**, including failures. V11 re-runs 001's own quickstart: capture must still be **three interactions** (SC-010, FR-003).
-- [ ] T045 Run `/speckit-analyze` **and** the `reviewer` agent. They find different classes of defect — a coverage check reads artifacts against each other, which a code review cannot; a reviewer reads code against specs, which an artifact check cannot.
+- [x] T045 Run `/speckit-analyze` **and** the `reviewer` agent. They find different classes of defect — a coverage check reads artifacts against each other, which a code review cannot; a reviewer reads code against specs, which an artifact check cannot.
 - [ ] T046 Documentation drift sweep, repo-wide. `CLAUDE.md`, both `AGENTS.md`, `.claude/memory.md`, `.claude/rules/design.md`, `CHANGELOG.md`, and every file this iteration's decisions touched. **Search the whole repository, then filter** — the fifth instance of this trap in 001 was found only by an unscoped grep, in the one file nobody thought to list.
 - [ ] T047 Write `docs/retro-02.md` and tag the release, in that order and only after T044 has walked a deployment. Tagging a release no deployment has been walked against is backwards — 001 split its tag out of the drift pass for exactly this reason.
 
@@ -999,3 +999,37 @@ anything the capture-phase Escape fix touched — unsurprising, since that fix o
 (NavDrawer's Escape handling), a regression test added for it, and the walk script's own two
 instrumentation bugs corrected for next time.** T043 and T044 together are this iteration's stage-2
 gate equivalent — the last checkpoint before `/speckit-analyze` and the `reviewer` agent (T045).
+
+**2026-08-11i — T045.** `/speckit-analyze` found **one MEDIUM finding and nothing CRITICAL or HIGH**:
+`spec.md`'s Assumptions section states the visual direction was settled 2026-08-05 and "is not
+reopened here," but says nothing about the second, far more detailed comic-tech brief
+(`comic-tech-brief.md`) that supplemented it on 2026-08-11. Verified — reading `git log a7562da`'s own
+words ("Spider-Man-themed reference (spidey-tracker.mp4)") and the brief file's own preamble — that
+this is elaboration of the *same* settled direction, not a second competing one, so the finding is a
+documentation cross-reference gap, not a substance violation. Folded into T046 rather than fixed here,
+since a doc-drift fix belongs in the doc-drift sweep. Full FR/SC cross-reference (`grep -oE` both
+files, diffed) found zero phantom IDs in either direction; 100% requirement coverage, either by direct
+task citation or by the general-purpose audit infrastructure (`viewport-audit.spec.ts`,
+`text-size-audit.spec.ts`) plus `quickstart.md`'s own explicit FR/SC citations.
+
+**The `reviewer` agent found something `/speckit-analyze` structurally could not: this whole branch
+had never gone through a merge request.** `git log --oneline main..002-pixel-arcade-skin` showed
+**32 commits**, T001 through Phase 5, none of them merged to `main`, no MR ever opened — and
+everything this session had done since (Phase 6 through Phase 7a, T038–T053, T044's fix) existed only
+as **uncommitted working-tree changes**, meaning the FR-018 regression T044 found and fixed was still
+**live on `origin/002-pixel-arcade-skin`** at the moment the agent reported it. The agent correctly
+flagged this should block T047 — tagging a release on top of an uncommitted working tree would tag
+Phase 5, not the finished iteration. (One further, minor finding: a stale comment in
+`PlatformFilter.tsx` claiming `--ch-void` is "the darkest token in both presentations" — it is the
+opposite in light mode, near-white, though the rendered *result* is correct since it always pairs
+against the brand fill, not against the page background. Fixed in the same commit as T045's other
+follow-ups.)
+
+**Resolved, on the owner's explicit direction (asked rather than decided unilaterally, given the
+scale — 32+ commits touching main for the first time this iteration)**: one merge request for the
+**entire** branch, T001 through T053, rather than either "only my session's work" or a retroactive
+one-MR-per-task split. Recorded as a stated constitution VI exception, the same shape as 001's own
+25-merge pre-gate exception — this branch simply never had the gate applied to it at any point in its
+history, and this MR is where that gets fixed rather than compounded. Commit `cd8f226` carries T038
+through T053 plus the NavDrawer fix; MR **!63** (`002-pixel-arcade-skin` → `main`) opened
+2026-08-11, pipeline running.

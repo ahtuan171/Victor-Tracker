@@ -151,8 +151,10 @@ function FilterOption({
       // 002 T024: dropped font-display, 11px -> the 12px floor.
       // T050 (comic-tech brief §9, "comic tabs"): the active option carries the brief's exact
       // description — red fill, **dark** text rather than white (a comic-panel choice, not a
-      // contrast afterthought: `text-void` is the darkest token in both presentations, and reads
-      // clearly against `--ch-brand` in each), a small solid offset shadow in `--ch-brand-deep`
+      // contrast afterthought: `text-void` is not literally the darkest token in both presentations
+      // — it is near-white in light mode — but it always sits against `--ch-brand`'s own fill here,
+      // never against the page background, and reads clearly against that fill in both), a small
+      // solid offset shadow in `--ch-brand-deep`
       // (the same offset red `.comic-panel` uses, so the two "something is active/interactive" cues
       // in this product read as one language), and one squared corner rather than the shared
       // `rounded-sm` — the brief's "diagonal/comic corner," kept to a single corner so it reads as a
