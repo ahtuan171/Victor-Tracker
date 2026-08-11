@@ -77,15 +77,21 @@
 
   /* Brand red — chrome, focus, primary action only. Never status, never a fourth meaning. Carries
      every job the outgoing cyan had; only the hue changed (2026-08-11 re-harmonisation, see the file
-     header). */
-  --ch-brand: #d0102c;
-  --ch-brand-hi: #a80c22;
+     header). Re-tuned 2026-08-11b to the "comic-tech" brief's exact suggested reds (dark: #FF1744). */
+  --ch-brand: #c10f31;
+  --ch-brand-hi: #8f0a23;
   --ch-brand-sunk: #f7dfe2;
 
+  /* The offset-shadow red behind a comic panel's double border (`.comic-panel` below) — deliberately
+     darker than `--ch-brand` itself, in the direction a drawn shadow would be, never used as a fill or
+     text colour. */
+  --ch-brand-deep: #8f0018;
+
   /* Steel — the former brand cyan, demoted to a second, purely decorative accent: the frame's bevel,
-     the rivets, the ticker's scan-line. Never a control colour — see the file header's rule 2. */
-  --ch-steel: #2e55b3;
-  --ch-steel-hi: #1e3d85;
+     the rivets, the ticker's scan-line. Never a control colour — see the file header's rule 2.
+     Re-tuned 2026-08-11b to the brief's suggested electric blue (dark: #2563EB). */
+  --ch-steel: #1d4ed1;
+  --ch-steel-hi: #1638a0;
 
   /* Destructive amber/gold — deliberately not a second red, now that brand itself is red: a refusal
      and a primary action must never share a hue. */
@@ -134,29 +140,41 @@
 }
 
 .dark {
-  /* Surface stack — dark, near-black and cool-neutral rather than navy: "Night Suit" (2026-08-11) */
-  --ch-void: #050506;
-  --ch-surface-0: #0c0c0e;
-  --ch-surface-1: #141417;
-  --ch-surface-2: #1c1c21;
-  --ch-surface-3: #26262d;
-  --ch-hairline: #35313a;
+  /* Surface stack — dark, near-black and cool-neutral rather than navy: "Night Suit" (2026-08-11),
+     re-tuned 2026-08-11b to the comic-tech brief's exact suggested neutrals (Background #09090B,
+     Surface #111114, Surface 2 #17171C). Kept at ~70% of the screen by area per the brief's own ratio
+     — every surface still reads through these five steps, none of them competing with the accent. */
+  --ch-void: #09090b;
+  --ch-surface-0: #0c0c0f;
+  --ch-surface-1: #111114;
+  --ch-surface-2: #17171c;
+  --ch-surface-3: #1f1f26;
+  --ch-hairline: #2a2a31;
 
-  --ch-ink-hi: #f2eef2;
-  --ch-ink-mid: #a79fae;
-  --ch-ink-lo: #6f6875;
+  --ch-ink-hi: #f5f5f5;
+  --ch-ink-mid: #a7a3ad;
+  --ch-ink-lo: #6f6b76;
 
   /* Brand red — chrome, focus, primary action, identity. The reference is Spider-Man-themed
      (`spidey-tracker.mp4`); this is what makes the product actually read that way rather than as its
-     cyan-HUD cousin. Never meaning — status is still never carried by colour alone. */
-  --ch-brand: #ff1d3d;
-  --ch-brand-hi: #ff5468;
+     cyan-HUD cousin. Never meaning — status is still never carried by colour alone. Re-tuned
+     2026-08-11b to the brief's exact suggested reds: Primary Red #FF1744 is `--ch-brand` itself,
+     Deep Red #B00020 is `--ch-brand-deep` (below) rather than `--ch-brand-hi` — the brief uses it as a
+     shadow layer, not a brighter emphasis state, and dark mode's emphasis direction is *brighter*. */
+  --ch-brand: #ff1744;
+  --ch-brand-hi: #ff5c7a;
   --ch-brand-sunk: #2a0a10;
 
+  /* The offset-shadow red behind a comic panel's double border (`.comic-panel` below) — the brief's
+     "Deep Red". Never a fill or text colour; it exists to sit *behind* `--ch-brand`, like ink under a
+     misregistered print layer. */
+  --ch-brand-deep: #b00020;
+
   /* Steel — the outgoing brand cyan, kept alive as a second, decorative-only accent: the frame's
-     bevel, the rivets, the ticker's scan-line. Never a control colour. */
-  --ch-steel: #3d6fe0;
-  --ch-steel-hi: #6d93ff;
+     bevel, the rivets, the ticker's scan-line. Never a control colour. Re-tuned 2026-08-11b to the
+     brief's suggested electric blue, #2563EB, kept to ~5% of the interface by area. */
+  --ch-steel: #2563eb;
+  --ch-steel-hi: #5b82f5;
 
   /* Destructive amber/gold — not a second red. Brand and danger must stay two different signals now
      that brand itself is red, where before (cyan brand, red danger) that was true for free. */
@@ -240,6 +258,7 @@
   --color-brand: var(--ch-brand);
   --color-brand-hi: var(--ch-brand-hi);
   --color-brand-sunk: var(--ch-brand-sunk);
+  --color-brand-deep: var(--ch-brand-deep);
 
   /* New in 002: the accent hue split off `--brand` (chrome) so `--destructive` (red) is no
      longer sharing a family with the primary/focus colour. Exposed for anything that needs the raw
@@ -421,6 +440,40 @@
 .focus-ring-inset:focus-visible {
   outline: 2px solid var(--ch-ink-hi);
   outline-offset: -4px;
+}
+
+/*
+ * The "comic panel" hover treatment (2026-08-11b, the comic-tech redesign brief) — a double-border
+ * effect: `--ch-brand-deep` sits behind the card as an offset shadow layer, like ink under a
+ * misregistered print, and the whole card lifts toward it on interaction.
+ *
+ * **Deliberately hover/focus-only, not the resting state.** The brief's own calendar section asks for
+ * this precisely as a hover behaviour, and a persistent offset shadow on every chip in a 42-cell month
+ * grid or a seven-row week list would be visual noise competing with the status cue for attention —
+ * the brief's own words: "vẫn phải rõ ràng và usable, không hy sinh UX chỉ để làm đẹp." At rest a
+ * chip is exactly what it already was; the panel language only appears on the interaction that invites
+ * it.
+ *
+ * `transform` and `box-shadow` are both paint/compositing properties — neither changes the element's
+ * layout box, so this cannot be the reason a sibling reflows or a `boundingBox()` assertion elsewhere
+ * in the suite moves. `:focus-visible` alongside `:hover` is what makes this keyboard-reachable too,
+ * not just a mouse affordance; it composes with `.focus-ring`'s outline rather than replacing it, the
+ * outline sitting further out at its own 2px offset.
+ *
+ * `prefers-reduced-motion` is handled globally below (the `*` block collapses every
+ * `transition-duration` to near-zero), so this needs no reduced-motion branch of its own — the offset
+ * still appears, it simply stops animating into place.
+ */
+.comic-panel {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.comic-panel:hover,
+.comic-panel:focus-visible {
+  transform: translate(-2px, -2px);
+  box-shadow: 3px 3px 0 0 var(--ch-brand-deep);
 }
 
 /*

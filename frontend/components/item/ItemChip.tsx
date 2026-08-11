@@ -174,6 +174,11 @@ export function ItemChip({
         FRAME[size],
         openable &&
           "focus-ring text-left",
+        // The comic-panel hover treatment (2026-08-11b) — `full`/`peek` only, and never on a ghost.
+        // `micro` sits in a ~50px day cell with no room to spare for an offset shadow without bleeding
+        // into the next cell; the drag overlay is not a thing a pointer "hovers", so the class would
+        // be inert there anyway, and omitting it says so rather than leaving a dead class name.
+        openable && !ghost && (size === "full" || size === "peek") && "comic-panel",
         // T055: the gesture arbitration half that lives on the element. Without it a vertical swipe
         // beginning on a chip is captured as a drag and the grid does not scroll.
         !pending && "touch-none",

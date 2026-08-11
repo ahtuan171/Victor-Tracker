@@ -517,3 +517,47 @@ against shape/fill encoding rather than literal colour, so it was never at risk 
 change, and stayed green as evidence of that rather than by luck. Hand-verified with real screenshots
 of `/calendar` (grid, drawer open) and `/login` at 375px, dark — the frame, rivets and ticker read
 blue against the red chrome exactly as the approved candidate showed.
+
+**2026-08-11b — first slice of a larger "comic-tech" redesign brief, scoped down rather than attempted
+whole.** The owner supplied a 14-section brief (Spider-Verse-inspired, not a Spider-Man reskin —
+comic panels, halftone, offset/ink shadows, web-line interaction language, a typography re-pairing, new
+branding copy, a richer drawer menu, animated micro-interactions) with an explicit priority order.
+Two items in it were flagged rather than built as written, both defaulted to the safer reading:
+
+- **Literal "SPIDEY" branding** ("SPIDEY TRACKER", "ISSUE #08") was not added — that crosses from
+  visual inspiration into naming the product after the IP, which the brief's own principle 13
+  ("không biến giao diện thành Spider-Man fan website") argues against on its own terms. Branding
+  copy is deferred to its own pass with a non-infringing name.
+- **Drawer items `CONTENT` / `ANALYTICS`** were not added. Today there is exactly one real screen; the
+  content-analytics module was explicitly *cancelled* (not deferred) at the 2.0.0 pivot. Adding menu
+  entries that go nowhere — or resurrecting a cancelled module as a side effect of a visual pass — is
+  exactly what constitution IV's "amend spec.md before building a design-implied field/screen" and
+  this file's own non-negotiables forbid. FR-015's list stays at one entry until a spec amendment
+  says otherwise.
+
+**What landed, against the brief's own priority order:**
+
+- **#4 Color system** (done ahead of its stated order, since it was the fastest correction): tokens
+  re-tuned to the brief's exact suggested hex values — dark `--ch-brand` #FF1744, `--ch-steel` #2563EB,
+  `--ch-ink-hi` #F5F5F5, the five-step neutral stack toward #09090B. A new token, `--ch-brand-deep`
+  (#B00020, the brief's "Deep Red"), was added for the comic-offset shadow layer rather than reused as
+  `--ch-brand-hi` — the brief uses it as a shadow colour, and dark mode's "-hi" direction is *brighter*,
+  the opposite of what Deep Red is.
+- **#1 Calendar** (partial): `ItemChip` at `full`/`peek` sizes gets a new `.comic-panel` hover/focus
+  treatment — the card lifts 2px toward its own offset shadow (`--ch-brand-deep`), `transform` and
+  `box-shadow` only, so nothing in the layout/overflow suite could move because of it. Deliberately
+  **hover/focus-only, not resting-state**: a permanent offset shadow on every chip across a 42-cell
+  month grid would be the "hy sinh UX chỉ để làm đẹp" the brief itself warns against. `micro` (the
+  month grid's 50px cells) and `ghost` (the drag overlay) are excluded — no room for the shadow to
+  read without bleeding into the next cell, and a dragged chip is not a thing a pointer "hovers".
+
+**Deliberately not started this pass**: typography re-pairing (a real font swap, not a token tweak —
+would reopen T004's 20px content-size sign-off, which was measured against VT323's specific metrics),
+branding copy, halftone texture placement, platform-filter tab redesign, backlog/empty-state copy,
+the richer menu panel treatment, page-transition and drag web-line animations. Each is real,
+independent work with its own risk of breaking an exact-text assertion somewhere in 483 tests — bundling
+them into one unreviewed pass is the "two languages" failure `.claude/rules/design.md` exists to avoid,
+so they are sequenced rather than dumped in together.
+
+**Verified**: `pnpm typecheck`/`lint`/`build` clean; full suite, all four Playwright projects, **483
+passed** again. Hand-verified with screenshots of the week list at rest and mid-hover.
