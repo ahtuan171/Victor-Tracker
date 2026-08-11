@@ -347,3 +347,21 @@ seconds once a day. **Trigger for picking it up**: a second person uses it, or t
 avoiding the app at the start of the day. Note before choosing the cheap option — a keep-warm ping
 must wake **both** services, and pinging Render's `/health` does not touch Neon, because `/health`
 does not query the database.
+
+**2026-08-11 — The Travel Tracker product spec, captured but not started.** Full input is
+`drafts/travel-tracker.spec.draft.md` (the same role `content-calendar.spec.draft.md` played for
+001) — Map/Calendar/Trip linked through `Destination`/`Activity`, MVP field list already scoped down
+by the owner, a full dashboard mock. **Two sections (§8 Route, §1/§9/§10/§13 Budget) collide with
+named constitutional exclusions** — CLAUDE.md's "What this is" lists "route planning, budgets" first
+among the things this product is structured to keep out. **The owner's 2026-08-11 decision: amend the
+constitution to permit both, rather than strip them from the draft.** Automatic location capture (the
+third named exclusion) is not requested anywhere in the draft, so that one stands as ratified.
+
+**Trigger to pick this up: `002-pixel-arcade-skin` reaches T047 (tag + retro) and closes.** The
+owner's explicit sequencing (2026-08-11): finish 002's remaining Phase 5–7 first rather than leave it
+half-done while a second iteration opens — the same "one module at a time" reasoning as the
+2026-07-29 entry above. When it is time: `/speckit-constitution` first (2.0.0 → next, recording the
+route/budget permission with its reasoning), then the `new-feature` skill / `/speckit-specify` against
+the draft file — which has **not** been through `/speckit-clarify` and has open questions the draft
+file's own closing section lists (a geocoding provider for turning a typed search into lat/long is
+the one most likely to block T001 of that iteration).
