@@ -176,7 +176,8 @@ test.describe("the backlog drawer", () => {
     await expect(page.getByTestId("backlog-empty-peek")).toContainText("+ New");
 
     await page.getByTestId("backlog-toggle").click();
-    await expect(page.getByTestId("backlog-empty")).toContainText("Capture an idea");
+    // T051 reworded the copy; "Capture" is still the word that names the action.
+    await expect(page.getByTestId("backlog-empty")).toContainText("Capture one");
   });
 });
 

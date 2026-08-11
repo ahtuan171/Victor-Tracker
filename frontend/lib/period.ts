@@ -135,14 +135,24 @@ export function shiftPeriod(period: DateOnly, view: CalendarView, delta: number)
 }
 
 /**
- * The small caps line above the period title, straight from the export: `Content Calendar` on the
- * month view (`1c`), the ISO week number on the week view (`1e`).
+ * The small caps line above the period title (T049, comic-tech brief §5).
  *
- * ISO rather than any other week numbering, because it is the one that agrees with a Monday-first
- * week — which is the week this calendar draws.
+ * The month view carries the product's own mark, `Victor Tracker`, plus a comic-book "issue" number
+ * — the brief's own worked example is `AUGUST / 2026 / ISSUE #08`, and August is the 8th month, which
+ * is the whole of the mapping: **the issue number is the period's month number, zero-padded**. No
+ * separate counter to keep in sync with anything.
+ *
+ * The week view keeps its ISO week number exactly as before — real information (which week is this),
+ * not decoration, so nothing here replaces it. ISO rather than any other week numbering, because it
+ * is the one that agrees with a Monday-first week, which is the week this calendar draws. (Before
+ * T049, the month view's line was `Content Calendar` — a static label carrying no information of its
+ * own, which is exactly why swapping it for the brand mark costs nothing functionally.)
  */
 export function periodEyebrow(period: DateOnly, view: CalendarView): string {
-  if (view === "month") return "Content Calendar";
+  if (view === "month") {
+    const month = Number(period.split("-")[1]);
+    return `Victor Tracker · Issue #${String(month).padStart(2, "0")}`;
+  }
   return `Week ${getISOWeek(parseDateOnly(period))}`;
 }
 

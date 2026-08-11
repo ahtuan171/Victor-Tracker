@@ -149,10 +149,18 @@ function FilterOption({
       data-testid={testId}
       data-selected={selected ? "" : undefined}
       // 002 T024: dropped font-display, 11px -> the 12px floor.
+      // T050 (comic-tech brief §9, "comic tabs"): the active option carries the brief's exact
+      // description — red fill, **dark** text rather than white (a comic-panel choice, not a
+      // contrast afterthought: `text-void` is the darkest token in both presentations, and reads
+      // clearly against `--ch-brand` in each), a small solid offset shadow in `--ch-brand-deep`
+      // (the same offset red `.comic-panel` uses, so the two "something is active/interactive" cues
+      // in this product read as one language), and one squared corner rather than the shared
+      // `rounded-sm` — the brief's "diagonal/comic corner," kept to a single corner so it reads as a
+      // deliberate break rather than a redraw of the button.
       className={cn(
         "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-xs leading-none font-semibold tracking-[0.14em] uppercase",
         selected
-          ? "border-brand bg-brand text-white"
+          ? "border-brand bg-brand text-void shadow-[2px_2px_0_0_var(--ch-brand-deep)] rounded-tr-none"
           : "border-hairline bg-surface-2 text-ink-mid",
       )}
     >

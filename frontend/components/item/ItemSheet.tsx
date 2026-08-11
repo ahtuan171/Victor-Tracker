@@ -22,6 +22,7 @@ import {
   isValidPublishedUrl,
   PUBLISHED_URL_MAX_LENGTH,
 } from "@/lib/items";
+import { playCue } from "@/lib/sound";
 import { PLATFORM_CUES, STATUS_CUES } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
@@ -219,6 +220,9 @@ export function ItemSheet({
      * Tightening this means amending `contracts/openapi.yaml` first.
      */
     if (current.published_url !== null && !isValidPublishedUrl(current.published_url)) {
+      // A refusal per FR-023a, even though no request was made — the creator asked to save and was
+      // told no, which is exactly the case that cue exists for.
+      playCue("refuse");
       setError(LINK_REFUSAL);
       // Not an invariant code: no server was asked. `errorCode` stays null so T053's 409 handling
       // does not claim a refusal it had no part in.
@@ -237,11 +241,13 @@ export function ItemSheet({
 
     try {
       await onSave(item, changes);
+      playCue("save");
       onOpenChange(false);
     } catch (caught) {
       // The sheet stays open with the draft intact — same rule as the capture sheet. A refused save
       // that also discarded the edit would be the worst outcome, and it is exactly what closing
       // optimistically produces. T053 makes the 409 codes legible here.
+      playCue("refuse");
       setError(
         caught instanceof ApiError
           ? caught.detail

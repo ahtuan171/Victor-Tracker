@@ -353,7 +353,8 @@ test.describe("the filtered empty state (T062)", () => {
     // A creator with nothing captured should meet the drawer's "tap + Capture", not a message about
     // a filter that is not the reason their calendar is empty.
     await expect(page.getByTestId("filtered-empty")).toHaveCount(0);
-    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Everything you capture");
+    // T051 reworded the default peek copy; "Nothing captured yet" is still the substring unique to it.
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Nothing captured yet");
   });
 
   test("the backlog names the filter too, in both drawer states", async ({ page, baseURL }) => {
@@ -362,10 +363,10 @@ test.describe("the filtered empty state (T062)", () => {
     await page.getByTestId("platform-filter-youtube").click();
 
     // T062 asks for this on the drawer as well as the grid, and the peek strip is the backlog view a
-    // creator sees most. Without it the strip reads "Everything you capture starts here" to someone
-    // whose backlog is full — telling them to capture something they already have.
+    // creator sees most. Without it the strip reads the default "nothing captured" copy (reworded at
+    // T051) to someone whose backlog is full — telling them to capture something they already have.
     await expect(page.getByTestId("backlog-empty-peek")).toContainText("No undated YouTube ideas");
-    await expect(page.getByTestId("backlog-empty-peek")).not.toContainText("Everything you capture");
+    await expect(page.getByTestId("backlog-empty-peek")).not.toContainText("Nothing captured yet");
 
     await page.getByTestId("backlog-toggle").click();
     await expect(page.getByTestId("backlog-empty")).toContainText("No undated YouTube ideas");
@@ -378,7 +379,8 @@ test.describe("the filtered empty state (T062)", () => {
       item(1, { title: "Dated", platform: "tiktok", scheduled_date: "2026-03-10" }),
     ]);
 
-    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Everything you capture");
+    // T051 reworded the default peek copy; "Nothing captured yet" is still the substring unique to it.
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("Nothing captured yet");
   });
 });
 

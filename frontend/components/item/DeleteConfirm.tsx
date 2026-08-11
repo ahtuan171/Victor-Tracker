@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ApiError, type ContentItem } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
+import { playCue } from "@/lib/sound";
 
 /**
  * The delete confirmation (T056, FR-004, FR-020, SC-007, spec Edge Cases).
@@ -81,10 +82,12 @@ export function DeleteConfirm({
 
     try {
       await onDelete(item);
+      playCue("delete");
       onOpenChange(false);
     } catch (caught) {
       // The dialog stays open, and the row has already been put back on the surface behind it by
       // `itemRestored`. Closing here would leave the creator believing a deletion happened.
+      playCue("refuse");
       setError(
         caught instanceof ApiError
           ? caught.detail

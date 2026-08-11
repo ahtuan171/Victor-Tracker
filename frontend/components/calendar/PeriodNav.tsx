@@ -116,7 +116,8 @@ function PeriodStep({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 w-10 flex-none rounded-sm border text-base leading-none font-semibold disabled:opacity-40"
+      // T052: press-feedback on the arrows, the most-tapped controls on this surface.
+      className="press-feedback border-hairline bg-surface-2 text-ink-mid focus-ring h-11 w-10 flex-none rounded-sm border text-base leading-none font-semibold disabled:opacity-40"
       data-testid={label.startsWith("Previous") ? "period-previous" : "period-next"}
     >
       <span aria-hidden="true">{glyph}</span>

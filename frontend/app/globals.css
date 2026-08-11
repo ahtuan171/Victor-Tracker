@@ -443,16 +443,28 @@
 }
 
 /*
- * The "comic panel" hover treatment (2026-08-11b, the comic-tech redesign brief) — a double-border
- * effect: `--ch-brand-deep` sits behind the card as an offset shadow layer, like ink under a
- * misregistered print, and the whole card lifts toward it on interaction.
+ * The "comic panel" treatment (2026-08-11b pass 1, extended at T048) — a double-border effect:
+ * `--ch-brand-deep` sits behind the card as an offset shadow layer, like ink under a misregistered
+ * print, and the whole card lifts toward it on interaction.
  *
- * **Deliberately hover/focus-only, not the resting state.** The brief's own calendar section asks for
- * this precisely as a hover behaviour, and a persistent offset shadow on every chip in a 42-cell month
- * grid or a seven-row week list would be visual noise competing with the status cue for attention —
- * the brief's own words: "vẫn phải rõ ràng và usable, không hy sinh UX chỉ để làm đẹp." At rest a
- * chip is exactly what it already was; the panel language only appears on the interaction that invites
- * it.
+ * **The heavy half — the offset shadow and the lift — stays hover/focus-only.** T048's own reasoning
+ * is unchanged from pass 1: the brief's own words are "vẫn phải rõ ràng và usable, không hy sinh UX
+ * chỉ để làm đẹp," and a persistent offset shadow on every chip in a seven-row week list would be
+ * noise competing with the status cue. (The month grid's `micro` chips and the drag ghost never carry
+ * this class at all — see `ItemChip.tsx` — so "every chip in a 42-cell month grid" was never actually
+ * at risk here; it is the week list and the expanded backlog that this reasoning protects.)
+ *
+ * **The light half — an asymmetric corner — is resting-state, added at T048.** Brief §3 lists
+ * "slightly asymmetric shape" among the card's own properties, not its hover example, and rounding is
+ * cheap: it changes no dimension `viewport-audit.spec.ts` measures, only which corners are square.
+ * One corner only (top-left), so the shape reads as a deliberate break rather than a redraw of the
+ * whole chip.
+ *
+ * **The web-line accent (brief §6 — "Hover card → web line xuất hiện") is a `::after` layer**, a
+ * short diagonal line anchored at the same corner, invisible at rest and faded in with the same
+ * transition as the shadow. Purely decorative (`pointer-events: none`, no DOM node, nothing an
+ * assistive technology could land on) — the interaction it marks is already announced by the focus
+ * ring and the cursor.
  *
  * `transform` and `box-shadow` are both paint/compositing properties — neither changes the element's
  * layout box, so this cannot be the reason a sibling reflows or a `boundingBox()` assertion elsewhere
@@ -462,18 +474,64 @@
  *
  * `prefers-reduced-motion` is handled globally below (the `*` block collapses every
  * `transition-duration` to near-zero), so this needs no reduced-motion branch of its own — the offset
- * still appears, it simply stops animating into place.
+ * and the web line still appear, they simply stop animating into place (`reduced-motion.spec.ts`'s
+ * "the hover lift's transition" cases assert exactly this, against this class).
  */
 .comic-panel {
+  position: relative;
+  border-radius: 2px 8px 2px 2px;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
+}
+
+.comic-panel::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 16px;
+  height: 16px;
+  background-image: linear-gradient(
+    135deg,
+    transparent 46%,
+    var(--ch-steel) 46%,
+    var(--ch-steel) 50%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
 }
 
 .comic-panel:hover,
 .comic-panel:focus-visible {
   transform: translate(-2px, -2px);
   box-shadow: 3px 3px 0 0 var(--ch-brand-deep);
+}
+
+.comic-panel:hover::after,
+.comic-panel:focus-visible::after {
+  opacity: 0.6;
+}
+
+/*
+ * Button-press feedback (T052, comic-tech brief §8 — "Button press" among the named
+ * micro-interactions). `:active` only — never `:hover` or `:focus-visible` — so it fires exactly on
+ * the gesture that presses the control and nothing else; a settle on hover would fire from a mouse
+ * resting over the button, which is not a press. Applied to the product's most-tapped controls
+ * (capture, the period arrows) rather than every button, matching how `.comic-panel` above is scoped
+ * to where the interaction actually happens rather than applied blanket.
+ *
+ * Collapsed by the same global `prefers-reduced-motion` rule as everything else here — the settle
+ * still happens, it simply stops animating into place.
+ */
+.press-feedback {
+  transition: transform 100ms ease;
+}
+
+.press-feedback:active {
+  transform: scale(0.97) translateY(1px);
 }
 
 /*

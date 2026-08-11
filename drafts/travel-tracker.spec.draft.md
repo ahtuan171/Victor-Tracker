@@ -8,6 +8,13 @@ constitution as ratified (see below). Do not build against this file directly; r
 
 ## Status
 
+- **2026-08-11 (later the same day)**: the owner re-sent this draft mid-`002` Phase 7, unchanged except
+  the product's working name — `VICTOR TRACKER`, not `TRAVEL TRACKER` / "Spidey Tracker" — matching the
+  branding name chosen the same session for `002`'s own in-app header (§5's "SPIDEY TRACKER" /
+  "ISSUE #08" example became "VICTOR TRACKER" / "ISSUE #08" there too, for the same non-infringement
+  reason: see `design/002-pixel-arcade-skin/comic-tech-brief.md`). Nothing else in the draft changed.
+  **The sequencing below still stands and was not renegotiated** — this file was updated for the name
+  only, not treated as a request to start the feature early.
 - **2026-08-11**: captured, deliberately not started. `002-pixel-arcade-skin` (the presentation-layer
   re-skin) is mid-iteration — Phase 4 of 7 closed, Phase 5 (theme) through Phase 7 (polish/retro/tag)
   still open. Constitution IV and `.claude/rules/design.md` both treat "a feature riding along inside

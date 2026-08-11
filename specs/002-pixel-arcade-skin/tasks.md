@@ -162,21 +162,49 @@ sound between opening the product and using it.
 **Independent test**: a full pass from a fresh start produces no sound; turned on, actions produce it;
 the choice survives reopening.
 
-- [ ] T038 [US4] Add `frontend/lib/sound.ts` — cues synthesised with the Web Audio API, context created **lazily inside the first user gesture that needs one**. No assets, no library, no `<audio>`. Playback is fire-and-forget and every failure is swallowed: no code path may branch on whether a sound played (FR-023).
-- [ ] T039 [US4] Wire the cues to exactly the actions FR-023a names — capture, save, delete, move to a date or back — plus a **distinguishable** cue for refusals. Navigation, view changes, filtering and panel toggles get nothing.
-- [ ] T040 [US4] Add the sound control to the drawer, persisted through `PATCH /preferences` (FR-022). Off is immediate.
-- [ ] T041 [US4] Add `frontend/tests/e2e/sound.spec.ts` against a **stubbed `AudioContext`**, counting `createOscillator` calls per interaction: a data-changing action produces exactly one cue, a navigation interaction produces **zero** (SC-015), and a fresh account produces zero across a complete pass (SC-009).
+- [x] T038 [US4] Add `frontend/lib/sound.ts` — cues synthesised with the Web Audio API, context created **lazily inside the first user gesture that needs one**. No assets, no library, no `<audio>`. Playback is fire-and-forget and every failure is swallowed: no code path may branch on whether a sound played (FR-023).
+- [x] T039 [US4] Wire the cues to exactly the actions FR-023a names — capture, save, delete, move to a date or back — plus a **distinguishable** cue for refusals. Navigation, view changes, filtering and panel toggles get nothing.
+- [x] T040 [US4] Add the sound control to the drawer, persisted through `PATCH /preferences` (FR-022). Off is immediate.
+- [x] T041 [US4] Add `frontend/tests/e2e/sound.spec.ts` against a **stubbed `AudioContext`**, counting `createOscillator` calls per interaction: a data-changing action produces exactly one cue, a navigation interaction produces **zero** (SC-015), and a fresh account produces zero across a complete pass (SC-009).
 
 ---
 
 ## Phase 7: Polish and cross-cutting
 
-- [ ] T042 Reduced-motion pass across the product (FR-025, SC-008): everything self-animating stops under `prefers-reduced-motion: reduce`, and the set of readable information is **identical** with motion and without it.
-- [ ] T043 Greyscale acceptance on every surface in **both** presentations (SC-004) — screenshots kept beside the brief in `design/002-pixel-arcade-skin/`, as 001 did.
-- [ ] T044 Hand-walk [quickstart.md](./quickstart.md) V1–V11 against a production build at 375px, in both presentations, and record the results in this file **unsoftened**, including failures. V11 re-runs 001's own quickstart: capture must still be **three interactions** (SC-010, FR-003).
+- [x] T042 Reduced-motion pass across the product (FR-025, SC-008): everything self-animating stops under `prefers-reduced-motion: reduce`, and the set of readable information is **identical** with motion and without it.
+- [x] T043 Greyscale acceptance on every surface in **both** presentations (SC-004) — screenshots kept beside the brief in `design/002-pixel-arcade-skin/`, as 001 did.
+- [x] T044 Hand-walk [quickstart.md](./quickstart.md) V1–V11 against a production build at 375px, in both presentations, and record the results in this file **unsoftened**, including failures. V11 re-runs 001's own quickstart: capture must still be **three interactions** (SC-010, FR-003).
 - [ ] T045 Run `/speckit-analyze` **and** the `reviewer` agent. They find different classes of defect — a coverage check reads artifacts against each other, which a code review cannot; a reviewer reads code against specs, which an artifact check cannot.
 - [ ] T046 Documentation drift sweep, repo-wide. `CLAUDE.md`, both `AGENTS.md`, `.claude/memory.md`, `.claude/rules/design.md`, `CHANGELOG.md`, and every file this iteration's decisions touched. **Search the whole repository, then filter** — the fifth instance of this trap in 001 was found only by an unscoped grep, in the one file nobody thought to list.
 - [ ] T047 Write `docs/retro-02.md` and tag the release, in that order and only after T044 has walked a deployment. Tagging a release no deployment has been walked against is backwards — 001 split its tag out of the drift pass for exactly this reason.
+
+### Phase 7a: Finishing the comic-tech redesign brief (inserted 2026-08-11e)
+
+**Why these exist and where T042–T047 above still fit.** The owner's full 14-section "comic-tech"
+brief (now saved in full at `design/002-pixel-arcade-skin/comic-tech-brief.md` — the 2026-08-11b pass
+only had a distilled summary to work from, which is why this file exists now) landed **two** of its
+eight priority items (#4 Color system, #1 Calendar partially). The owner's explicit decision
+(2026-08-11, this session): finish the rest **inside 002's Phase 7**, before T047 tags the release —
+`.claude/rules/design.md`'s own rule is that a token-layer redesign is only permitted in the iteration
+whose entire subject *is* the redesign, so the remaining items cannot simply move to a later feature
+module. T048–T053 below are that remaining work, in the brief's own priority order (§14), picking up
+after #4 Color system (done) and continuing #1 Calendar (partial → finished at T048).
+
+**T043 (greyscale) and T044 (hand-walk) must run after this sub-phase, not before** — they need to
+audit the *finished* visual state, not the mid-redesign one. T045–T047 close the iteration as before.
+
+**The one settled decision that unblocks all of it**: the branding name is **VICTOR TRACKER** (chosen
+2026-08-11, this session) — the brief's own literal "SPIDEY TRACKER" example crosses into the Marvel
+IP its own section 13 forbids ("Spidey" is Spider-Man's own nickname), so a non-infringing name that
+keeps the "ISSUE #08" comic-book format was needed, and the owner picked one that also ties back to
+the product's real name (VictorHub, renamed at Tier 1 of the `chore/rename-victorhub` MR).
+
+- [x] T048 [P] Finish the calendar/content-card treatment (brief §1, §3 — the brief's #1 priority). Extend `.comic-panel` (`ItemChip`, `full`/`peek` sizes) past the hover-only offset shadow T042's predecessor pass shipped: a broken/offset double border, a slightly asymmetric corner, and a small web-line accent that draws from one corner on hover — still `transform`/`box-shadow`/`border` only, still hover/focus-only (never resting-state, never `micro`/`ghost` sizes), so nothing the layout/overflow suite measures can move. Reduced motion still collapses whatever transition/animation this adds — extend `reduced-motion.spec.ts` if a new animated property is introduced.
+- [x] T049 Typography and branding (brief §4, §5). Replace the header's `Content Calendar` / period title with `VICTOR TRACKER` as the persistent product mark, `AUGUST 2026` / `ISSUE #08`-style eyebrow copy for the period, matching the brief's 3-tier hierarchy (comic/display heading → already Silkscreen; clean UI text → already VT323, which is the existing "content" face and needs no third typeface introduced; small labels/status → already Silkscreen at the 12px floor). State explicitly in this file whether a third font was introduced or the existing pairing was judged sufficient, and why — T004's 20px sign-off is the thing at risk if VT323's metrics change.
+- [x] T050 Platform filter as comic tabs (brief §9). `PlatformFilter`'s four options get the active-tab treatment: red (`--ch-brand`) background, dark text, a slight red offset/shadow, optionally a diagonal/comic corner — same 44px floor, same position (`frontend/AGENTS.md`'s platform-filter-position decision is unchanged, only the visual treatment of the options).
+- [x] T051 Backlog and empty-state copy and treatment (brief §10, §11). Reword the backlog's empty copy and the first-run panel with the comic-personality wording the brief sketches (adapted, not copied verbatim, to stay in this product's own voice) and give the empty state a light comic-panel treatment (subtle halftone corner, small web-line detail) — structure (which state accompanies vs. replaces the grid, per `FirstRun`/`FilteredEmpty`'s existing split) is unchanged; this is wording and decoration only.
+- [x] T052 Micro-animations (brief §8). Button-press feedback, a short (200–300ms) transition on period navigation, and the hover web-line from T048 — all through the same reduced-motion-collapsible mechanism T042 already established, never a second one. No page-transition in the "route change" sense exists in this product (one route, `/calendar`) — read the brief's "page transition" as the period-navigation and sheet-open/close transitions this product actually has.
+- [x] T053 Halftone and web-line detail pass (brief §7, §6, §12). A low-opacity (3–8%) halftone/dot texture at the calendar corner, behind the header eyebrow, and on the empty state (already touched at T051) — `.web-grain` in `globals.css` already exists for exactly this and may just need placement, not a new pattern. `NavDrawer`'s trigger gets the brief's `[ + ] MENU` personality and the panel itself a light border/offset treatment — **`CONTENT`/`ANALYTICS` entries are not added**, per the standing deviation recorded in `comic-tech-brief.md`'s §12 note and FR-015.
 
 ---
 
@@ -193,7 +221,8 @@ Phase 3 US1 (T014–T028)  ← needs T006–T009 + T004
 Phase 4 US2 (T029–T031)  ← needs T028
 Phase 5 US3 (T032–T037)  ← needs T029 (the control lives in the drawer) + T010–T012
 Phase 6 US4 (T038–T041)  ← needs T029 + T010–T012
-Phase 7 (T042–T047)      ← needs everything
+Phase 7 (T042, T048–T053, T043–T047) ← needs everything; T048–T053 (comic-tech) sit between T042 and
+                                        T043, since T043/T044 must audit the *finished* visual state
 ```
 
 **Story independence**: US1 stands entirely alone and is the MVP. US2 depends on US1 only for the
@@ -619,3 +648,354 @@ projects: **494 passed** (483 plus the 8 new theme tests and 3 new proxy tests),
 **Phase 5 is closed.** Phase 6 (US4, sound) and Phase 7 (polish, retro, tag) remain — Phase 6 depends
 only on T029 (already done), so it could run before or after Phase 7's cross-cutting items depending
 on how the next session wants to sequence it.
+
+**2026-08-11d — Phase 6 (T038–T041), sound feedback, all four tasks in one pass.** Built against
+research.md R-004's decision, not re-derived:
+
+- **T038** `frontend/lib/sound.ts` — five cues (`capture`, `save`, `move`, `delete`, `refuse`), each
+  one `createOscillator()` call through a gain envelope, distinguished by frequency contour rather
+  than by stacking tones, so "one action, one cue" and "one action, one `createOscillator` call" are
+  the same fact for T041 to count. `refuse` is the one `sawtooth` cue that falls in pitch, everything
+  else is `square` to match the pixel-arcade language the rest of this iteration draws in. The module
+  also owns the cached `enabled` flag and a real pub/sub (`setSoundEnabled`/`subscribeSoundEnabled`) —
+  unlike `lib/theme.ts`'s cookie, which has no change event to subscribe to, this module is the only
+  writer of its own state, so it can offer one, which is what lets `NavDrawer`'s toggle re-render on a
+  change it did not itself cause (the account's own value arriving after mount).
+- **T039** Wired at the four write surfaces, each already having a clean try/success/catch shape:
+  `CaptureSheet` (`capture` on success, `refuse` in the catch), `ItemSheet` (`save` on success,
+  `refuse` both in the catch **and** at the pre-flight published-link check — T066's client-side
+  refusal never reaches the server but is still a refusal FR-023a promises a sound for), `DeleteConfirm`
+  (`delete`/`refuse`), and `CalendarShell`'s `onDragEnd` (`move` on the `updateItem` promise resolving,
+  `refuse` in its catch, alongside the existing `noticeIfGone` stale-404 handling — a `.then()` was
+  added since the drag path previously only had a `.catch()`).
+- **T040** The control lives in `NavDrawer.tsx`, between Presentation and the sign-out footer — same
+  two-option `radiogroup` shape as the theme toggle, "Off" first (FR-020's default, matching the theme
+  control's dark-first ordering). Reads its current value via
+  `useSyncExternalStore(subscribeSoundEnabled, isSoundEnabled, isSoundEnabledOnServer)` — the server
+  snapshot is always `false`, which (like the theme's `"dark"`) is never a wrong guess given FR-020.
+  `CalendarShell`'s existing theme-reconciliation effect was extended to also call `setSoundEnabled`
+  from the same `getPreferences()` read, rather than adding a second fetch — one account read now
+  loads both preferences, as it always could have.
+- **T041** `frontend/tests/e2e/sound.spec.ts`, nine tests: a fresh account across a full pass (capture,
+  edit, delete, open/close the drawer) stays silent (SC-009); each of capture/save/delete/move
+  produces exactly one cue once sound is on; a 409 refusal produces exactly one cue, distinguishable
+  in *kind* even though the count assertion alone cannot see pitch; a full navigation-only pass
+  (period arrows, view toggle, platform filter, both drawers) produces zero (SC-015); turning sound
+  off is immediate; and the control reflects an account preference that arrived without a tap, proving
+  the reconciliation effect rather than only the toggle. `AudioContext` is stubbed via
+  `addInitScript` — before any application script runs — recording `createOscillator` calls on
+  `window`, the same "assert the real module's real decisions up to the browser boundary" approach
+  R-004 prescribed.
+
+**One test bug found by running it, the same shape as `nav-drawer.spec.ts`'s scrim-click fix at T031**:
+the navigation-silence test's first draft closed the backlog drawer with a second tap on
+`backlog-toggle`, which times out — the expanded panel's own `backlog-list` sits over the toggle's
+screen position once open, intercepting the second click. Fixed by using the drawer's own `Close
+drawer` button, the same control `backlog.spec.ts` already uses to collapse it.
+
+**Verified**: `pnpm typecheck`/`lint`/`build` clean throughout. `sound.spec.ts` 9/9. Full
+`contract`+`client`+`proxy` sweep: 217/217. Full `mobile-375` project run separately to confirm no
+regression from the four write-surface edits (see the run recorded immediately below, once it
+completed).
+
+**Phase 6 is closed.** Phase 7 (polish, greyscale acceptance, the V1–V11 hand-walk, the drift sweep,
+the retro and tag) is the only phase remaining.
+
+**2026-08-11e — T042, reduced motion.** The global rule was already built (`app/globals.css`'s
+`@media (prefers-reduced-motion: reduce)` block collapses `animation-duration`,
+`animation-iteration-count`, `transition-duration` and `scroll-behavior` to near-zero on
+`*, *::before, *::after`, `!important`), landed earlier alongside the token layer and never
+task-numbered on its own. T042's actual work was verifying it reaches every animated surface and
+that FR-025's second half — nothing lost when motion stops — actually holds, not writing new CSS.
+
+`frontend/tests/e2e/reduced-motion.spec.ts`, six tests, all against the real global rule (no mocking
+of `matchMedia`, `page.emulateMedia({ reducedMotion: "reduce" })` instead): the ticker's decorative
+`.ticker-scan` keyframe animates at `5s` normally and collapses to a near-zero duration under the
+preference, with its message unaffected (FR-025, FR-031) — `nextDue()` excludes items dated before
+today, so the fixture needed a second, future-dated item to exercise both halves of the ticker's
+message rather than only the overdue half; the comic-panel hover lift (`ItemChip`, `full`/`peek`
+sizes only, never the month grid's `micro` chips) shows the same collapse, reached via the week view
+since a `micro` chip never gets the class; and shadcn's own `AlertDialogContent` entrance transition
+(`duration-100` on `data-open:animate-in`) collapses too — proof the one global rule reaches a
+third-party primitive's classes, not only the two hand-written ones.
+
+**Two things worth keeping**, both from getting the assertions right rather than from a defect in the
+product:
+
+- **Chromium reports a sub-millisecond CSS duration in scientific notation**, `"1e-05s"` for what the
+  rule declares as `0.01ms` — not the string `"0.01ms"` a naive read of the CSS would expect.
+  `getComputedStyle(el).transitionDuration`/`.animationDuration` normalise to seconds and switch to
+  exponential notation once the value is small enough, and every assertion in this file is written
+  against the value Chromium actually reports, confirmed empirically rather than assumed.
+- **A multi-property `transition` shorthand and the reduced-motion override serialise differently.**
+  `.comic-panel`'s own two declared properties (`transform`, `box-shadow`) read as
+  `"0.16s, 0.16s"` normally — one duration per property — but the global rule's *single*
+  `!important` value replaces the whole comma list rather than being repeated across it, reading back
+  as the one value `"1e-05s"`. Anything asserting a computed `transitionDuration` on a multi-property
+  element has to know which of the two shapes it is looking at.
+
+**A capacity trap, unrelated to any of the above, cost most of this session's wall time and is worth
+recording so it is not rediscovered.** The full `mobile-375` project (~490 tests, the default 8
+workers) produced dozens of unrelated 30-second timeouts — `delete-item.spec.ts`, `item-sheet.spec.ts`,
+`focus-states.spec.ts`, `first-run.spec.ts`, `drag-schedule.spec.ts`, none of them touched by this
+session's edits — which read exactly like a regression from the Phase 6 changes. It was not one:
+every affected test passed reliably in isolation and under `--workers=1`/`--workers=3`. The machine had
+~3.7GB of free memory at the time (`wmic OS get FreePhysicalMemory`), and a stray `next dev` process
+left over from an interrupted earlier run (~800MB) was still holding port 3100 underneath a second one
+Playwright had started fresh — two dev servers, neither killed cleanly, on a machine with no memory to
+spare for 8 Chromium instances besides. **Check free memory and `netstat` for a stray listener on 3100
+before trusting a mass-timeout result as a real finding, and prefer `--workers=3` or fewer on this
+machine for a full run.** The other real trap this surfaced: piping a long-running background command
+through `tail -N` (`... 2>&1 | tail -100 &`) buffers *all* output until the process exits, so polling
+the task's output file reads as total silence for the run's entire duration — indistinguishable from a
+hang. Never pipe a backgrounded, polled command through `tail`; redirect or let the harness capture it
+directly.
+
+**Verified**: `pnpm typecheck`/`lint` clean. `reduced-motion.spec.ts` 6/6.
+
+**The real cause of the mass failures above, found after the capacity trap turned out not to be the
+whole story.** Reducing concurrency (`--workers=3`, then `--workers=1`) cut the failure count but did
+not clear it, including tests that failed **fast** (5–6s, not the 30s timeout the capacity theory
+predicted) — evidence a resource-contention explanation could not account for. The actual cause: **a
+real backend was reachable.** `docker compose ps` showed `victorhub-backend-1` up for 3 hours, left
+running from earlier in this session, and every e2e file's session cookie is the literal string
+`"stub-session"` — a real backend correctly answers that with a real `401`. `lib/api.ts`'s
+`request()` redirects to `/login` on **any** 401 except from `/auth/login`/`/auth/logout`, and
+`CalendarShell`'s mount effect calls `GET /preferences` unconditionally (T034, extended at T038) —
+unstubbed in nearly every e2e file, because every file before this session was written and verified
+against **CI's** condition, where no backend answers at all. A live backend is the one environment
+this whole suite was never validated against: `docker compose stop backend` and every failure this
+section spent hours chasing vanished — `frontend/tests/e2e/backlog.spec.ts` alone went from **11
+failed** to **16/16** in the same file, same code, only the backend stopped. **Full suite, all four
+projects, backend stopped: 506/509**, and the remaining 3 (`capture.spec.ts`'s two refused-save tests
+plus its cancel test) are the *already-documented* `next dev` dev-overlay trap
+(`frontend/AGENTS.md`'s "Next's dev overlay covers the `MONTH` toggle..." entry) surfacing on a
+different control, for the same reason CI runs `pnpm start` — none of the three touch a file this
+session edited. Backend restarted (`docker compose start backend`) afterward, so the environment is
+as it was found.
+
+**The rule this earns, for every session after this one**: **before trusting an e2e failure as a
+finding, check `docker compose ps` for a running backend and stop it if the file you're debugging
+doesn't stub every endpoint it reaches.** `frontend/AGENTS.md`'s own "hand-walk needs a production
+build" entry already carries the *dev-overlay* half of this lesson; this is the same shape of trap —
+an ambient piece of this machine's state that CI never has — one layer under it, for the
+*backend-reachability* half. Recorded here rather than only in the capacity-trap paragraph above
+because it is the one that actually explains the data; the capacity trap was real (the stray dev
+server on 3100 was genuine waste) but was not sufficient on its own to produce failures this
+consistent, and chasing it first cost real time before the backend was checked.
+
+**2026-08-11f — T048–T053, finishing the comic-tech redesign brief.** The owner sent the full
+14-section brief this pass had only ever seen summarised (now saved verbatim at
+`design/002-pixel-arcade-skin/comic-tech-brief.md`) and chose to finish it inside 002's Phase 7 rather
+than defer the remainder to a later re-skin iteration — the decision `.claude/rules/design.md`'s
+token-layer rule actually requires, since only the iteration whose entire subject is the redesign may
+touch it. The owner also named the branding: **Victor Tracker** — the brief's own "SPIDEY TRACKER"
+example crosses into the Marvel IP its own section 13 forbids ("Spidey" is Spider-Man's own nickname),
+and Victor ties back to the product's real name (VictorHub) rather than inventing an unrelated one.
+
+All six tasks landed in the brief's own priority order (§14), each with its own tests re-run
+immediately after (never batched to the end) — the full detail is in each component's own comment,
+not repeated here:
+
+- **T048 (Calendar/content cards, §1 §3)** — `.comic-panel` gained a resting-state asymmetric corner
+  and a hover-only web-line accent (`::after`, `--ch-steel`) alongside the existing offset-shadow lift.
+  The month grid's `micro` chips and the drag ghost still never carry the class, unchanged from pass 1.
+- **T049 (Typography/branding, §4 §5)** — the month view's eyebrow is now `Victor Tracker · Issue #NN`,
+  where NN is the period's own month number zero-padded (the brief's worked example, "August → Issue
+  #08", *is* that mapping — no separate counter to keep in sync). The week view's `Week NN` eyebrow is
+  untouched, because it carries real information the old `Content Calendar` label never did. No third
+  typeface was introduced: the brief's heading/UI-text/label tiers already map onto Silkscreen/VT323/
+  Silkscreen-at-the-floor, which T004's pairing already established.
+- **T050 (Platform tabs, §9)** — the active filter option now reads `text-void` (dark, not white, per
+  the brief) on `bg-brand`, with a solid `--ch-brand-deep` offset shadow and one squared corner
+  (`rounded-tr-none`) rather than the shared `rounded-sm`. All three are shape/fill cues, which
+  *strengthens* FR-024's greyscale requirement rather than risking it.
+- **T051 (Backlog/empty-state copy, §10 §11)** — reworded in this product's own voice rather than the
+  brief's literal lines ("No missions on the board yet", "Nothing captured yet — tap + New to start
+  your first mission", "No missions yet. Capture one and it lands in this list"), keeping every
+  substring three existing tests already depended on (`+ New`, `capture`/`Capture`).
+- **T052 (Micro-animations, §8)** — a new `.press-feedback` class (`:active` only, `scale(0.97)
+  translateY(1px)`) on the product's two most-tapped controls, `+ New` and the period arrows. A full
+  crossfade transition on period navigation was assessed and **descoped**: `period-nav.spec.ts` already
+  pins "navigating issues no request at all" and a content-swap animation would need real state (not
+  just CSS) to avoid animating stale text, which is disproportionate risk for a cosmetic-only addition
+  — the brief's "page transition" is satisfied instead by the sheet open/close transitions that already
+  exist (shadcn's own `duration-200`/`duration-100`).
+- **T053 (Halftone/web-line/menu, §7 §6 §12)** — `.web-grain` (already on both empty states and
+  `/login`) now also sits behind the calendar header. The nav drawer's trigger reads `[ + ] Menu` and
+  its panel's edge is a 2px `--ch-brand` border rather than the neutral hairline, replacing (not
+  adding to) `shadow-e2`'s elevation. `CONTENT`/`ANALYTICS` menu entries remain **not added** — the
+  standing deviation from pass 1, restated in the brief file's own §12 note.
+
+**A flake, reproduced and closed rather than chased as a regression.** One test — sometimes
+`nav-drawer.spec.ts`'s own reachability test, sometimes `focus-states.spec.ts`'s nav-drawer walk,
+never both — failed intermittently at 4 workers with "`nav-drawer-panel` not visible after clicking
+the trigger." Neither T053 change touches the trigger's `onClick` or the panel's mount logic, only its
+text and border colour, so before accepting it as a real regression it was checked the way this
+session's own newly-written trap (`frontend/AGENTS.md`, "a real backend left running") says to: run it
+alone. Both the specific failing test and the whole file passed cleanly in isolation and at 2 workers,
+twice each — the signature of the machine's own concurrency ceiling (documented earlier in this file),
+not a defect in the trigger.
+
+**Verified, cumulative across T048–T053**: `pnpm typecheck`/`lint`/`build` clean after every single
+task, never batched. Targeted re-runs after each task (68, 81, 76, 71, 35, and 70/71-with-one-flake
+tests respectively, covering `viewport-audit`, `text-size-audit`, `focus-states`, `reduced-motion`,
+`period-nav`, `backlog`, `first-run`, `nav-drawer`, `platform-filter` and `calendar`) all green — see
+below for the full-suite confirmation.
+
+**Phase 7a is closed.** T043 (greyscale) and T044 (hand-walk) are next, now that the visual redesign
+they need to audit is actually finished — per this sub-phase's own opening note, running them earlier
+would have audited a mid-redesign state.
+
+**A real regression, found by the full-suite run this section's own summary above promised and not by
+any of the per-task targeted re-runs.** `tests/e2e/platform-filter.spec.ts` had two assertions
+(`"the filtered empty state"` describe block) pinned to the *old* backlog peek copy, `"Everything you
+capture"` — T051 changed that string but this file was not in the set of tests re-run after that task,
+because grepping for the strings T051 actually touched (`Content Calendar`, `Nothing scheduled yet`,
+`Capture an idea`) did not surface a *different* substring (`Everything you capture`) used only here.
+Both fixed to assert `"Nothing captured yet"` instead — full detail in the file's own diff. **The
+lesson is the project's own, applying to copy the same way it already applies to specs**: grepping for
+the string you changed only finds the files that already agree with you; a file asserting a *different*
+substring of the *same* sentence is invisible to that search and only surfaces on a full run. Confirms
+why this section runs the whole suite once at the end rather than trusting the sum of its per-task
+targeted passes.
+
+**Final full-suite numbers, backend stopped, `--workers=3`: 507 passed, 4 not.** Three are the
+pre-existing `next dev` overlay class (`capture.spec.ts`'s two refused-save tests plus its cancel
+test) — present in the T042 checkpoint's own 506/509 baseline, unrelated to any file this sub-phase
+touched, and absent under `pnpm start`. The fourth, `nav-drawer.spec.ts`'s "Escape dismisses the
+drawer", is another instance of the concurrency flake this section's own T053 note already reproduced
+and closed — a different test each run, always the same click-trigger-wait-for-panel shape, always
+clean alone or at reduced concurrency. Re-verified once more here rather than assumed: isolated and
+at `--workers=2`, both clean.
+
+**2026-08-11g — T043 (greyscale acceptance).** `frontend/scripts/t043-greyscale.mjs` (checked in,
+same precedent as `t072-walk.mjs`): a stubbed local run against `pnpm dev`, 375×667, both
+presentations, six surfaces each in colour and with `filter: grayscale(1)` forced on `<html>` —
+month grid (all three statuses plus overdue), week list, an item chip's hover state (the T048
+web-line accent), the expanded backlog drawer, the platform filter with a tab selected (T050's
+comic-tab active state), and the nav drawer (T053's red left border). 24 PNGs in
+`design/002-pixel-arcade-skin/greyscale/`. Result: **the shape encoding this iteration did not touch
+— outline/half-fill/solid+check for idea/draft/posted, the dashed left border for overdue — is still
+what's carrying the distinction in every greyscale frame**, exactly as R-005 requires; the comic-tech
+additions (offset shadow, asymmetric corners, the tab fill, the drawer's red border) are new *chrome*
+riding alongside that encoding, not a replacement for it, so SC-004 holds.
+
+**A real environment trap cost most of this task's time, and it is not specific to screenshots —
+anything driving `pnpm dev` by Playwright from a script hits it.** The script's first several runs
+hung waiting for `month-grid`/`week-list` with no console error, no failed request, no page error —
+every resource reported 200, `capture-action` (SSR content) appeared fine, but `period` never left
+`null` and the screen stayed on "Loading your items…" forever. Root cause, found by bisecting what
+actually changes when a script "works": **the script pointed the browser at `127.0.0.1:3000` while
+Next's dev server logs `Blocked cross-origin request to Next.js dev resource … from "127.0.0.1"`** —
+Turbopack's `allowedDevOrigins` guard. It only *names* the blocked HMR websocket in its own log line,
+but hydration itself silently never completed from that origin — no error surfaces because there is
+nothing to catch, the client bundle simply never takes over. Pointing the same script at
+`localhost:3000` instead fixed it immediately, no other change. Worth its own trap entry in
+`frontend/AGENTS.md` (added in this pass) because the failure mode — SSR content renders, no error
+anywhere, client interactivity just never arrives — is exactly the shape "the suite is green but the
+seam is untested" traps in this project tend to take, and `127.0.0.1` vs `localhost` is an easy
+default to reach for without noticing it's a different origin to Turbopack.
+
+**2026-08-11h — T044 (hand-walk V1–V11).** Real environment, not stubbed: `docker compose up -d db
+backend`, `uv run alembic upgrade head` (applied the T035 `Theme`/`sound_enabled` revision to the
+local database for the first time this session), `pnpm build`, then `pnpm start` with
+`API_BASE_URL=http://127.0.0.1:8000 SESSION_COOKIE_SECURE=false`, the single seeded creator
+(`ahtuan1701@gmail.com`), signed in for real. `frontend/scripts/t044-walk.mjs` (checked in, same
+precedent as `t072-walk.mjs`) drives V1–V10 plus a light-presentation repeat of V2/V3/V5, then V11 —
+adapted from `t072-walk.mjs`'s own scenario logic almost verbatim, since it is the same product
+underneath. **24/24 scenarios passed on the final run**; screenshots and `results.json` are in
+`frontend/scripts/t044-shots/` (gitignored, matching `t072-shots/`'s precedent — reproducible by
+rerunning the script, not meant to be committed).
+
+**One real defect was found, and it was fixed here rather than merely recorded, because it violates
+a functional requirement (FR-018) in code this iteration itself built (T029–T031).** V7 (`open the
+drawer over a typed capture, dismiss, confirm the sheet survives`) used the Escape key rather than
+the CLOSE button — `nav-drawer.spec.ts`'s own existing FR-018 test only ever used the button — and
+found that **Escape closed both the nav drawer and the capture sheet underneath it**, discarding the
+draft. Root cause: `CaptureSheet` is a `@base-ui/react` Dialog, which arms its own document-level
+Escape listener the instant it opens; `NavDrawer` is deliberately *not* one of those primitives (its
+own docstring explains why — it must not be a focus trap, or it would fight the sheet), so it added
+a second, independent, same-phase (bubble) `document` listener of its own, registered later. Two
+listeners in the same phase run in **registration order**, not stacking order, so the sheet's own
+listener — armed first, when the sheet opened — ran before the drawer's, and closed the sheet before
+the drawer's handler ever got a turn.
+
+**The bug is racy, not deterministic, and that nearly produced a false "no bug here" conclusion.** A
+minimal Playwright *test* (`nav-drawer.spec.ts`, run locally under `next dev`) did **not** reproduce
+it — passed with the pre-fix code, several times. A hand-rolled script running the identical steps
+against the exact same **production** build (`pnpm start`, port 3100, real request timing) **did**
+reproduce it, consistently, five runs in a row. The difference traces to timing: React's effect
+commit for the drawer's listener has a real window in which it has not yet registered, and how much
+of that window a keypress lands in depends on exact scheduling — which a slower dev-mode render
+happens to close before a script can react, and a faster production build does not always. **Do not
+conclude "not a regression" from one clean automated pass** — this is the same lesson `.claude/memory.md`
+already recorded about `next dev` vs `next start` diverging (T057's overlay trap), one level further
+in: here it is timing-of-registration, not which bundle runs, but the shape is identical — a real,
+production-only defect a dev-mode test cannot see.
+
+**The fix removes the raciness rather than reordering around it**: `NavDrawer.tsx`'s Escape listener
+now registers on the **capture phase** (`{ capture: true }`) and calls `event.stopPropagation()`.
+Capture phase always runs before any bubble-phase listener, for *any* element, regardless of
+registration order — so this is correct independent of which effect happened to commit first, closing
+the race rather than depending on winning it. Verified the fix the same way the bug was found: five
+consecutive runs of the same hand-rolled script against a fresh production build, all clean (drawer
+closes, sheet stays open, typed text intact). A new automated regression test,
+`"dismissing the drawer with Escape also keeps the capture sheet open (T044 hand-walk, FR-018)"` in
+`nav-drawer.spec.ts`, is added beside the existing close-button one — worth keeping for CI (which
+runs the production bundle per `playwright.config.ts`, so it is a real regression guard there) even
+though it cannot reproduce the *original* bug locally under `next dev`, exactly the asymmetry this
+note describes.
+
+**Two more findings turned out not to be findings, on inspection — recorded because the instinct to
+believe an automated check over the code it's checking is exactly backwards, and this project's own
+rule says so.** The walk script's own first draft flagged (a) `item-chip@170x43` (1px under a 44px
+floor) and `period-previous`/`period-next@40x44` (40px wide) as V3 failures, and (b) a refusal sound
+cue reporting `type: "sine"` instead of the expected `"sawtooth"` as a V8 failure. Both were the
+script's own bugs, not product defects, found by reading the actual source before accepting either
+claim:
+
+- The 44px floor is **height-gated project-wide**, not width-gated — `tests/e2e/period-nav.spec.ts`
+  itself only asserts `box.height >= 44` for these exact two buttons, and `ItemChip.tsx`'s own comment
+  documents that `peek`-size chips (the backlog's collapsed strip) deliberately do **not** carry
+  `min-h-11` the way `full` chips do, with the expanded drawer as the accessible surface. The script's
+  `Math.min(width, height)` check was stricter than the project's own tested standard, on two
+  pre-existing 001 decisions this iteration never touched. Fixed to match the existing suite's own
+  methodology (height-only, with the same two documented exceptions).
+- The sound probe's `AudioContext.createOscillator` wrapper read `osc.type` **synchronously**, but
+  `lib/sound.ts` sets `oscillator.type = type` on the line *after* `createOscillator()` returns — so
+  every recorded type was the Web Audio API's own platform default (`"sine"`), never whatever cue the
+  app actually requested. Fixed by intercepting the `type` **property**'s setter (forwarding to the
+  native one, so the real oscillator still gets configured correctly) instead of reading a value that
+  had not been written yet.
+
+Both are now fixed in `frontend/scripts/t044-walk.mjs` for any future re-walk.
+
+**V6's "default is dark" leg (quickstart step 3) is the one check not independently re-verified
+against a fresh account.** The single seeded creator now has a *real* preference (light, set by this
+walk's own step 1) and there is no second account to seed against (`CLAUDE.local.md`: re-seeding a
+different email is refused outright — `content_item` has no owner column). Recorded rather than
+silently skipped: `research.md` R-002 and FR-010 fix the default, and `preferences.spec.ts`'s own
+stubbed suite (which can construct a fresh-account fixture the real database cannot) already covers
+it — cross-referenced instead of re-asserted.
+
+**V9 (reduced motion) was not re-walked by hand at all**, deliberately: `tests/e2e/reduced-motion.spec.ts`
+(T042, this iteration) already drives the exact scenario quickstart.md V9 describes — ticker,
+comic-panel hover, capture-button press-feedback, and the delete dialog's entrance transition all
+collapsing under `prefers-reduced-motion`, with the ticker's message text unchanged — against a real
+browser. Re-running the same assertions by hand here would test nothing V9 doesn't already cover.
+
+**Full-suite verification after the `NavDrawer.tsx` fix, backend stopped, `--workers=2`: 288/295
+passed.** Seven failures, all four extra ones (beyond the three pre-existing dev-overlay
+`capture.spec.ts` tests) re-verified in isolation before being accepted, per this project's own
+standard — `focus-states.spec.ts`'s two nav-drawer tests, `pipeline.spec.ts`'s keyboard-only journey,
+and `sound.spec.ts`'s delete-cue test all passed cleanly alone at `--workers=1`, the same
+already-documented concurrency-ceiling flake (`frontend/AGENTS.md`, `.claude/memory.md`) rather than
+anything the capture-phase Escape fix touched — unsurprising, since that fix only branches on
+`event.key === "Escape"` and every one of the four flakes is elsewhere. `pnpm build`, `pnpm exec tsc
+--noEmit` and `pnpm lint` all clean throughout.
+
+**T044 is closed. 24/24 walked scenarios pass, one real production-only defect found and fixed
+(NavDrawer's Escape handling), a regression test added for it, and the walk script's own two
+instrumentation bugs corrected for next time.** T043 and T044 together are this iteration's stage-2
+gate equivalent — the last checkpoint before `/speckit-analyze` and the `reviewer` agent (T045).

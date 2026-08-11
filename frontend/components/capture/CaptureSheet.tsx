@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { ApiError, type ContentItem, type ContentItemCreate } from "@/lib/api";
+import { playCue } from "@/lib/sound";
 
 /**
  * Capture an idea before it evaporates (T034, FR-005, FR-022, SC-001, US1).
@@ -68,9 +69,11 @@ export function CaptureSheet({
       await onCapture({ title: trimmed });
       // Only on success. The sheet is what holds the creator's text, so it closes when there is
       // nothing left to lose.
+      playCue("capture");
       setTitle("");
       onOpenChange(false);
     } catch (caught) {
+      playCue("refuse");
       setError(
         caught instanceof ApiError
           ? caught.detail

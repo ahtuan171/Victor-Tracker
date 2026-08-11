@@ -197,10 +197,12 @@ function PeekStrip({
            */}
           {!hiddenByFilter ? (
             <>
-              {/* The export's first-run copy. It names the capture action because T035 asks the
-                  empty state to point at it, and because "empty" alone reads as something broken.
-                  "+ New" (002 T020), matching the action band's own label since T016. */}
-              Empty. Everything you capture starts here — tap <b className="text-ink">+ New</b>.
+              {/* T051 (comic-tech brief §10): personality wording over the export's original
+                  business-SaaS copy, keeping the same two obligations the original had — name the
+                  capture action, and say why "empty" is not something broken. "+ New" (002 T020),
+                  matching the action band's own label since T016. */}
+              Nothing captured yet — tap <b className="text-ink">+ New</b> to start your first
+              mission.
             </>
           ) : (
             <>
@@ -320,9 +322,9 @@ function ExpandedBacklog({
             <li className="text-ink-mid py-6 text-center text-sm" data-testid="backlog-empty">
               {/* The same two states as the peek strip, and they must not disagree — a creator who
                   expands the drawer to find out why it is empty gets the fuller sentence, not a
-                  different answer. */}
+                  different answer. Reworded at T051 alongside the peek strip's own copy. */}
               {!hiddenByFilter
-                ? "Nothing here yet. Capture an idea and it lands in this list."
+                ? "No missions yet. Capture one and it lands in this list."
                 : `No undated ${platformCue(platformFilter)!.label} ideas. Clear the platform filter to see the rest of your backlog.`}
             </li>
           ) : (

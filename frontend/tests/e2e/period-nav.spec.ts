@@ -71,7 +71,8 @@ test("opens on the current month, and the toggle switches to the current week", 
   await openCalendar(page, baseURL);
 
   await expect(title(page)).toHaveText("March 2026");
-  await expect(eyebrow(page)).toHaveText("Content Calendar");
+  // T049: the month view's eyebrow is the product mark plus the month-as-issue-number.
+  await expect(eyebrow(page)).toHaveText("Victor Tracker · Issue #03");
   await expect(page.getByTestId("view-month")).toHaveAttribute("aria-checked", "true");
 
   await page.getByTestId("view-week").click();

@@ -92,6 +92,33 @@ test("dismissing the drawer over an open capture sheet keeps the typed text (FR-
   await expect(page.getByTestId("capture-save")).toBeEnabled();
 });
 
+test("dismissing the drawer with Escape also keeps the capture sheet open (T044 hand-walk, FR-018)", async ({
+  page,
+  baseURL,
+}) => {
+  // Found by T044's hand-walk, not by this suite: the test above only ever dismissed via the CLOSE
+  // button. Escape is a second, equally natural dismiss path, and it used to close both overlays at
+  // once — `CaptureSheet`'s own `@base-ui/react` Dialog arms its own Escape listener the instant it
+  // opens, and this drawer's listener (registered later, same bubble phase) ran second, after the
+  // sheet had already closed itself. See `NavDrawer.tsx`'s capture-phase comment for the fix.
+  await openCalendar(page, baseURL);
+
+  await page.getByTestId("capture-action").click();
+  const title = page.getByPlaceholder("Rooftop b-roll cutdown");
+  await title.waitFor();
+  await title.fill("Rooftop cutdown, take three");
+
+  await page.getByTestId("nav-drawer-trigger").click();
+  await expect(page.getByTestId("nav-drawer-panel")).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("nav-drawer-panel")).not.toBeVisible();
+
+  await expect(title).toBeVisible();
+  await expect(title).toHaveValue("Rooftop cutdown, take three");
+  await expect(page.getByTestId("capture-save")).toBeEnabled();
+});
+
 test("opening the drawer does not cancel an open backlog drawer, and dismissing it leaves the backlog open (FR-019)", async ({
   page,
   baseURL,

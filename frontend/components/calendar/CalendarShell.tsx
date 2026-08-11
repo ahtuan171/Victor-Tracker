@@ -30,6 +30,7 @@ import { ApiError, getPreferences, type ContentItem, type ContentItemUpdate, typ
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, nextDue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
+import { playCue, setSoundEnabled } from "@/lib/sound";
 import { reconcileTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -106,15 +107,24 @@ export function CalendarShell() {
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
 
   /**
-   * Step 3 of research.md R-002's mechanism, run once per mount: read the account's own presentation
-   * choice and, if it disagrees with what the `ch_theme` cookie already showed, the account wins —
-   * `reconcileTheme` corrects both the visible class and the cookie. A network failure here is not
-   * reported anywhere; the document already painted a valid theme from whatever the cookie held
-   * (`app/layout.tsx`), so there is nothing broken to surface, only a correction that did not happen.
+   * Step 3 of research.md R-002's mechanism for theme, run once per mount: read the account's own
+   * presentation choice and, if it disagrees with what the `ch_theme` cookie already showed, the
+   * account wins — `reconcileTheme` corrects both the visible class and the cookie. A network failure
+   * here is not reported anywhere; the document already painted a valid theme from whatever the
+   * cookie held (`app/layout.tsx`), so there is nothing broken to surface, only a correction that did
+   * not happen.
+   *
+   * The same read also loads the sound choice (T038, FR-022). Sound has no first-paint obligation —
+   * unlike the theme, nothing about it is heard until an action causes it, so there is no cookie and
+   * no flash to prevent, only `lib/sound.ts`'s cached `enabled` to bring in line with the account
+   * before the first cue-worthy action has a chance to fire.
    */
   useEffect(() => {
     void getPreferences()
-      .then((preferences) => reconcileTheme(preferences.theme))
+      .then((preferences) => {
+        reconcileTheme(preferences.theme);
+        setSoundEnabled(preferences.sound_enabled);
+      })
       .catch((error: unknown) => {
         console.error("[theme] could not read the account's preference to reconcile against", error);
       });
@@ -262,7 +272,12 @@ export function CalendarShell() {
     // and the row visibly returning to its old day is the feedback. **A 404 is the exception T070
     // added** — the row does not return, it is removed, and a chip that silently disappears mid-drag
     // is the one outcome a creator would read as the app losing their item.
-    void updateItem(item, { scheduled_date }).catch((error: unknown) => noticeIfGone(error, item));
+    void updateItem(item, { scheduled_date })
+      .then(() => playCue("move"))
+      .catch((error: unknown) => {
+        noticeIfGone(error, item);
+        playCue("refuse");
+      });
   }
 
   /**
@@ -617,13 +632,18 @@ function CalendarHeader({
   loading: boolean;
 }) {
   return (
-    <header className="border-hairline border-b px-4 pt-5 pb-3">
+    // T053 (comic-tech brief §7): the same faint texture the two empty states and the login panel
+    // already carry, here behind the header eyebrow and title — "the calendar corner" the brief asks
+    // for. `.web-grain` is a background-image only, so adding it costs no extra markup and nothing
+    // it measures (`viewport-audit.spec.ts`, `text-size-audit.spec.ts`) reads a background layer.
+    <header className="border-hairline web-grain border-b px-4 pt-5 pb-3">
       <div className="flex items-end justify-between gap-3">
         <div>
           {/*
-           * `Content Calendar` on the month view, `Week 11` on the week view — the export's `1c` and
-           * `1e` headers. The eyebrow carries the week number rather than the title, because the title
-           * has to name the actual days and there is not room at 375px for both.
+           * `Victor Tracker · Issue #NN` on the month view, `Week 11` on the week view (T049, comic-tech
+           * brief §5) — see `periodEyebrow`'s own docstring for why the issue number needs no counter
+           * of its own. The eyebrow carries the week number rather than the title on the week view,
+           * because the title has to name the actual days and there is not room at 375px for both.
            */}
           {/*
            * 002-pixel-arcade-skin, T015: dropped `font-display` here — FR-034 forbids the display
@@ -634,7 +654,12 @@ function CalendarHeader({
             className="text-brand mb-1.5 text-xs leading-none font-semibold tracking-[0.24em] uppercase"
             data-testid="calendar-eyebrow"
           >
-            {period === null ? "Content Calendar" : periodEyebrow(period, view)}
+            {/*
+             * `Victor Tracker` alone while `period` is null (T049) — the month is not known yet, so
+             * no issue number is guessed; the same reasoning the title's own empty string follows two
+             * lines down.
+             */}
+            {period === null ? "Victor Tracker" : periodEyebrow(period, view)}
           </p>
           {/*
            * The uppercase Silkscreen is the display treatment (T015 dropped the export's `-skew-x-6`
@@ -737,7 +762,8 @@ function CalendarActionBar({
       <button
         type="button"
         onClick={onCapture}
-        className="bg-brand focus-ring h-11 flex-none rounded-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+        // T052: press-feedback on the product's single most-tapped control.
+        className="press-feedback bg-brand focus-ring h-11 flex-none rounded-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
         data-testid="capture-action"
       >
         + New

@@ -498,6 +498,34 @@ succeeds and produces a component importing a nonexistent `cn` and referencing u
 so the failure surfaces later as an unstyled component rather than as an init error. Both files are now
 checked in by hand — check for them after any future `init`.
 
+**A real backend left running turns a stubbed e2e file into a flaky one, and the symptom looks like a
+resource problem before it looks like a stale container.** `docker compose ps` showing
+`victorhub-backend-1` up is enough: every e2e file's session cookie is the literal string
+`"stub-session"`, and CI's own condition — the one every file here was actually validated against —
+is **no backend at all**. A real one answers `GET /preferences` (called unconditionally from
+`CalendarShell`'s mount effect, T034/T038) with a genuine `401`, and `lib/api.ts`'s `request()`
+redirects to `/login` on any 401 except from `/auth/*` — mid-test, on a page most files never stub
+that endpoint for. The failures this produces are erratic (some fast, some the full 30s timeout,
+worse under more Playwright workers) and read exactly like a parallelism/capacity problem, which cost
+real time in `002-pixel-arcade-skin`'s Phase 7 chasing worker counts before the actual cause was
+found. **`docker compose stop backend` before a local e2e run**, unless the file under test stubs
+every endpoint `CalendarShell` reaches (`content-items` **and** `preferences`) — `docker compose
+start backend` after, so the environment used for backend work isn't left down for the next session.
+
+**A Playwright script driving `pnpm dev` from `127.0.0.1` hydrates nothing, and nothing reports an
+error.** Found writing T043's greyscale screenshot script. `next dev` (Turbopack) logs `Blocked
+cross-origin request to Next.js dev resource … from "127.0.0.1"` and only names the HMR websocket —
+but hydration itself silently never runs from that origin either: every resource still answers 200,
+`page.on("pageerror")` and `page.on("requestfailed")` both stay silent, SSR content (anything that
+does not depend on a `useEffect` or `useSyncExternalStore` read) renders and looks complete, and the
+page just sits there — `CalendarShell`'s `period` never leaves `null` because the client-side clock
+read that would set it never runs. The fix is the origin, not the app: point the script at
+`localhost:3000`, not `127.0.0.1:3000` — `playwright.config.ts`'s own `webServer` already uses
+`127.0.0.1` for the *test-runner* flow (T057's dev-overlay trap), so this is specific to a **standalone
+script** that launches its own browser rather than going through `playwright test`. When a page looks
+server-rendered-only and no automated wait ever resolves, check the dev server's own log for this
+line before suspecting the component.
+
 ## Commands
 
 ```bash

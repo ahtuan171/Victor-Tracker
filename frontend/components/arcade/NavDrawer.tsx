@@ -3,6 +3,7 @@
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 
 import { logout, updatePreferences, type Theme } from "@/lib/api";
+import { isSoundEnabled, isSoundEnabledOnServer, setSoundEnabled, subscribeSoundEnabled } from "@/lib/sound";
 import { applyTheme, readThemeCookie, writeThemeCookie } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,18 @@ import { cn } from "@/lib/utils";
  * and nothing more, because the cookie this device now shows is already correct for this device, and
  * R-002's own accepted weakness is that a *different* device corrects on its own next load rather than
  * live.
+ *
+ * ## The sound control (T040, FR-020–FR-022)
+ *
+ * Same shape as the presentation control — a two-option toggle, applied locally and immediately, a
+ * `PATCH /preferences` fired unawaited — but reading its **current** value works differently, because
+ * there is no cookie to read it from (FR-022 gives sound no first-paint obligation, so `lib/sound.ts`
+ * keeps no cookie the way `lib/theme.ts` does). Instead `lib/sound.ts` is the one module that ever
+ * writes its own `enabled` flag, so it can offer a real subscription rather than the
+ * `subscribeToNothing` no-op the theme read above uses — `useSyncExternalStore` re-renders this
+ * control the moment `CalendarShell`'s mount-time reconciliation (or a tap here) changes it, with no
+ * polling and no prop threaded down from the shell that loaded the account's preference in the first
+ * place.
  */
 export function NavDrawer() {
   const panelId = useId();
@@ -98,6 +111,23 @@ export function NavDrawer() {
   }
 
   /**
+   * The sound control's own current value (T040) — `lib/sound.ts`'s cached `enabled`, real
+   * subscription and all, unlike the theme's cookie read above. See the docstring's "sound control"
+   * section for why the two mechanisms differ.
+   */
+  const soundEnabled = useSyncExternalStore(subscribeSoundEnabled, isSoundEnabled, isSoundEnabledOnServer);
+
+  function selectSound(next: boolean): void {
+    if (next === soundEnabled) return;
+    // Applied immediately (T040, "off is immediate") — the same rule the theme control follows, and
+    // for the same reason: the request's outcome does not gate what this device already shows.
+    setSoundEnabled(next);
+    void updatePreferences({ sound_enabled: next }).catch((error: unknown) => {
+      console.error("[sound] failed to save the account's preference", error);
+    });
+  }
+
+  /**
    * Set only when sign-out is refused, and it keeps the creator here — carried over verbatim from
    * T077's header control, only the surface it renders in has moved.
    */
@@ -110,11 +140,24 @@ export function NavDrawer() {
 
     // Escape closes, same as the backlog's own expanded panel — cheap, and the alternative is an
     // overlay a keyboard user can only leave by tabbing all the way to the close button.
+    //
+    // **Capture phase, plus `stopPropagation` (T044 hand-walk, FR-018).** `CaptureSheet`/`ItemSheet`/
+    // `DeleteConfirm` are `@base-ui/react` Dialogs, each arming its own document-level Escape
+    // listener the moment it opens — and this drawer is deliberately *not* one of those (see this
+    // file's own header comment on why it must not be a focus trap), so nothing here is "on top" of
+    // that listener the way z-index puts this panel on top visually. A same-phase (bubble) listener
+    // registered later does not run first; it runs in *registration order*, which put the sheet's own
+    // handler first every time — Escape closed the sheet before this handler ever ran, discarding a
+    // capture in progress in exactly the case FR-018 exists to prevent. Capture phase runs before any
+    // bubble-phase listener regardless of registration order, so intercepting here and stopping
+    // propagation is what keeps the sheet untouched.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setOpen(false);
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [open]);
 
   async function signOut(): Promise<void> {
@@ -151,7 +194,9 @@ export function NavDrawer() {
         className="border-hairline bg-surface-2 text-ink-mid focus-ring relative z-[60] h-11 flex-none rounded-sm border px-2.5 text-xs font-semibold tracking-[0.14em] whitespace-nowrap uppercase"
         data-testid="nav-drawer-trigger"
       >
-        Menu
+        {/* T053 (comic-tech brief §12, "[ + ] MENU"): personality on the trigger text only —
+            the control's size, position and every other behaviour are unchanged. */}
+        [ + ] Menu
       </button>
 
       {open ? (
@@ -171,7 +216,11 @@ export function NavDrawer() {
           <nav
             id={panelId}
             aria-label="Navigation and settings"
-            className="border-hairline bg-surface-1 fixed inset-y-0 right-0 z-[80] flex w-[260px] max-w-[80vw] flex-col border-l shadow-e2"
+            // T053 (comic-tech brief §12, "border/offset layer nhẹ"): the panel's one edge — where it
+            // meets the rest of the screen — carries the brand red rather than the neutral hairline,
+            // 2px rather than 1px. `shadow-e2` already gives the panel its elevation; this is the
+            // colour half of the treatment, not a second shadow layered on top of it.
+            className="bg-surface-1 fixed inset-y-0 right-0 z-[80] flex w-[260px] max-w-[80vw] flex-col border-l-2 border-l-brand shadow-e2"
             data-testid="nav-drawer-panel"
           >
             <header className="border-hairline flex items-center justify-between gap-2 border-b px-4 pt-5 pb-3">
@@ -239,6 +288,39 @@ export function NavDrawer() {
             </div>
 
             {/*
+             * The sound control (T040, FR-016, FR-020–FR-022). Same visual language as Presentation
+             * above — a two-option toggle group rather than a single flipping button, so the current
+             * choice is legible without tapping to find out.
+             */}
+            <div className="border-hairline border-t p-4">
+              <p className="text-ink-mid mb-2 text-xs leading-none font-semibold tracking-[0.18em] uppercase">
+                Sound
+              </p>
+              <div
+                role="radiogroup"
+                aria-label="Sound"
+                className="border-hairline flex overflow-hidden rounded-sm border"
+              >
+                {SOUND_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    role="radio"
+                    aria-checked={soundEnabled === value}
+                    onClick={() => selectSound(value)}
+                    className={cn(
+                      "focus-ring-inset h-11 flex-1 text-xs font-semibold tracking-[0.1em] uppercase",
+                      soundEnabled === value ? "bg-brand text-white" : "bg-surface-2 text-ink-mid",
+                    )}
+                    data-testid={`sound-option-${label.toLowerCase()}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/*
              * The drawer's far end (T030, FR-017) — a footer below the flex-1 screen list, so it sits
              * at the bottom of the panel whatever that list's length, separated from it by its own
              * rule rather than sitting in the same block.
@@ -275,6 +357,12 @@ export function NavDrawer() {
 const THEME_OPTIONS: ReadonlyArray<{ readonly value: Theme; readonly label: string }> = [
   { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
+];
+
+/** Off first — it is FR-020's default, matching `THEME_OPTIONS`' own default-first ordering. */
+const SOUND_OPTIONS: ReadonlyArray<{ readonly value: boolean; readonly label: string }> = [
+  { value: false, label: "Off" },
+  { value: true, label: "On" },
 ];
 
 /**
