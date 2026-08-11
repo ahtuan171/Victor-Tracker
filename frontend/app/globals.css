@@ -7,22 +7,35 @@
  * VictorHub design tokens — 002-pixel-arcade-skin.
  *
  * This iteration is the one permitted to replace this whole layer (`.claude/rules/design.md`), and
- * it does: every value below is new, sourced from `spidey-tracker.mp4` via
+ * it does: the values below started from `spidey-tracker.mp4` via
  * `design/002-pixel-arcade-skin/BRIEF.md` and the T004 sign-off (2026-08-08, 20px content / 10px
- * frame) rather than from a Claude Design export — this iteration has none.
+ * frame) — the geometry from that sign-off is unchanged.
  *
- * Two rules travel with these values, unchanged from the presentation they replace, and both
- * outrank convenience:
+ * **2026-08-11 — re-harmonised toward the reference's own name.** `spidey-tracker.mp4` is a
+ * Spider-Man-themed tracker, and the first pass of this palette read as its *cyan-dominant* cousin
+ * instead — closer to a HUD than to the suit. Walked as two candidates rendered against the real
+ * components (frame, rivets, day cells, action band) rather than swatches alone; the owner picked
+ * **Candidate B, "Night Suit"**: black and red now carry the product, the former cyan chrome survives
+ * only as a *second*, deliberately quieter accent — `--ch-steel` below — reserved for the purely
+ * decorative details (the frame's bevel, the rivets, the ticker's scan-line), never for anything a
+ * person acts on. `--ch-brand` inherits every one of cyan's old jobs (focus, primary action, identity)
+ * unchanged; only its hue moved. No component file changed for this — same reason as ever, see below.
  *
- *   1. **The brand accent (cyan, chrome and instrument colour in the reference) is chrome, never
- *      meaning.** It is for focus, primary action, and identity. Status is NEVER communicated with
- *      it. Red is now reserved for `--destructive` alone — a genuine narrowing from the outgoing
- *      palette, where one red family carried both brand and destructive. The status ramp below is
- *      neutral / amber / green and is kept visibly separable from both accent hues at 16px.
- *   2. **Colour is decoration on the status cue, not the cue itself.** R-005 (001) encodes status as
- *      shape and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any
- *      colour here cannot break FR-017 (001) / SC-004 (002), and no component may start depending on
- *      hue to say what a status is.
+ * Three rules travel with these values:
+ *
+ *   1. **`--ch-brand` (now red) is chrome, never meaning.** Focus, primary action, identity. Status is
+ *      NEVER communicated with it. `--ch-danger` stays a genuinely separate hue (amber/gold here, not
+ *      a second red) precisely so a primary button and a refusal never read as the same signal — the
+ *      one new hazard this re-harmonisation had to design around, since red-as-brand and red-as-error
+ *      is exactly the collision the outgoing cyan palette never had to avoid.
+ *   2. **`--ch-steel` is decoration on the machine, never a control colour.** It exists so the
+ *      product's original chrome hue survives as texture rather than disappearing outright — the
+ *      frame, the rivets, the ticker's moving highlight. Nothing interactive may be styled with it: an
+ *      accent a person cannot act on reading as actionable is the inverse of `--ch-brand`'s rule.
+ *   3. **Colour is decoration on the status cue, not the cue itself.** R-005 (001) encodes status as
+ *      shape and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour
+ *      here cannot break FR-017 (001) / SC-004 (002), and no component may start depending on hue to
+ *      say what a status is.
  *
  * These are the project's tokens, not the calendar's, and not this iteration's either
  * (`.claude/rules/design.md`) — later modules consume them and may not introduce a competing set.
@@ -40,47 +53,56 @@
 
 /*
  * Light is new work, not a re-check (`design/002-pixel-arcade-skin/BRIEF.md` — the reference
- * recording has no light turn). Read as a daylit control-room panel rather than an inverted dark
- * theme: pale steel/cyan neutrals, the same cyan chrome deepened for contrast on a light ground. The
- * app renders dark by default via `class="dark"` on `<html>` (`app/layout.tsx`, FR-012) — light is
- * reached only by the account's stored preference (002 US3).
+ * recording has no light turn). Read as a daylit version of the same suit, not an inverted dark
+ * theme: warm near-white neutrals, the red accent deepened for contrast on a light ground, steel blue
+ * carried over at the same restrained, decorative-only role it has in dark. The app renders dark by
+ * default via `class="dark"` on `<html>` (`app/layout.tsx`, FR-012) — light is reached only by the
+ * account's stored preference (002 US3).
  */
 :root {
   --radius: 0.125rem;
 
-  /* Surface stack — light, steel/cyan-tinted rather than neutral grey */
-  --ch-void: #dbe8ea;
-  --ch-surface-0: #eef5f5;
+  /* Surface stack — light, warm near-neutral rather than steel/cyan-tinted */
+  --ch-void: #eceaf0;
+  --ch-surface-0: #f6f5f8;
   --ch-surface-1: #ffffff;
-  --ch-surface-2: #e4eef0;
-  --ch-surface-3: #d3e4e7;
-  --ch-hairline: #b6ccd0;
+  --ch-surface-2: #ece9f2;
+  --ch-surface-3: #dcd7e8;
+  --ch-hairline: #c7c0d6;
 
   /* Ink */
-  --ch-ink-hi: #0b2027;
-  --ch-ink-mid: #4c6b72;
-  --ch-ink-lo: #6d8990;
+  --ch-ink-hi: #14121b;
+  --ch-ink-mid: #524a63;
+  --ch-ink-lo: #756c88;
 
-  /* Brand cyan — chrome, focus, primary action only. Never status, never a fourth meaning. */
-  --ch-brand: #0a90a8;
-  --ch-brand-hi: #067083;
-  --ch-brand-sunk: #d7f0f4;
+  /* Brand red — chrome, focus, primary action only. Never status, never a fourth meaning. Carries
+     every job the outgoing cyan had; only the hue changed (2026-08-11 re-harmonisation, see the file
+     header). */
+  --ch-brand: #d0102c;
+  --ch-brand-hi: #a80c22;
+  --ch-brand-sunk: #f7dfe2;
 
-  /* Destructive red — the reference's accent hue, now carrying exactly one meaning: refusal/delete. */
-  --ch-danger: #c23b32;
-  --ch-danger-hi: #a12e26;
+  /* Steel — the former brand cyan, demoted to a second, purely decorative accent: the frame's bevel,
+     the rivets, the ticker's scan-line. Never a control colour — see the file header's rule 2. */
+  --ch-steel: #2e55b3;
+  --ch-steel-hi: #1e3d85;
+
+  /* Destructive amber/gold — deliberately not a second red, now that brand itself is red: a refusal
+     and a primary action must never share a hue. */
+  --ch-danger: #c07200;
+  --ch-danger-hi: #8f5400;
 
   /* Status ramp — decoration over the shape/fill encoding, distinct from both accent hues */
-  --ch-status-idea: #5c7178;
-  --ch-status-draft: #a06a1f;
-  --ch-status-posted: #1f7a4f;
+  --ch-status-idea: #3f5687;
+  --ch-status-draft: #8f611c;
+  --ch-status-posted: #1c7248;
 
   /* Overdue — a dashed left border, orthogonal to status, never a fourth state */
-  --ch-overdue: #5c5240;
+  --ch-overdue: #7d6329;
 
-  /* Elevation */
-  --ch-e1: 0 2px 6px rgb(11 32 39 / 0.16);
-  --ch-e2: 0 -10px 30px rgb(11 32 39 / 0.16);
+  /* Elevation — shadow base recomputed from the new --ch-ink-hi (#14121b), same 0.16 alpha */
+  --ch-e1: 0 2px 6px rgb(20 18 27 / 0.16);
+  --ch-e2: 0 -10px 30px rgb(20 18 27 / 0.16);
 
   /* shadcn surface contract */
   --background: var(--ch-surface-0);
@@ -112,34 +134,42 @@
 }
 
 .dark {
-  /* Surface stack — dark, navy (the reference's map-area colour), not neutral black */
-  --ch-void: #04090c;
-  --ch-surface-0: #081720;
-  --ch-surface-1: #0e2029;
-  --ch-surface-2: #123039;
-  --ch-surface-3: #1a3f49;
-  --ch-hairline: #24515c;
+  /* Surface stack — dark, near-black and cool-neutral rather than navy: "Night Suit" (2026-08-11) */
+  --ch-void: #050506;
+  --ch-surface-0: #0c0c0e;
+  --ch-surface-1: #141417;
+  --ch-surface-2: #1c1c21;
+  --ch-surface-3: #26262d;
+  --ch-hairline: #35313a;
 
-  --ch-ink-hi: #e2f2f0;
-  --ch-ink-mid: #8fb3ba;
-  --ch-ink-lo: #5f8891;
+  --ch-ink-hi: #f2eef2;
+  --ch-ink-mid: #a79fae;
+  --ch-ink-lo: #6f6875;
 
-  /* Brand cyan — the reference's chrome/instrument colour. Chrome, never meaning. */
-  --ch-brand: #33c7de;
-  --ch-brand-hi: #79e6f2;
-  --ch-brand-sunk: #0a2b33;
+  /* Brand red — chrome, focus, primary action, identity. The reference is Spider-Man-themed
+     (`spidey-tracker.mp4`); this is what makes the product actually read that way rather than as its
+     cyan-HUD cousin. Never meaning — status is still never carried by colour alone. */
+  --ch-brand: #ff1d3d;
+  --ch-brand-hi: #ff5468;
+  --ch-brand-sunk: #2a0a10;
 
-  /* Destructive red — the reference's accent hue, one meaning only: refusal/delete. */
-  --ch-danger: #e35b52;
-  --ch-danger-hi: #ff7a6e;
+  /* Steel — the outgoing brand cyan, kept alive as a second, decorative-only accent: the frame's
+     bevel, the rivets, the ticker's scan-line. Never a control colour. */
+  --ch-steel: #3d6fe0;
+  --ch-steel-hi: #6d93ff;
 
-  --ch-status-idea: #7d9aa1;
-  --ch-status-draft: #e0a33f;
-  --ch-status-posted: #3fbf82;
+  /* Destructive amber/gold — not a second red. Brand and danger must stay two different signals now
+     that brand itself is red, where before (cyan brand, red danger) that was true for free. */
+  --ch-danger: #ffb020;
+  --ch-danger-hi: #ffcb5c;
 
-  /* Bone, dashed — separable from both the cyan chrome and the red danger hue, in colour and in
-     greyscale alike (SC-004). */
-  --ch-overdue: #dcd3be;
+  --ch-status-idea: #5b6b8c;
+  --ch-status-draft: #d99a2b;
+  --ch-status-posted: #2f9e63;
+
+  /* Warm khaki, dashed — separable from the red brand, the amber danger, and the steel accent alike,
+     in colour and in greyscale (SC-004). */
+  --ch-overdue: #b7975a;
 
   --ch-e1: 0 2px 6px rgb(0 0 0 / 0.5);
   --ch-e2: 0 -10px 30px rgb(0 0 0 / 0.75);
@@ -211,12 +241,19 @@
   --color-brand-hi: var(--ch-brand-hi);
   --color-brand-sunk: var(--ch-brand-sunk);
 
-  /* New in 002: the accent hue split off `--brand` (cyan, chrome) so `--destructive` (red) is no
+  /* New in 002: the accent hue split off `--brand` (chrome) so `--destructive` (red) is no
      longer sharing a family with the primary/focus colour. Exposed for anything that needs the raw
      hue rather than going through `bg-destructive` — the delete confirmation's refused-sign-out copy
      and the Ticker's refusal cue are the two candidates named in tasks.md T027/T030. */
   --color-danger: var(--ch-danger);
   --color-danger-hi: var(--ch-danger-hi);
+
+  /* The 2026-08-11 re-harmonisation's second accent — the outgoing brand cyan, demoted to a
+     decorative-only role (file header rule 2). Registered as a Tailwind colour in case a future
+     surface wants it deliberately (`text-steel`, `border-steel`); today's only consumers are the
+     plain-CSS rules below (`.arcade-frame`, `.arcade-frame__rivet`, `.ticker-scan`). */
+  --color-steel: var(--ch-steel);
+  --color-steel-hi: var(--ch-steel-hi);
 
   --color-status-idea: var(--ch-status-idea);
   --color-status-draft: var(--ch-status-draft);
@@ -291,9 +328,14 @@
  * still names as its starting point; `research.md` R-003 and `frontend/AGENTS.md` carry the reasoning
  * and the corrected action-band arithmetic (~18px of spare width, not ~26px). Thicker at `sm`/`lg`,
  * where the frame has width to spend without touching the 44px targets or the action band.
+ *
+ * **`--ch-steel`, not `--ch-brand`, since the 2026-08-11 re-harmonisation.** The housing is pure
+ * chrome — nothing about it is tappable — so it is exactly the decorative role `--ch-steel` exists
+ * for, and it is what keeps the machine's original blue visibly present once the brand accent itself
+ * turned red.
  */
 .arcade-frame {
-  background: linear-gradient(155deg, var(--ch-brand) 0%, var(--ch-hairline) 55%, var(--ch-surface-2) 100%);
+  background: linear-gradient(155deg, var(--ch-steel) 0%, var(--ch-hairline) 55%, var(--ch-surface-2) 100%);
   padding: 10px;
 }
 
@@ -320,7 +362,8 @@
   height: 6px;
   border-radius: 9999px;
   background: var(--ch-void);
-  box-shadow: inset 0 0 0 1px var(--ch-brand);
+  /* `--ch-steel`, same reason as `.arcade-frame` above — decorative machine chrome, not a control. */
+  box-shadow: inset 0 0 0 1px var(--ch-steel);
 }
 
 /*
@@ -422,6 +465,10 @@
  * what FR-031 requires — so this is pure chrome: a scanning highlight with no information encoded in
  * its motion at all. `animation`, not `transition`, is what the reduced-motion rule immediately below
  * catches automatically; nothing Ticker-specific is needed there.
+ *
+ * `--ch-steel`, not `--ch-brand`, since 2026-08-11: a scanning highlight with no information in it is
+ * decoration by the file header's own definition, and it is the last of the three places that still
+ * carries the machine's original blue now that the brand accent itself is red.
  */
 @keyframes ticker-scan {
   from {
@@ -435,7 +482,7 @@
 .ticker-scan {
   background-image: repeating-linear-gradient(
     90deg,
-    var(--ch-brand) 0 2px,
+    var(--ch-steel) 0 2px,
     transparent 2px 20px
   );
   background-size: 160px 100%;

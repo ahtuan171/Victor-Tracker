@@ -486,3 +486,34 @@ passed**, none skipped, none flaking on a rerun of the previously-failing scrim 
 
 **Phase 4 (T029–T031) is closed.** No checkpoint task is defined for this phase (only Phase 3 had one);
 Phase 5 (US3, the theme control) is next, gated on T029 per the dependency graph.
+
+**2026-08-11 — a mid-iteration palette re-harmonisation, outside the T0xx sequence, between Phase 4
+and Phase 5.** Not a task — a correction to the token layer T006 built. The owner's read of the
+shipped palette: it presented as cyan-dominant "Iron Man/modern robot" rather than reading as the
+Spider-Man-themed reference (`spidey-tracker.mp4`) it was drawn from. Walked as two candidates
+("Web-Slinger" and "Night Suit"), each rendered against the real components — frame, rivets, day
+cells, action band, drawer — in an Artifact rather than as bare swatches, the same reasoning T004 used
+for the frame-thickness sign-off. **The owner picked Candidate B, "Night Suit."**
+
+Landed in one file, `frontend/app/globals.css` — no component touched, which is the whole reason the
+token layer is one file (see that file's own header comment for the full before/after and the two
+rules that govern it now). One genuinely new decision, not just new hex values: **`--ch-brand` and
+`--ch-danger` can no longer both be "a red"** now that brand itself is red — before, cyan-brand and
+red-danger were separable for free. `--ch-danger` moved to amber/gold rather than a second red to
+keep a primary action and a refusal from ever reading as the same signal. A second new token,
+`--ch-steel` (the outgoing brand cyan, demoted to decoration-only — the frame's bevel, the rivets, the
+ticker's scan-line), is what keeps the product's original blue visibly present at all, per the
+owner's explicit ask to keep it as decor rather than drop it.
+
+**Two test files carry a hand-duplicated copy of the light palette** (`LIGHT_TOKEN_OVERRIDES` in
+`viewport-audit.spec.ts` and `text-size-audit.spec.ts` — scaffolding for testing "light" before T033's
+real switch exists, per each file's own comment). Both updated to the new light values in the same
+pass; missing this would have left the light-mode sweep silently testing the outgoing cyan palette
+instead of the one actually shipping.
+
+**Verified**: `pnpm typecheck`/`lint`/`build` clean; full suite, all four Playwright projects, **483
+passed** again — the greyscale-distinguishability test (`tests/client/status.spec.ts`) is written
+against shape/fill encoding rather than literal colour, so it was never at risk from a value-only
+change, and stayed green as evidence of that rather than by luck. Hand-verified with real screenshots
+of `/calendar` (grid, drawer open) and `/login` at 375px, dark — the frame, rivets and ticker read
+blue against the red chrome exactly as the approved candidate showed.
