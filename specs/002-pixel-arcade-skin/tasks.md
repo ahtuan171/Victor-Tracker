@@ -132,8 +132,8 @@ controls.
 out works from it.
 
 - [x] T029 [US2] Build `frontend/components/arcade/NavDrawer.tsx` and its trigger, present on every screen. It layers **above** the backlog drawer with its own scrim and its own dismissal; the backlog drawer is deliberately not a modal and cannot be relied on to get out of the way.
-- [ ] T030 [US2] Move sign-out from the header into the drawer, at the **far end** of it (FR-017). Keep the refusal behaviour exactly as T077 built it: a refused sign-out keeps the owner on the calendar and says so, because only the proxy can clear an httpOnly cookie and a logout the server refused leaves the session alive.
-- [ ] T031 [US2] Tests in `frontend/tests/e2e/nav-drawer.spec.ts`: reachable from every screen; at most 2 interactions between any two screens (SC-007); dismissing over an open capture sheet **keeps the typed text** (FR-018); and neither drawer traps the person when both are open (FR-019).
+- [x] T030 [US2] Move sign-out from the header into the drawer, at the **far end** of it (FR-017). Keep the refusal behaviour exactly as T077 built it: a refused sign-out keeps the owner on the calendar and says so, because only the proxy can clear an httpOnly cookie and a logout the server refused leaves the session alive.
+- [x] T031 [US2] Tests in `frontend/tests/e2e/nav-drawer.spec.ts`: reachable from every screen; at most 2 interactions between any two screens (SC-007); dismissing over an open capture sheet **keeps the typed text** (FR-018); and neither drawer traps the person when both are open (FR-019).
 
 ---
 
@@ -435,3 +435,54 @@ clean; `viewport-audit.spec.ts` (28/28), `sign-out.spec.ts` and `calendar.spec.t
 both presentations at 375px — the new stacked button changes the header's height, not its width, so
 none of the existing overflow assertions move. `nav-drawer.spec.ts` itself is T031's job, not this
 one's.
+
+**2026-08-10 — T030.** Sign-out's state and `signOut()` moved from `CalendarHeader` into
+`NavDrawer.tsx` itself, self-contained rather than threaded down as a prop — every future screen that
+mounts `NavDrawer` gets a working sign-out for free. Rendered in a footer **below** `nav-drawer-screens`
+(the flex-1 list pushes it to the panel's bottom), which is the drawer's own far end per FR-017. Behaviour
+carried over byte-for-byte from T077: `logout()` still swallows a 401, a refusal still shows
+`"Could not sign you out..."` and leaves the creator on `/calendar`, success still
+`window.location.replace("/login")`.
+
+**A real correctness bug found while wiring this, not while testing it**: `CaptureSheet`, `ItemSheet`
+and `DeleteConfirm` all share the shadcn `Sheet`/`AlertDialog` primitives, whose backdrop is
+`position: fixed` at **`z-50`**, portalled to `document.body` and covering the *entire* viewport —
+including the header, where the drawer's trigger sits with no explicit stacking level at all. T031's
+own FR-018 scenario ("dismiss the nav drawer over an open capture sheet, the typed text survives")
+requires the trigger to be **reachable** while that backdrop is up, which the `z-30`/`z-40` T029 shipped
+cannot do against a `z-50` sheet — the trigger would be visually and pointer-wise buried under it, not
+merely behind the backlog drawer T029's own task line named. Fixed by raising the trigger to
+`relative z-[60]`, the scrim to `z-[70]` and the panel to `z-[80]` — past every sheet in the product,
+not just the one non-modal overlay (the backlog drawer) that motivated T029's original numbers.
+Documented in `NavDrawer.tsx`'s own "It has to out-rank z-50" section so the next stacking change does
+not have to re-derive it from a failing test.
+
+**Existing tests updated for the new location, not just the new one written.** `sign-out.spec.ts`
+now opens the drawer before every interaction with `sign-out-action` (it is not in the DOM until
+then), and its two layout tests were re-pointed: "not in the action band" became "not reachable in a
+single tap", and "the header fits its longest title beside sign-out" became "...beside the drawer
+trigger" (sign-out no longer shares the header row at all). `focus-states.spec.ts` got the same
+treatment — the calendar-wide tab walk no longer includes sign-out (it is behind the drawer now), the
+`paintsAFocusRing` sweep swapped `sign-out-action` for `nav-drawer-trigger`, and two new tests cover
+the drawer's own controls (a tab walk, and a painted-ring check for `nav-drawer-close` and
+`sign-out-action`, both requiring the drawer to be opened first — checked in their own test rather
+than folded into the existing sweep, because opening the drawer mid-sweep would put the scrim over
+every other control that sweep still needs to screenshot).
+
+**2026-08-10 — T031.** `frontend/tests/e2e/nav-drawer.spec.ts` written: reachable in a single tap;
+FR-015's screen list (one entry today, `Content Calendar`, `aria-current="page"`) with a note that
+SC-007 is satisfied vacuously until a second screen exists to measure a path between; FR-018 (capture
+sheet text survives a dismiss, exercising the z-index fix above — the test would hang on an
+unreachable trigger if that fix were reverted); FR-019 in three forms — opening the nav drawer does
+not cancel an open backlog drawer and dismissing it does not either, a keyboard tab walk actually
+escapes the panel (unlike the product's real modals, this one has no focus trap by design), and the
+scrim dismisses only the nav drawer. One test bug found by running it: clicking `nav-drawer-scrim` at
+its default centre actually lands on the panel sitting above that point (the panel covers the scrim's
+right two-thirds), not the scrim itself — fixed by clicking near the scrim's top-left corner, which
+the panel does not cover.
+
+**Verified**: `pnpm typecheck`/`lint`/`build` clean. Full suite, all four Playwright projects: **483
+passed**, none skipped, none flaking on a rerun of the previously-failing scrim test.
+
+**Phase 4 (T029–T031) is closed.** No checkpoint task is defined for this phase (only Phase 3 had one);
+Phase 5 (US3, the theme control) is next, gated on T029 per the dependency graph.

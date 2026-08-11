@@ -26,13 +26,7 @@ import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
-import {
-  ApiError,
-  logout,
-  type ContentItem,
-  type ContentItemUpdate,
-  type Platform,
-} from "@/lib/api";
+import { ApiError, type ContentItem, type ContentItemUpdate, type Platform } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, nextDue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
@@ -584,22 +578,14 @@ function readNoToday(): DateOnly | null {
  * exactly the one the creator has lost track of, and a count that emptied itself as they navigated
  * away from the problem would be the opposite of what the treatment is for.
  *
- * ## Sign-out lives here, and the task line said the action band
+ * ## Sign-out lived here (T077); it moved into the nav drawer at T030
  *
- * T077, and the amendment is recorded in `tasks.md` with the measurement behind it. The action band
- * carries the view toggle, two arrows and `+ CAPTURE`: **300px of content, 24px of gaps and 32px of
- * padding — 356px of the 375px floor, leaving 19px.** A 44px target and its gap need 50px, so
- * putting sign-out there means breaking either `.claude/rules/design.md`'s tap floor or FR-021's
- * "the page body MUST NOT scroll horizontally". FR-022 asks thumb reach for the actions the creator
- * performs **frequently** — it names them: "capture, status change, date change" — and sign-out is
- * none of the three. Distance from the thumb is a *feature* here for the same reason it is a cost
- * there: this is the one control whose mis-tap ends the session.
- *
- * It sits **above** the counts rather than beside them, which is what makes it nearly free: the
- * right-hand column is then `max(button, counts)` wide instead of their sum, so the period title
- * loses ~5px rather than ~91px. The longest title this product can produce is a cross-boundary week
- * (`28 Dec 2026 – 3 Jan 2027`), and both `period-nav.spec.ts` and `sign-out.spec.ts` pin it against
- * horizontal overflow.
+ * T077 put it in this header rather than the action band, for a measurement recorded in `tasks.md`:
+ * the band's own content plus gaps plus padding left only 19px against the 375px floor, where a 44px
+ * target and its gap need 50px. T030 moves the control one surface further out, into
+ * `arcade/NavDrawer.tsx`'s own footer (FR-017), and that reasoning is recorded there now rather than
+ * here — this header keeps only the drawer's trigger, which is what T029 added in the same right-hand
+ * column sign-out used to occupy alone.
  */
 function CalendarHeader({
   period,
@@ -614,39 +600,6 @@ function CalendarHeader({
   overdueCount: number;
   loading: boolean;
 }) {
-  /**
-   * Set only when the request is refused, and it keeps the creator here.
-   *
-   * Only the proxy can clear an httpOnly cookie, so a refused logout leaves the session **alive** —
-   * navigating to `/login` anyway would report an ending that did not happen. `logout()` already
-   * swallows a 401 (the session was over, which is where this was going), so anything reaching this
-   * branch is a session that is still open.
-   */
-  const [signOutError, setSignOutError] = useState<string | null>(null);
-
-  /** Disables the control for the moment before the page swaps, as `login-form.tsx` does on submit. */
-  const [signingOut, setSigningOut] = useState(false);
-
-  async function signOut(): Promise<void> {
-    if (signingOut) return;
-    setSigningOut(true);
-    setSignOutError(null);
-
-    try {
-      await logout();
-    } catch {
-      setSignOutError("Could not sign you out. Your session is still open — try again.");
-      setSigningOut(false);
-      return;
-    }
-
-    // `window.location.replace`, never a router push: the `(app)` guard is a server component and
-    // App Router layouts are not re-executed on soft navigations, so a client-side push could land
-    // on `/login` with the server never re-reading the now-cleared cookie. `replace` also keeps the
-    // signed-in page out of history, where going back would only bounce off the guard.
-    window.location.replace("/login");
-  }
-
   return (
     <header className="border-hairline border-b px-4 pt-5 pb-3">
       <div className="flex items-end justify-between gap-3">
@@ -690,32 +643,12 @@ function CalendarHeader({
 
         <div className="flex flex-none flex-col items-end gap-1.5">
           {/*
-           * T029: the drawer's trigger, stacked **above** sign-out rather than beside it. Side by
-           * side the two would widen this column past the sign-out button's own width and eat into
-           * the period title's space (the same arithmetic T077 solved by putting sign-out above the
-           * counts instead of beside them); stacked, the column stays `max()` of its three rows
-           * rather than growing with their sum, and nothing here changes width.
+           * T029: the drawer's trigger. It used to sit above a sign-out button in this same column
+           * (T077); T030 moved that control into the drawer's own footer, so this is the column's
+           * only button now — narrower than "Sign out" was, so the width this column claims can only
+           * have gone down, not up.
            */}
           <NavDrawer />
-
-          {/*
-           * `h-11` is the 44px floor, as everywhere else — every shadcn size variant is desktop-scaled,
-           * so the height is explicit rather than inherited. The label is a written word for the same
-           * reason the rest of the product's controls are (`+ NEW`, `MONTH`, `CLEAR`): a lone glyph
-           * would be the only icon-only control here, and this is the worst one to leave ambiguous.
-           *
-           * `font-display` dropped (T015) for the same FR-033/FR-034 reason as the eyebrow above — it
-           * was 10px Silkscreen, under both floors at once.
-           */}
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            disabled={signingOut}
-            className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 flex-none rounded-sm border px-2.5 text-xs font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
-            data-testid="sign-out-action"
-          >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
 
           <p className="text-ink-mid text-right text-xs leading-snug" data-testid="calendar-counts">
             {loading ? (
@@ -741,24 +674,6 @@ function CalendarHeader({
           </p>
         </div>
       </div>
-
-      {/*
-       * Full width rather than inside the right-hand column, which is 44px wide by design — a
-       * sentence there would push the period title and break the very constraint that put the
-       * control in this band. It renders only on a refusal, so the header's height is unchanged in
-       * the case that always happens.
-       */}
-      {signOutError === null ? null : (
-        // `text-danger-hi`, not `text-brand-hi` (T015): 002 split the accent into a chrome-only cyan
-        // and a dedicated danger red, the same fix T022 applied to the item sheet's error states.
-        <p
-          role="alert"
-          className="text-danger-hi pt-2 text-xs leading-relaxed"
-          data-testid="sign-out-message"
-        >
-          {signOutError}
-        </p>
-      )}
     </header>
   );
 }

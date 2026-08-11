@@ -320,7 +320,8 @@ for (const theme of ["dark", "light"] as const) {
     await page.getByTestId("view-week").click();
 
     // `28 Dec 2026 – 3 Jan 2027` is the longest title this product can produce, and it shares the
-    // header row with the sign-out control (T077).
+    // header row with the nav drawer trigger (T029; it held the sign-out control here until 002
+    // T030 moved that into the drawer itself).
     await page.clock.setFixedTime(Date.UTC(2026, 11, 30, 3, 0, 0));
     await page.reload();
     await applyTheme(page);
