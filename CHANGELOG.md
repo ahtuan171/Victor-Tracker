@@ -11,7 +11,29 @@ and no longer describes what is built here.
 
 ## [Unreleased]
 
-### Changed
+## [0.2.0] — 2026-08-11
+
+**The pixel-arcade presentation layer, hand-walked against a real production build before tagging —
+the same standard v0.1 held itself to, and for the same reason.** T044 walked `quickstart.md` V1–V11
+against `pnpm build && pnpm start`, real Docker `backend`, real Postgres, the single seeded creator
+signing in for real. Fifteen of fifteen success criteria hold. Full detail in
+[`docs/retro-02.md`](docs/retro-02.md); results are in the T044 note in
+`specs/002-pixel-arcade-skin/tasks.md`.
+
+**Nothing about what the calendar does changed.** FR-003/SC-010 required every task completable
+before this iteration to remain completable afterwards, in no more interactions — verified by
+re-walking v0.1's own quickstart in full (V11) against this iteration's build, including capture
+still costing exactly three interactions.
+
+**One real, production-only defect was found by the walk and fixed before this tag**: the navigation
+drawer's Escape key used to close the capture sheet underneath it too, discarding an in-progress
+draft (FR-018). It reproduced consistently against a production build and not at all under `next
+dev`, so a Playwright test alone would not have found it — matching v0.1's own retro finding that a
+green suite is evidence about the frontend in isolation, not about the deployed seam. Fixed with a
+capture-phase event listener, verified by breaking it again and confirming the new regression test
+goes red.
+
+**Also carried in this release, from the point the product pivoted:**
 
 - **The product pivoted to a personal travel memory map**, and the constitution was amended to
   **2.0.0** to say so — a MAJOR bump, because principle III's module set is replaced and the Scope
@@ -19,11 +41,73 @@ and no longer describes what is built here.
   with photographs is a pattern of life, so no public object-store bucket is permitted and no
   third-party request — map tiles included — may carry a place name, pin label or record id.
   Growth Tracker, Media Kit Generator and Deal/Collab Tracker are **cancelled**, not deferred.
-- `tech-defaults.md` gains a **Map** row (MapLibre GL JS, dark basemap) and an **Object storage** row
-  (Cloudflare R2, presigned PUT and expiring presigned GET). Media file upload, excluded at v0.1, is
-  in scope from v0.2.
+- `tech-defaults.md` gained a **Map** row (MapLibre GL JS, dark basemap) and an **Object storage** row
+  (Cloudflare R2, presigned PUT and expiring presigned GET), ahead of the map iteration (renumbered
+  `003`) that will use them.
 - **Content Calendar is retained unchanged** as a secondary scheduling surface behind the navigation
-  drawer. Retargeting `content_item` to trip itineraries is a later iteration with its own `spec.md`.
+  drawer built in this release. Retargeting `content_item` to trip itineraries is a later iteration
+  with its own `spec.md`.
+
+### Added
+
+**One machine, not two products**
+- Every existing screen and overlay re-presented in one visual language — typefaces, colour tokens,
+  frame, control treatment — replacing the previous dark editorial presentation everywhere at once
+  (FR-001, SC-001).
+- A further "comic-tech" visual refinement pass, finished inside this same iteration per the rule
+  that only the iteration whose entire subject is the redesign may touch the shared token layer:
+  branded chrome (`VICTOR TRACKER · ISSUE #NN`), comic-panel cards, comic-tab platform filter,
+  press-feedback micro-animations, a halftone/web-line texture pass.
+- The presentation language encodes nothing calendar-specific, so the travel map (iteration 003)
+  inherits the same chrome (FR-002).
+
+**Navigation and settings**
+- A single navigation drawer, reachable from every screen in one tap, listing every screen the
+  product has and holding the presentation choice, the sound choice, and sign-out (FR-015, FR-016,
+  SC-007).
+- Sign-out moved out of the header into the drawer, deliberately further from the thumb's resting
+  position than the frequently-used controls (FR-017).
+- Dismissing the drawer — by its close button or by Escape — returns the person to exactly where they
+  were, including a capture sheet open underneath it with typed text intact (FR-018).
+
+**A remembered dark or light presentation**
+- A dark/light switch, applied in under a second with no navigation and no scroll-position loss
+  (FR-010, SC-005).
+- Remembered **against the account**, not the device — correct on a second browser profile, correct
+  under a throttled connection, and never showing the wrong presentation even for one frame at first
+  paint (FR-011, FR-013, FR-013a, SC-006).
+- Dark before any choice has ever been made (FR-012).
+
+**Optional sound**
+- Five short cues synthesised with the Web Audio API — no audio assets, no library — attached to
+  exactly the actions that change stored information (capture, save, delete, move) plus a
+  distinguishable refusal cue (FR-023a).
+- Silent until explicitly turned on, and immediately silent again when turned off (FR-020, SC-009).
+- Navigation, filtering, view changes and panel toggles never produce sound, verified with sound on
+  as well as off (SC-015).
+
+**A status ticker**
+- A moving strip reporting the overdue count and the next thing due, agreeing at all times with the
+  same counts shown elsewhere on screen, and fully readable from one still frame — including while
+  motion is reduced (FR-027–FR-031, SC-008, SC-012, SC-013).
+
+**Accessibility and legibility**
+- Every appearance-based distinction — status, overdue, the new comic-tab active state — verified
+  distinguishable with colour removed entirely, in both presentations (FR-024, SC-004).
+- A single focus indicator across every control in both presentations, never clipped by a control's
+  own shape (FR-026, SC-011).
+- Text floors: nothing anywhere below 12px, nothing below 16px in content text (FR-032–FR-034,
+  SC-014).
+
+### Infrastructure
+
+- Two new columns on the existing single `creator` row (`theme`, `sound_enabled`) and
+  `GET`/`PATCH /preferences`, gated by the same CI pipeline as everything else. No new records beyond
+  these two account-level preferences.
+- **This branch's entire history (33 commits, T001 through T053) went through one merge request
+  rather than one per task** — a recorded constitution VI exception, discovered only when a review
+  pass at T045 found the branch had never been merged to `main` at all. Full account in
+  [`docs/retro-02.md`](docs/retro-02.md) §2.1.
 
 ## [0.1.0] — 2026-08-05
 
