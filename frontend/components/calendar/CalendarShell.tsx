@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   DndContext,
@@ -26,10 +26,11 @@ import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
-import { ApiError, type ContentItem, type ContentItemUpdate, type Platform } from "@/lib/api";
+import { ApiError, getPreferences, type ContentItem, type ContentItemUpdate, type Platform } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
 import { countOverdue, nextDue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
+import { reconcileTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -103,6 +104,21 @@ export function CalendarShell() {
 
   /** Null on the server and during hydration, the creator's own day afterwards — see the note above. */
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+
+  /**
+   * Step 3 of research.md R-002's mechanism, run once per mount: read the account's own presentation
+   * choice and, if it disagrees with what the `ch_theme` cookie already showed, the account wins —
+   * `reconcileTheme` corrects both the visible class and the cookie. A network failure here is not
+   * reported anywhere; the document already painted a valid theme from whatever the cookie held
+   * (`app/layout.tsx`), so there is nothing broken to surface, only a correction that did not happen.
+   */
+  useEffect(() => {
+    void getPreferences()
+      .then((preferences) => reconcileTheme(preferences.theme))
+      .catch((error: unknown) => {
+        console.error("[theme] could not read the account's preference to reconcile against", error);
+      });
+  }, []);
 
   const [view, setView] = useState<CalendarView>("month");
 

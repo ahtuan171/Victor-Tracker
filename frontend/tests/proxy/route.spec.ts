@@ -191,6 +191,64 @@ test.describe("login", () => {
     expect(cookie?.maxAge).toBeGreaterThan(29 * 24 * 60 * 60);
   });
 
+  test("preferences in the login body become the ch_theme cookie (T035)", async () => {
+    const token = tokenExpiringIn(30 * 24 * 60 * 60);
+    reply = new Response(
+      JSON.stringify({
+        access_token: token,
+        token_type: "bearer",
+        expires_at: "2026-08-30T00:00:00Z",
+        preferences: { theme: "light", sound_enabled: true },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    const response = await POST(
+      ...requestFor("POST", ["auth", "login"], { body: '{"email":"a@b.c","password":"x"}' }),
+    );
+
+    const cookie = response.cookies.get("ch_theme");
+    expect(cookie?.value).toBe("light");
+    // Not httpOnly — the client rewrites this cookie on every toggle (research.md R-002).
+    expect(cookie?.httpOnly).toBeFalsy();
+    expect(cookie?.maxAge).toBeGreaterThan(300 * 24 * 60 * 60);
+  });
+
+  test("no preferences in the login body leaves ch_theme untouched", async () => {
+    const token = tokenExpiringIn(30 * 24 * 60 * 60);
+    reply = new Response(
+      JSON.stringify({ access_token: token, token_type: "bearer", expires_at: "2026-08-30T00:00:00Z" }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    const response = await POST(
+      ...requestFor("POST", ["auth", "login"], { body: '{"email":"a@b.c","password":"x"}' }),
+    );
+
+    // `PreferencesRead` is optional in the contract on purpose — a login response that omits it must
+    // not overwrite whatever presentation this device already had.
+    expect(response.cookies.get("ch_theme")).toBeUndefined();
+  });
+
+  test("a value outside the two-member Theme enum is refused, not written as a third presentation", async () => {
+    const token = tokenExpiringIn(30 * 24 * 60 * 60);
+    reply = new Response(
+      JSON.stringify({
+        access_token: token,
+        token_type: "bearer",
+        expires_at: "2026-08-30T00:00:00Z",
+        preferences: { theme: "solarized", sound_enabled: false },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    const response = await POST(
+      ...requestFor("POST", ["auth", "login"], { body: '{"email":"a@b.c","password":"x"}' }),
+    );
+
+    expect(response.cookies.get("ch_theme")).toBeUndefined();
+  });
+
   test("a 200 login body the contract does not describe is refused, not forwarded", async () => {
     reply = new Response(JSON.stringify({ token: "surprise-shape" }), {
       status: 200,

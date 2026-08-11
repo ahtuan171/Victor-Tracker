@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { Barlow, Geist_Mono, Oswald, Silkscreen, VT323 } from "next/font/google";
 import "./globals.css";
 import { Frame } from "@/components/arcade/Frame";
+import { THEME_COOKIE_NAME, parseTheme } from "@/lib/theme";
 
 /**
  * The stage-2 type pairing (design/content-calendar/, panel `1a`).
@@ -61,19 +63,27 @@ export const metadata: Metadata = {
   description: "Content calendar for a single creator.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // T033, research.md R-002: read the account's last-known presentation from the `ch_theme` cookie
+  // *before* the document is written, so FR-013 ("no flash, not even one frame") holds without any
+  // blocking inline script. `parseTheme` refuses anything but exactly "dark"/"light", so an absent,
+  // empty, or stale cookie value falls through to the FR-012 default below rather than becoming a
+  // silent third presentation.
+  const store = await cookies();
+  const theme = parseTheme(store.get(THEME_COOKIE_NAME)?.value);
+
+  // Dark unless the cookie says otherwise (FR-012). Light is the *absence* of this class — `:root`
+  // already carries the light values in `globals.css` — so there is no second class to add.
+  const themeClass = theme === "light" ? "" : "dark";
+
   return (
-    // `dark` is set here rather than left to a media query or a toggle: the export's primary
-    // direction is the dark one, and v0.1 ships no theme switch. The light counterpart still lives in
-    // `globals.css` under `:root`, so turning this into a real preference later is a one-line change
-    // and not a re-skin.
     <html
       lang="en"
-      className={`dark ${oswald.variable} ${barlow.variable} ${geistMono.variable} ${vt323.variable} ${silkscreen.variable} h-full antialiased`}
+      className={`${themeClass} ${oswald.variable} ${barlow.variable} ${geistMono.variable} ${vt323.variable} ${silkscreen.variable} h-full antialiased`}
     >
       {/*
        * `h-dvh`, not `min-h-full`: this is the one true viewport-height authority now that `Frame`

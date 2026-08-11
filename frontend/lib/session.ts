@@ -71,8 +71,12 @@ export function apiBaseUrl(): string {
  * `Secure` is on unless explicitly disabled, and local development is what disables it — a Secure
  * cookie is simply not stored over plain http://localhost, and the symptom is a login that appears
  * to succeed and then bounces straight back to /login.
+ *
+ * Exported so `app/api/[...path]/route.ts` can apply the same rule to the `ch_theme` cookie (T035) —
+ * one non-credential cookie sharing the session cookie's `Secure` policy is not a reason for a second
+ * environment check that could disagree with this one.
  */
-function cookieSecure(): boolean {
+export function cookieSecure(): boolean {
   const configured = process.env.SESSION_COOKIE_SECURE?.trim();
   if (configured) return configured.toLowerCase() === "true";
   return process.env.NODE_ENV === "production";

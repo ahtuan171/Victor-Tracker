@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, useSyncExternalStore } from "react";
 
-import { logout } from "@/lib/api";
+import { logout, updatePreferences, type Theme } from "@/lib/api";
+import { applyTheme, readThemeCookie, writeThemeCookie } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 /**
  * The one place navigation and settings live (T029–T030, FR-015, FR-016, FR-017).
@@ -55,10 +57,45 @@ import { logout } from "@/lib/api";
  * `z-40` panel cannot do against a `z-50` one. `z-[60]`/`z-[70]`/`z-[80]` below are deliberately past
  * every sheet in the product, not merely past the one non-modal overlay (the backlog drawer) T029's
  * task line names.
+ *
+ * ## The presentation control (T034, research.md R-002)
+ *
+ * `theme` below is **not** the value `app/layout.tsx` rendered `<html>` with — it is only this
+ * button's own "which option is selected" indicator, read from the `ch_theme` cookie via
+ * `useSyncExternalStore` (the same pattern `CalendarShell` uses for the browser's clock: a server
+ * snapshot of `"dark"` avoids a hydration mismatch, since the server cannot read a cookie value into
+ * a client hook). A tap on either option applies the class and rewrites the cookie **synchronously**
+ * — R-002's "the visible result never waits for the request" — then fires `PATCH /preferences`
+ * without being awaited first. The request's outcome does not gate the UI at all: a failure is logged
+ * and nothing more, because the cookie this device now shows is already correct for this device, and
+ * R-002's own accepted weakness is that a *different* device corrects on its own next load rather than
+ * live.
  */
 export function NavDrawer() {
   const panelId = useId();
   const [open, setOpen] = useState(false);
+
+  /**
+   * The cookie's own value, read once per mount via the R-006-addendum pattern (`getServerSnapshot`
+   * returns a value rather than null here, unlike `CalendarShell`'s `today`, because "dark" — FR-012's
+   * default — is always a *correct* guess for the server render, never a wrong-but-plausible one).
+   */
+  const cookieTheme = useSyncExternalStore(subscribeToNothing, readTheme, readServerTheme);
+  /** Set the instant a tap picks a theme, so the button reflects it before any request resolves. */
+  const [pickedTheme, setPickedTheme] = useState<Theme | null>(null);
+  const theme = pickedTheme ?? cookieTheme;
+
+  function selectTheme(next: Theme): void {
+    if (next === theme) return;
+    setPickedTheme(next);
+    applyTheme(next);
+    writeThemeCookie(next);
+    void updatePreferences({ theme: next }).catch((error: unknown) => {
+      // Fire-and-forget, deliberately: see the docstring's "presentation control" section for why
+      // this device does not wait on, or roll back for, the request's outcome.
+      console.error("[theme] failed to save the account's preference", error);
+    });
+  }
 
   /**
    * Set only when sign-out is refused, and it keeps the creator here — carried over verbatim from
@@ -169,6 +206,39 @@ export function NavDrawer() {
             </ul>
 
             {/*
+             * The presentation control (T034, FR-016, SC-005). A two-option toggle group, the same
+             * visual language `PeriodNav`'s MONTH/WEEK control already uses, rather than a single
+             * button that flips — the current choice should be legible without tapping to find out.
+             */}
+            <div className="border-hairline border-t p-4">
+              <p className="text-ink-mid mb-2 text-xs leading-none font-semibold tracking-[0.18em] uppercase">
+                Presentation
+              </p>
+              <div
+                role="radiogroup"
+                aria-label="Presentation"
+                className="border-hairline flex overflow-hidden rounded-sm border"
+              >
+                {THEME_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === value}
+                    onClick={() => selectTheme(value)}
+                    className={cn(
+                      "focus-ring-inset h-11 flex-1 text-xs font-semibold tracking-[0.1em] uppercase",
+                      theme === value ? "bg-brand text-white" : "bg-surface-2 text-ink-mid",
+                    )}
+                    data-testid={`theme-option-${value}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/*
              * The drawer's far end (T030, FR-017) — a footer below the flex-1 screen list, so it sits
              * at the bottom of the panel whatever that list's length, separated from it by its own
              * rule rather than sitting in the same block.
@@ -199,4 +269,34 @@ export function NavDrawer() {
       ) : null}
     </>
   );
+}
+
+/** The two options, in the order the toggle group draws them. Dark first — it is FR-012's default. */
+const THEME_OPTIONS: ReadonlyArray<{ readonly value: Theme; readonly label: string }> = [
+  { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
+];
+
+/**
+ * `useSyncExternalStore`'s subscribe argument. Nothing subscribes: `document.cookie` has no change
+ * event a component could listen for, and this store's job is only to supply a hydration-safe
+ * *initial* read — every update after that goes through `pickedTheme`, ordinary React state, which is
+ * what actually re-renders the button on a tap. Same shape as `CalendarShell`'s `subscribeToNothing`,
+ * kept local here rather than shared: a two-line function is not worth a cross-file import.
+ */
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+
+/** `getSnapshot`. `readThemeCookie` already defaults an absent/invalid cookie to nothing — "dark" is
+ * this call site's own fallback, matching FR-012. */
+function readTheme(): Theme {
+  return readThemeCookie() ?? "dark";
+}
+
+/** `getServerSnapshot`. Always `"dark"` rather than `null`: unlike `CalendarShell`'s clock read,
+ * where any guess could be wrong, FR-012 makes "dark" the *correct* answer whenever the real cookie
+ * cannot be read yet, so there is no "not known" state worth representing here. */
+function readServerTheme(): Theme {
+  return "dark";
 }

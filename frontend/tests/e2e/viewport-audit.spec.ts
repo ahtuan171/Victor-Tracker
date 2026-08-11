@@ -101,7 +101,6 @@ async function openCalendar(
 
   await page.clock.setFixedTime(MARCH_2026);
   await page.goto("/calendar");
-  await applyTheme(page);
   await expect(page.getByTestId("capture-action")).toBeVisible();
 }
 
@@ -186,89 +185,37 @@ async function auditSurface(page: Page, surface: string): Promise<void> {
 }
 
 /**
- * 002 T028 (Phase 3 checkpoint): every surface, in **both** presentations. The theme switch itself
- * is Phase 5 (T032–T036) and does not exist yet, and `app/layout.tsx` hard-codes `class="dark"` on
- * `<html>` until T033 replaces it — so light is forced here, temporarily, by a different mechanism
- * than the real switch will use. This is not a substitute for T036's own theme tests (persistence,
- * first-paint correctness, account/device reconciliation); it is purely "does every surface still
- * fit and still show every control" under the light token values T006 already shipped.
+ * 002 T028 (Phase 3 checkpoint) ran this sweep against a fabricated light presentation, because the
+ * real switch (Phase 5, T032–T037) did not exist yet: `app/layout.tsx` hard-coded `class="dark"` on
+ * `<html>` and a `page.evaluate` override forced the light token values in afterward, on every
+ * navigation, because hydration silently discarded anything written before it (two dead-end
+ * mechanisms tried and rejected — `addInitScript`-based `classList` and `<style>`-element approaches
+ * both got reconciled away).
  *
- * **Two mechanisms were tried before this one, and both failed silently — worth recording so a
- * third attempt does not rediscover the same two dead ends.** `RootLayout` renders `<html>` itself,
- * so React hydrates that exact element. (1) `classList.remove("dark")` via `addInitScript`: hydration
- * reconciles the class back to what the unchanged source computes, within the same page load, before
- * any assertion can see the difference. (2) An injected `<style>` element appended to
- * `document.documentElement` via `addInitScript`, and even a direct inline `style` attribute set the
- * same way: **both were silently removed by hydration too** — React strips DOM children and
- * attributes on an element it manages that it does not recognise as its own output. A screenshot
- * comparison and a `getComputedStyle` check both showed the unmodified dark values in every case;
- * that is what caught it, not a passing-for-the-wrong-reason test.
- *
- * **What works: apply the override with `page.evaluate` *after* `page.goto`/`page.reload` resolves,
- * never inside `addInitScript`.** By the time the navigation promise resolves, hydration has already
- * run — confirmed by reading `<html>`'s class immediately after `goto()`, which already shows the
- * reconciled value — so a mutation applied at that point lands after React's one-time hydration pass
- * rather than before or during it, and nothing re-touches `<html>` afterwards (`RootLayout` is a
- * Server Component with static output; nothing client-side re-renders it). `applyTheme()` below is
- * called at every navigation point in this file rather than once in `beforeEach`, because
- * `beforeEach` runs *before* each test's own `goto`.
- *
- * Kept in sync with `app/globals.css`'s `:root` block by hand — there is no live way to read "the
- * light values" from a document that already has `.dark` applied, since both selectors target the
- * same `<html>` element and the cascade always resolves to one winner. This block is scaffolding for
- * exactly the gap T033 closes; once the real switch exists, prefer driving these audits through it
- * instead of this override.
+ * **T037 replaces all of that with the real mechanism now that it exists.** `setThemeCookie` below
+ * sets `ch_theme` before the test's *first* navigation; `app/layout.tsx` reads it server-side
+ * (T033), so light is correct from the very first response and needs no post-navigation correction —
+ * unlike the old override, this cookie survives every subsequent `goto`/`reload` in the same test on
+ * its own, which is why the per-navigation `applyTheme(page)` calls this replaces are simply gone
+ * rather than swapped for an equivalent. This sweep still is not a substitute for `theme.spec.ts`'s
+ * own tests (persistence, first-paint correctness, device reconciliation) — it answers one question,
+ * "does every surface still fit and show every control", under the real switch instead of a stand-in
+ * for it.
  */
-const LIGHT_TOKEN_OVERRIDES: Readonly<Record<string, string>> = {
-  "--ch-void": "#eceaf0",
-  "--ch-surface-0": "#f6f5f8",
-  "--ch-surface-1": "#ffffff",
-  "--ch-surface-2": "#ece9f2",
-  "--ch-surface-3": "#dcd7e8",
-  "--ch-hairline": "#c7c0d6",
-  "--ch-ink-hi": "#14121b",
-  "--ch-ink-mid": "#524a63",
-  "--ch-ink-lo": "#756c88",
-  "--ch-brand": "#d0102c",
-  "--ch-brand-hi": "#a80c22",
-  "--ch-brand-sunk": "#f7dfe2",
-  "--ch-steel": "#2e55b3",
-  "--ch-steel-hi": "#1e3d85",
-  "--ch-danger": "#c07200",
-  "--ch-danger-hi": "#8f5400",
-  "--ch-status-idea": "#3f5687",
-  "--ch-status-draft": "#8f611c",
-  "--ch-status-posted": "#1c7248",
-  "--ch-overdue": "#7d6329",
-};
-
-/**
- * Set by each theme's `beforeEach` below; read by `applyTheme`. Module state is safe here because
- * Playwright runs one test at a time per worker process — `beforeEach` and the test body that follows
- * it never interleave with another test's `beforeEach` in the same process.
- */
-let currentTheme: "dark" | "light" = "dark";
-
-/** Call after every `page.goto`/`page.reload` in this file — see the comment above for why there. */
-async function applyTheme(page: Page): Promise<void> {
-  if (currentTheme !== "light") return;
-  await page.evaluate((overrides) => {
-    for (const [name, value] of Object.entries(overrides)) {
-      document.documentElement.style.setProperty(name, value, "important");
-    }
-  }, LIGHT_TOKEN_OVERRIDES);
+async function setThemeCookie(page: Page, baseURL: string | undefined, theme: "dark" | "light"): Promise<void> {
+  if (theme !== "light") return;
+  await page.context().addCookies([{ name: "ch_theme", value: "light", url: baseURL! }]);
 }
 
 for (const theme of ["dark", "light"] as const) {
   test.describe(`[${theme}]`, () => {
-    test.beforeEach(() => {
-      currentTheme = theme;
+    test.beforeEach(async ({ page, baseURL }) => {
+      await setThemeCookie(page, baseURL, theme);
     });
 
     test.describe("the routes", () => {
       test("/login", async ({ page }) => {
     await page.goto("/login");
-    await applyTheme(page);
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
 
     await auditSurface(page, "/login");
@@ -284,7 +231,6 @@ for (const theme of ["dark", "light"] as const) {
     });
 
     await page.goto("/login");
-    await applyTheme(page);
     await page.getByLabel("Email").fill("creator@example.com");
     await page.getByLabel("Password").fill("wrong-password");
     await page.getByRole("button", { name: /sign in/i }).click();
@@ -326,7 +272,6 @@ for (const theme of ["dark", "light"] as const) {
     // T030 moved that into the drawer itself).
     await page.clock.setFixedTime(Date.UTC(2026, 11, 30, 3, 0, 0));
     await page.reload();
-    await applyTheme(page);
     // The view is client state, so a reload lands back on the month grid.
     await page.getByTestId("view-week").click();
     await expect(page.getByTestId("week-list")).toBeVisible();
@@ -356,7 +301,6 @@ for (const theme of ["dark", "light"] as const) {
    */
   test("/ redirects to a surface this file audits", async ({ page }) => {
     await page.goto("/");
-    await applyTheme(page);
     await expect(page).toHaveURL(/\/login$/);
 
     await auditSurface(page, "/ after redirect");

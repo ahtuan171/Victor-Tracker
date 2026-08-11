@@ -145,12 +145,12 @@ wrong presentation first.
 **Independent test**: switch, close, reopen — the chosen presentation is what appears, including at
 the very first moment anything is visible; then confirm the same on a second browser profile.
 
-- [ ] T032 [US3] Add `frontend/lib/theme.ts` — read and write the `ch_theme` cookie, apply the class, reconcile against the account. Client-side only; it is not `httpOnly` because the client writes it on every toggle, and it carries one of two words and **no identifier**.
-- [ ] T033 [US3] Make `frontend/app/layout.tsx` read `ch_theme` server-side and emit the class on `<html>` in the **initial HTML**, replacing the hard-coded `dark`. This is what makes FR-013 reachable without an inline blocking script; server and client then agree by construction and there is no hydration mismatch to suppress.
-- [ ] T034 [US3] Add the presentation control to the drawer: apply locally and immediately (SC-005 wants under a second), write the cookie, then `PATCH`. The visible result never waits for the request.
-- [ ] T035 [US3] Make the proxy at `frontend/app/api/[...path]/route.ts` write `ch_theme` from the login response's `preferences`, in the same response that sets the session cookie. The proxy already reads that body to lift the token out of it. Keep rebuilding the response rather than forwarding it — that is what makes "strip `X-Access-Token`" true by construction.
-- [ ] T036 [US3] Add `frontend/tests/e2e/theme.spec.ts`: assert the class on `<html>` **in the served document, before JavaScript runs** (FR-013 — a correction in 50ms still fails); persistence across a reload (FR-011); dark by default (FR-012); correct under a throttled connection (FR-013a); and the signed-out screen using this device's last presentation (FR-013b).
-- [ ] T037 [US3] Walk every surface in the **light** presentation at 375px and fix what it finds. It exists today only on `/login`, so this is ten surfaces being seen for the first time, not a re-check — FR-014 requires both presentations to satisfy every other requirement, so `viewport-audit`, `text-size-audit` and the greyscale check all run again here.
+- [x] T032 [US3] Add `frontend/lib/theme.ts` — read and write the `ch_theme` cookie, apply the class, reconcile against the account. Client-side only; it is not `httpOnly` because the client writes it on every toggle, and it carries one of two words and **no identifier**.
+- [x] T033 [US3] Make `frontend/app/layout.tsx` read `ch_theme` server-side and emit the class on `<html>` in the **initial HTML**, replacing the hard-coded `dark`. This is what makes FR-013 reachable without an inline blocking script; server and client then agree by construction and there is no hydration mismatch to suppress.
+- [x] T034 [US3] Add the presentation control to the drawer: apply locally and immediately (SC-005 wants under a second), write the cookie, then `PATCH`. The visible result never waits for the request.
+- [x] T035 [US3] Make the proxy at `frontend/app/api/[...path]/route.ts` write `ch_theme` from the login response's `preferences`, in the same response that sets the session cookie. The proxy already reads that body to lift the token out of it. Keep rebuilding the response rather than forwarding it — that is what makes "strip `X-Access-Token`" true by construction.
+- [x] T036 [US3] Add `frontend/tests/e2e/theme.spec.ts`: assert the class on `<html>` **in the served document, before JavaScript runs** (FR-013 — a correction in 50ms still fails); persistence across a reload (FR-011); dark by default (FR-012); correct under a throttled connection (FR-013a); and the signed-out screen using this device's last presentation (FR-013b).
+- [x] T037 [US3] Walk every surface in the **light** presentation at 375px and fix what it finds. It exists today only on `/login`, so this is ten surfaces being seen for the first time, not a re-check — FR-014 requires both presentations to satisfy every other requirement, so `viewport-audit`, `text-size-audit` and the greyscale check all run again here.
 
 ---
 
@@ -561,3 +561,61 @@ so they are sequenced rather than dumped in together.
 
 **Verified**: `pnpm typecheck`/`lint`/`build` clean; full suite, all four Playwright projects, **483
 passed** again. Hand-verified with screenshots of the week list at rest and mid-hover.
+
+**2026-08-11c — Phase 5 (T032–T037), the theme control, all six tasks in one pass.** Built exactly
+against research.md R-002's three-rule mechanism, not re-derived:
+
+- **T032** `frontend/lib/theme.ts` — `THEME_COOKIE_NAME`, `parseTheme` (validates against `THEMES`,
+  refusing anything but exactly `"dark"`/`"light"`), `readThemeCookie`/`writeThemeCookie`
+  (client-only, deliberately not `httpOnly`), `applyTheme` (toggles the `.dark` class — light is its
+  *absence*, not a second class), and `reconcileTheme` (R-002 rule 3). `Preferences`/
+  `PreferencesUpdate` types and `getPreferences`/`updatePreferences` added to `lib/api.ts` alongside
+  it — the contract existed since T005 but no client function had used it yet.
+- **T033** `app/layout.tsx` is now `async`, reads `ch_theme` via `next/headers` `cookies()`, and
+  computes the `<html>` class instead of hard-coding `dark`. **Side effect worth recording**: every
+  route under this layout became `ƒ Dynamic` in the build output (previously `/login` and
+  `/_not-found` were static) — an unavoidable consequence of a per-request cookie read in a layout,
+  not a regression to chase.
+- **T034** The presentation control lives in `NavDrawer.tsx`, between the screen list and the
+  sign-out footer: a two-option toggle group (`role="radiogroup"`), initial value read via
+  `useSyncExternalStore` (the same hydration-safe pattern `CalendarShell` uses for `today`, except
+  the server snapshot is `"dark"` itself rather than `null` — FR-012 makes that guess always
+  correct), subsequent changes through plain `useState` since nothing subscribes to cookie changes. A
+  tap applies the class and cookie synchronously, then fires `PATCH /preferences` unawaited — a
+  failure is logged and nothing more, per R-002's stated accepted weakness. Mount-time reconciliation
+  (rule 3) is a `useEffect` in `CalendarShell` calling `getPreferences()` once and feeding the result
+  to `reconcileTheme`.
+- **T035** The proxy's `relay()` now also extracts `preferences.theme` from a successful login body
+  (tolerant of it being absent — `PreferencesRead` is optional in the contract on purpose) and a new
+  `applyThemeCookie` writes it as its own non-`httpOnly` cookie in the same response. `cookieSecure`
+  was exported from `lib/session.ts` rather than duplicated, so both cookies share one `Secure`
+  policy. Three new cases in `tests/proxy/route.spec.ts` pin this directly: preferences present,
+  absent, and a value outside the two-member enum (refused, not written as a silent third
+  presentation).
+- **T036** `frontend/tests/e2e/theme.spec.ts`, eight tests porting `quickstart.md` V6 one-to-one plus
+  FR-013b. The "no flash" and "dark by default" checks use `context.request.get(...)` — a raw HTTP
+  fetch with **zero JavaScript**, the strongest available reading of "before any JavaScript runs".
+  The throttled-connection check delays the document response and asserts at `domcontentloaded`,
+  before hydration could have run a correction. The "another device" case found a real API limit
+  while writing it, not while running it: two `Set-Cookie` values cannot be joined into one
+  `route.fulfill` header string (RFC 6265 requires separate lines, unlike ordinary headers), so the
+  test stands `addCookies` in for the second cookie a real second `Set-Cookie` line would set — the
+  header mechanics themselves are what T035's proxy-level cases prove instead.
+- **T037** Replaced the `LIGHT_TOKEN_OVERRIDES` scaffolding in both `viewport-audit.spec.ts` and
+  `text-size-audit.spec.ts` with the real cookie, exactly as both files' own comments asked once T033
+  landed. Net simplification, not a swap of equal size: the old mechanism needed re-applying after
+  *every* `goto`/`reload` in a test (hydration wiped it otherwise), so removing it deleted more call
+  sites than the replacement added — `setThemeCookie` runs once per test, in `beforeEach`, and a real
+  cookie survives every subsequent navigation on its own. Light itself was not re-designed here: T028
+  already walked and screenshotted it across every surface, and neither re-harmonisation since
+  (2026-08-11, 2026-08-11b) touched light and dark inconsistently. This task's job was confirming the
+  *real* switch reproduces that same correct rendering, which the full 46/46 pass of both audit files
+  (both presentations) plus a hand screenshot of `/calendar` and the open drawer in light — taken
+  through the real toggle, not the override — both confirm.
+
+**Verified**: `pnpm typecheck`/`lint`/`build` clean throughout. Full suite, all four Playwright
+projects: **494 passed** (483 plus the 8 new theme tests and 3 new proxy tests), none skipped.
+
+**Phase 5 is closed.** Phase 6 (US4, sound) and Phase 7 (polish, retro, tag) remain — Phase 6 depends
+only on T029 (already done), so it could run before or after Phase 7's cross-cutting items depending
+on how the next session wants to sequence it.

@@ -74,7 +74,6 @@ async function openCalendar(
 
   await page.clock.setFixedTime(MARCH_2026);
   await page.goto("/calendar");
-  await applyTheme(page);
   await expect(page.getByTestId("capture-action")).toBeVisible();
 }
 
@@ -177,63 +176,28 @@ async function auditSurface(page: Page, surface: string): Promise<void> {
 }
 
 /**
- * 002 T028 (Phase 3 checkpoint): both presentations. **Do not "simplify" this to
- * `classList.remove("dark")`, and do not move the override into `addInitScript`** —
- * `viewport-audit.spec.ts`'s comment on its own copy of this mechanism records two mechanisms that
- * were tried and both silently failed: `RootLayout` renders `<html>` itself, so React hydrates that
- * element and strips *any* attribute or child it does not recognise as its own output, including an
- * injected `<style>` tag and a directly-set inline `style` attribute, both applied via
- * `addInitScript`. What works is applying the override with `page.evaluate` **after**
- * `page.goto`/`page.reload` resolves, once hydration has already run. Kept in sync with
- * `app/globals.css`'s `:root` block by hand, for the reason given in that file's comment.
+ * 002 T028 (Phase 3 checkpoint) ran this sweep against a fabricated light presentation — the real
+ * theme switch (Phase 5, T032–T037) did not exist yet, and this file forced light with a
+ * `page.evaluate` token override reapplied after every navigation, because hydration silently
+ * discarded anything written before it. **T037 replaces that with the real mechanism**: `ch_theme`
+ * set once before the test's first navigation, read server-side by `app/layout.tsx` (T033), correct
+ * from the first response and surviving every later `goto`/`reload` in the same test on its own —
+ * `viewport-audit.spec.ts` carries the fuller history of the two mechanisms this one replaced.
  */
-const LIGHT_TOKEN_OVERRIDES: Readonly<Record<string, string>> = {
-  "--ch-void": "#eceaf0",
-  "--ch-surface-0": "#f6f5f8",
-  "--ch-surface-1": "#ffffff",
-  "--ch-surface-2": "#ece9f2",
-  "--ch-surface-3": "#dcd7e8",
-  "--ch-hairline": "#c7c0d6",
-  "--ch-ink-hi": "#14121b",
-  "--ch-ink-mid": "#524a63",
-  "--ch-ink-lo": "#756c88",
-  "--ch-brand": "#d0102c",
-  "--ch-brand-hi": "#a80c22",
-  "--ch-brand-sunk": "#f7dfe2",
-  "--ch-steel": "#2e55b3",
-  "--ch-steel-hi": "#1e3d85",
-  "--ch-danger": "#c07200",
-  "--ch-danger-hi": "#8f5400",
-  "--ch-status-idea": "#3f5687",
-  "--ch-status-draft": "#8f611c",
-  "--ch-status-posted": "#1c7248",
-  "--ch-overdue": "#7d6329",
-};
-
-/** Set by each theme's `beforeEach`; read by `applyTheme` — see `viewport-audit.spec.ts` for why
- * module state is safe here (one test at a time per worker process). */
-let currentTheme: "dark" | "light" = "dark";
-
-/** Call after every `page.goto` in this file, never inside `beforeEach` or `addInitScript`. */
-async function applyTheme(page: Page): Promise<void> {
-  if (currentTheme !== "light") return;
-  await page.evaluate((overrides) => {
-    for (const [name, value] of Object.entries(overrides)) {
-      document.documentElement.style.setProperty(name, value, "important");
-    }
-  }, LIGHT_TOKEN_OVERRIDES);
+async function setThemeCookie(page: Page, baseURL: string | undefined, theme: "dark" | "light"): Promise<void> {
+  if (theme !== "light") return;
+  await page.context().addCookies([{ name: "ch_theme", value: "light", url: baseURL! }]);
 }
 
 for (const theme of ["dark", "light"] as const) {
   test.describe(`[${theme}]`, () => {
-    test.beforeEach(() => {
-      currentTheme = theme;
+    test.beforeEach(async ({ page, baseURL }) => {
+      await setThemeCookie(page, baseURL, theme);
     });
 
     test.describe("the routes", () => {
       test("/login", async ({ page }) => {
     await page.goto("/login");
-    await applyTheme(page);
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
     await auditSurface(page, "/login");
   });
