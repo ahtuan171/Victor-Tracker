@@ -175,7 +175,7 @@ the choice survives reopening.
 - [x] T043 Greyscale acceptance on every surface in **both** presentations (SC-004) — screenshots kept beside the brief in `design/002-pixel-arcade-skin/`, as 001 did.
 - [x] T044 Hand-walk [quickstart.md](./quickstart.md) V1–V11 against a production build at 375px, in both presentations, and record the results in this file **unsoftened**, including failures. V11 re-runs 001's own quickstart: capture must still be **three interactions** (SC-010, FR-003).
 - [x] T045 Run `/speckit-analyze` **and** the `reviewer` agent. They find different classes of defect — a coverage check reads artifacts against each other, which a code review cannot; a reviewer reads code against specs, which an artifact check cannot.
-- [ ] T046 Documentation drift sweep, repo-wide. `CLAUDE.md`, both `AGENTS.md`, `.claude/memory.md`, `.claude/rules/design.md`, `CHANGELOG.md`, and every file this iteration's decisions touched. **Search the whole repository, then filter** — the fifth instance of this trap in 001 was found only by an unscoped grep, in the one file nobody thought to list.
+- [x] T046 Documentation drift sweep, repo-wide. `CLAUDE.md`, both `AGENTS.md`, `.claude/memory.md`, `.claude/rules/design.md`, `CHANGELOG.md`, and every file this iteration's decisions touched. **Search the whole repository, then filter** — the fifth instance of this trap in 001 was found only by an unscoped grep, in the one file nobody thought to list.
 - [ ] T047 Write `docs/retro-02.md` and tag the release, in that order and only after T044 has walked a deployment. Tagging a release no deployment has been walked against is backwards — 001 split its tag out of the drift pass for exactly this reason.
 
 ### Phase 7a: Finishing the comic-tech redesign brief (inserted 2026-08-11e)
@@ -1033,3 +1033,37 @@ one-MR-per-task split. Recorded as a stated constitution VI exception, the same 
 history, and this MR is where that gets fixed rather than compounded. Commit `cd8f226` carries T038
 through T053 plus the NavDrawer fix; MR **!63** (`002-pixel-arcade-skin` → `main`) opened
 2026-08-11, pipeline running.
+
+**2026-08-11j — T046.** Unscoped `grep -rln` across the whole repo (not a pre-guessed file list, per
+the trap this line itself names), then filtered. Two real, load-bearing findings, both fixed; several
+files checked and confirmed clean rather than assumed clean:
+
+- **`CLAUDE.md` was the largest finding, and the most consequential — it still told the next session
+  to start `002-travel-map`.** Its "Status as of 2026-08-05" section predates `002-pixel-arcade-skin`
+  entirely: no mention that a second iteration was inserted before the map, none of the "Next session
+  starts here" list reflected T001–T053 being done, and it actively pointed a future session at the
+  wrong next step (spike MapLibre, run `new-feature` for a `002` that no longer exists — this
+  iteration claimed that number). Fixed: a new status paragraph at the top explaining the insertion
+  and pointing at this file; the "next substantive action" paragraph rewritten to name T046/T047 first
+  and the map iteration as **renumbered `003`** after; step 3 of "Next session starts here" corrected
+  to match; one new table row for `specs/002-pixel-arcade-skin/`. The rest of the file — the entire
+  historical record of 001 — is left alone, because it is still an accurate account of what is on
+  `main` today (002 hasn't merged yet).
+- **`README.md`'s status table said "002 (pixel-arcade re-skin): still at spec stage, nothing to
+  see."** Also false — fixed to say what actually landed and what changes once MR !63 merges
+  (`+ CAPTURE` → `+ New`, the pixel-arcade/comic-tech chrome, the nav drawer). The walkthrough steps
+  below that table are left alone: they describe `main`'s current behaviour, which is still accurate
+  until the merge.
+- **`spec.md`'s Assumptions bullet** (`/speckit-analyze`'s one MEDIUM finding, T045) — a
+  cross-reference to `comic-tech-brief.md` added, explaining why the second, more detailed brief is a
+  judgement *inside* the settled direction rather than a reopening of it.
+- **Checked and confirmed clean, not assumed**: `frontend/AGENTS.md`, `.claude/rules/design.md`,
+  `.claude/rules/tech-defaults.md`, `.claude/rules/workflow.md`, `.claude/memory.md`, `CHANGELOG.md`
+  (its `[Unreleased]` section correctly describes the pivot only — a `002-pixel-arcade-skin` entry
+  belongs at T047's tag, not before), `backend/README.md`, `frontend/README.md`, and the
+  `checklists/requirements.md` in this iteration's own `specs/` directory. Grepped for `TODO`/`TKTK`/
+  `FIXME`/`???` across every file this session added — none found.
+
+**T046 is closed.** Both fixes are docs-only and do not affect the CI pipeline MR !63 is already
+running — bundled into the next push alongside T047 rather than triggering a separate pipeline run
+for documentation alone.

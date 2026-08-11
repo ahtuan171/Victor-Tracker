@@ -359,7 +359,11 @@ in the Input description above, not an oversight.
 
 - **The visual direction is settled and is not re-opened here.** The owner chose it on 2026-08-05 from
   a screen recording of a reference site. Judgements *inside* that direction — proportion, weight,
-  spacing — are design decisions made during this iteration.
+  spacing — are design decisions made during this iteration. **On 2026-08-11 the owner sent a second,
+  far more detailed brief** (`design/002-pixel-arcade-skin/comic-tech-brief.md`) elaborating the same
+  reference — confirmed by the reference recording's own filename (`spidey-tracker.mp4`) and the
+  brief's own preamble, both Spider-Verse-themed — rather than proposing a different one. Treated as a
+  judgement inside the settled direction, not a reopening of it, per this bullet.
 - **The calendar's behaviour does not change.** Only its presentation does. Anything that would change
   what the calendar *does* belongs to a different iteration.
 - **The light presentation is new work, not a re-check.** It exists today only on the sign-in screen,

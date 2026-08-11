@@ -14,8 +14,8 @@ File này dùng để **chạy sản phẩm trên máy bạn, nhìn nó, và gó
 | | Trạng thái |
 |---|---|
 | **Content Calendar** | **Đã xây, đã test, đã deploy.** Toàn bộ hướng dẫn dưới đây là về nó. |
-| **Pixel-arcade re-skin** (002) | Đang ở giai đoạn spec. Chưa có gì để nhìn. |
-| **Travel map** (003) | Chưa xây. |
+| **Pixel-arcade re-skin** (002) | **Đã xây xong (T001–T053), đang chờ merge vào `main` (MR !63).** Hướng dẫn dưới đây vẫn mô tả `main` hiện tại (bản trước re-skin) — sau khi merge, nút `+ CAPTURE` đổi thành `+ New`, giao diện đổi hẳn sang phong cách pixel-arcade/comic-tech, có thêm nav drawer (theme sáng/tối, âm thanh, đăng xuất). |
+| **Travel map** (003) | Chưa xây. Đánh số lại thành 003 vì 002 đã dùng cho re-skin ở trên. |
 
 `main`: **271 test backend + 432 test frontend**, xanh hết, không skip cái nào.
 
