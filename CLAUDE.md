@@ -2,21 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status as of 2026-08-11: **v0.1.0 is tagged; `002-pixel-arcade-skin` is finishing before the travel map starts.**
+## Status as of 2026-08-13: **`v0.2.0` is tagged; the travel map (renumbered `003`) is next.**
 
-**Read this paragraph before the "2026-08-05" one below it, which still describes the pivot correctly
-but is silent about what happened next.** Between the pivot and now, a second iteration —
-`002-pixel-arcade-skin` — was inserted **before** the travel map rather than after it: a presentation
-redesign (typefaces, colour tokens, a navigation drawer, remembered dark/light, optional sound), so
-the map gets drawn once in the final visual language rather than built and then redrawn. Full
-reasoning is in `specs/002-pixel-arcade-skin/spec.md`'s "Why this is an iteration of its own". **All
-53 of its tasks (T001–T053) are done**, MR **!63** (`002-pixel-arcade-skin` → `main`, the entire
-33-commit branch — this branch had never gone through a merge request before this one, a recorded
-constitution VI exception) is open and gated behind CI. What remains is **T046** (this sweep) and
-**T047** (retro + tag). Because the map iteration was originally going to be `002-travel-map`, it is
-now renumbered `003` and its scope has grown — see the Deferred section of `.claude/memory.md` for
-the "Victor Tracker" product spec now waiting for it, which needs its own constitution amendment
-(route/budget permissions) before `/speckit-specify` runs.
+**Read this paragraph before the "2026-08-11" one below it, which still describes the insertion of
+`002-pixel-arcade-skin` correctly but is silent about how it closed.** `002-pixel-arcade-skin` — the
+presentation redesign (typefaces, colour tokens, a navigation drawer, remembered dark/light, optional
+sound) inserted **before** the travel map so the map gets drawn once in the final visual language — is
+**done**. All 53 tasks (T001–T053) shipped. MR **!63** (`002-pixel-arcade-skin` → `main`, the entire
+33-commit branch, its first-ever merge request — the recorded constitution VI exception) merged at
+`519b696` behind a fully green pipeline (build, test, review all passing), source branch removed.
+Getting the pipeline green took bringing the local runner back online — it had gone offline mid-job on
+a `build:frontend` timeout (see `CLAUDE.local.md`) — plus one retried job for an unrelated transient
+network timeout in `test:backend`'s `uv sync`; neither was a defect in the branch. **Annotated tag
+`v0.2.0` is pushed at the merge commit**, mirroring how `v0.1.0` was held until its own deployment walk
+passed. `specs/002-pixel-arcade-skin/tasks.md` records the close under T047.
+
+**The next substantive action is the map iteration, renumbered `003`** — see the Deferred section of
+`.claude/memory.md` for the "Victor Tracker" product spec waiting for it, which needs its own
+constitution amendment (route/budget permissions) before `/speckit-specify` runs.
 
 **Read this before anything else, because most of this file describes v0.1 and v0.1 is no longer what
 this product is.** The constitution was amended to **2.0.0** on 2026-08-05: VictorHub is now a
@@ -157,7 +160,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 |---|---|
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**77 tasks, 8 phases; T001–T070 plus T073, T075 and T077 ticked — Phases 3–7 all closed with their checkpoints. T077 was *added* at the Phase 7 checkpoint**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
-| `specs/002-pixel-arcade-skin/` | **All 53 tasks done (T001–T053), not yet on `main`.** `spec.md` (34 FR, 15 SC, 4 stories), `plan.md`, `research.md` (R-001…R-009), `data-model.md`, `contracts/openapi.yaml` (`GET`/`PATCH /preferences`), `quickstart.md` (V1…V11), `tasks.md`. Full detail — including a further "comic-tech" visual refinement sub-phase (T048–T053) done inside this same iteration's Phase 7 — is in the status section at the top of this file; the rest of this table still describes `main`, i.e. **before** this branch merges. |
+| `specs/002-pixel-arcade-skin/` | **All 53 tasks done (T001–T053), on `main`** via MR !63, tagged `v0.2.0`. `spec.md` (34 FR, 15 SC, 4 stories), `plan.md`, `research.md` (R-001…R-009), `data-model.md`, `contracts/openapi.yaml` (`GET`/`PATCH /preferences`), `quickstart.md` (V1…V11), `tasks.md`. Full detail — including a further "comic-tech" visual refinement sub-phase (T048–T053) done inside this same iteration's Phase 7 — is in the status section at the top of this file; the rest of this table below still describes the presentation layer as it stood **before** this branch merged, since rewriting every row for the re-skin is the next iteration's job, not a retrofit. |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |
@@ -247,16 +250,14 @@ and neither is duplicated here.
    `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
    Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
    throttles that write; the live process is the evidence, not the timestamp.
-3. **Feature 001 is finished and closed. `002-pixel-arcade-skin` is finishing (T046/T047 left). The
-   open work after that is the map iteration, renumbered `003`.**
+3. **Feature 001 and `002-pixel-arcade-skin` are both finished and closed, `v0.2.0` tagged. The open
+   work now is the map iteration, renumbered `003`.**
 
-   - **Next, in order**: finish `002-pixel-arcade-skin`'s T046 (this sweep) and T047 (retro + tag) —
-     see the status section at the top of this file. Only then: amend the constitution for the
-     route/budget permissions the "Victor Tracker" input spec needs (`.claude/memory.md` Deferred),
-     spike MapLibre under headless Playwright at 375px, and run the `new-feature` skill to drive
-     stages 1–3 for iteration `003`. The spike comes first, once it's iteration 003's turn, because
-     WebGL in headless Chromium is the one thing about this module nobody here has verified, and the
-     whole test strategy depends on the answer.
+   - **Next, in order**: amend the constitution for the route/budget permissions the "Victor Tracker"
+     input spec needs (`.claude/memory.md` Deferred), spike MapLibre under headless Playwright at
+     375px, and run the `new-feature` skill to drive stages 1–3 for iteration `003`. The spike comes
+     first, because WebGL in headless Chromium is the one thing about this module nobody here has
+     verified, and the whole test strategy depends on the answer.
    - **Do not extend `001-content-calendar` or `002-pixel-arcade-skin`**, and do not retarget
      `content_item` to trips — the constitution names that a separate iteration. Content Calendar
      keeps its behaviour and moves behind the navigation drawer (built at `002-pixel-arcade-skin`'s

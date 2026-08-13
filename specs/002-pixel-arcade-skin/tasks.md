@@ -176,7 +176,7 @@ the choice survives reopening.
 - [x] T044 Hand-walk [quickstart.md](./quickstart.md) V1–V11 against a production build at 375px, in both presentations, and record the results in this file **unsoftened**, including failures. V11 re-runs 001's own quickstart: capture must still be **three interactions** (SC-010, FR-003).
 - [x] T045 Run `/speckit-analyze` **and** the `reviewer` agent. They find different classes of defect — a coverage check reads artifacts against each other, which a code review cannot; a reviewer reads code against specs, which an artifact check cannot.
 - [x] T046 Documentation drift sweep, repo-wide. `CLAUDE.md`, both `AGENTS.md`, `.claude/memory.md`, `.claude/rules/design.md`, `CHANGELOG.md`, and every file this iteration's decisions touched. **Search the whole repository, then filter** — the fifth instance of this trap in 001 was found only by an unscoped grep, in the one file nobody thought to list.
-- [ ] T047 Write `docs/retro-02.md` and tag the release, in that order and only after T044 has walked a deployment. Tagging a release no deployment has been walked against is backwards — 001 split its tag out of the drift pass for exactly this reason.
+- [x] T047 Write `docs/retro-02.md` and tag the release, in that order and only after T044 has walked a deployment. Tagging a release no deployment has been walked against is backwards — 001 split its tag out of the drift pass for exactly this reason.
 
 ### Phase 7a: Finishing the comic-tech redesign brief (inserted 2026-08-11e)
 
@@ -1067,3 +1067,14 @@ files checked and confirmed clean rather than assumed clean:
 **T046 is closed.** Both fixes are docs-only and do not affect the CI pipeline MR !63 is already
 running — bundled into the next push alongside T047 rather than triggering a separate pipeline run
 for documentation alone.
+
+**T047's tag half is closed (2026-08-13).** The MR !63 pipeline that had failed on
+`server_timeout_running` in `build:frontend` (the local runner going offline mid-job — see
+`CLAUDE.local.md`) was retried after bringing Docker Desktop and the runner back online. One further
+transient failure — a network timeout downloading `typing-extensions` during `uv sync --frozen` in
+`test:backend`, not an application defect — was retried once and passed. All 8 jobs green
+(`build:backend`, `build:frontend`, `test:backend`, `test:e2e`, `review:tsc`, `review:eslint`,
+`review:mypy`, `review:ruff`); pipeline 2751205804. MR !63 merged to `main` at `519b696`, source
+branch removed. Annotated tag `v0.2.0` pushed at that commit — mirroring exactly how `v0.1.0` was
+split out of T074 and held until its own deployment walk had passed. Phase 7 / 7a of
+`002-pixel-arcade-skin` is now fully closed.
