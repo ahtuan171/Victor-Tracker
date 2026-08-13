@@ -1,24 +1,27 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 2.0.0
-Bump rationale: MAJOR. Principle III is redefined (its module set is replaced, not extended) and
-  the Scope Constraints section is replaced wholesale as the product pivots from a content-creator
-  brand operating system to a personal travel memory map. Principle II is renamed and strengthened.
-  Both are backward-incompatible redefinitions under the versioning policy below.
+Version change: 2.0.0 → 2.1.0
+Bump rationale: MINOR. The Scope Constraints section's exclusion list is narrowed — route planning
+  and trip budgeting move from "out of scope" to permitted — which is materially expanded guidance,
+  not a redefinition or removal of any Core Principle. No principle changed.
 
-Principles modified:
-  II. Creator Data Is Private By Default → II. Personal Data Is Private By Default
-      (renamed and strengthened: location history and photographs added as the most sensitive
-       classes the product holds; third-party map tile requests named explicitly)
-  III. One Core Capability Per Module
-      (rule unchanged — CRUD plus exactly one capability — module set replaced)
+Principles modified: none.
+Principles unchanged: I, II, III, IV, V, VI, VII.
 
-Principles unchanged: I, IV, V, VI, VII.
-
-Sections replaced: Scope Constraints (v0.1 four-module enumeration → v0.2 travel map).
+Sections replaced: Scope Constraints — the exclusion paragraph now permits route planning and trip
+  budgeting/expenses, states why, and keeps automatic location capture (and the two exclusions
+  nothing in the current input spec requests) forbidden without a further amendment.
 Sections added: none.
 Sections removed: none.
+
+Reasoning for this amendment: the owner decided on 2026-08-11 that the "Victor Tracker" input spec
+  (`drafts/travel-tracker.spec.draft.md`) needs both capabilities — its §8 (Route) and its
+  §1/§9/§10/§13 (Budget) — rather than have them stripped from an owner-reviewed, already-scoped-down
+  draft to fit an exclusion list written before that draft existed. Automatic location capture is not
+  requested anywhere in the draft, so it is unaffected and remains forbidden. Recorded in
+  `.claude/memory.md`'s Deferred section, trigger condition (002-pixel-arcade-skin's T047 closing)
+  satisfied 2026-08-13 with the `v0.2.0` tag.
 
 Deferred TODOs: none. All placeholder tokens remain replaced.
 
@@ -121,13 +124,22 @@ substance of a memory, not an attachment to it. It arrives through object storag
 constraints principle II places on it, never as bytes in the database and never through a public
 bucket.
 
-Out of scope for v0.2: automatic location capture from the device — no GPS, no background tracking,
-no check-in; every pin is placed deliberately by hand. Also out of scope: route planning or
-navigation; trip budgeting and expenses; any public or shared view of the map; and integration with
-any social platform.
+**Route planning and trip budgeting/expenses are in scope for v0.2, permitted at the 2.1.0 amendment
+(2026-08-13).** The "Victor Tracker" input spec (`drafts/travel-tracker.spec.draft.md`) needs both —
+its §8 (Route) and its §1/§9/§10/§13 (Budget) — and the owner decided to amend the exclusion list
+rather than strip owner-reviewed, already-scoped-down requirements from the draft to fit it. Neither
+capability is exempt from the rest of this document: each still enters through the ordinary stage-1
+process — `/speckit-specify` against the draft, `/speckit-clarify` for its open questions (a geocoding
+provider is the one most likely to block early), and a `plan.md` naming their technology — and each
+remains subject to principle II if it touches location or cost data tied to a place.
 
-Rationale for naming automatic location capture first: it is the most attractive feature to add
-mid-build and the one principle II most clearly forbids adding casually.
+Out of scope for v0.2: automatic location capture from the device — no GPS, no background tracking,
+no check-in; every pin is placed deliberately by hand. This exclusion is unchanged by the amendment
+above: nothing in the "Victor Tracker" draft requests it, and it remains the feature principle II most
+clearly forbids adding casually, so naming it first here is deliberate. Also still out of scope: any
+public or shared view of the map, and integration with any social platform — neither is requested by
+the current input spec either, and either would need its own amendment, stated with its own reasoning,
+before being built.
 
 ## Development Workflow
 
@@ -169,4 +181,4 @@ harder to reverse than it was at v0.1. A constitution conflict found during `/sp
 CRITICAL and MUST be resolved by adjusting the spec, plan, or tasks — never by diluting,
 reinterpreting, or silently ignoring the principle.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-05
+**Version**: 2.1.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-13
