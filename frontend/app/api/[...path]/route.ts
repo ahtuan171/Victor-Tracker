@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isAllowed } from "@/lib/proxy-allowlist";
-import { apiBaseUrl, maxAgeFromToken, sessionCookieAttributes, sessionCookieName } from "@/lib/session";
+import {
+  apiBaseUrl,
+  cookieSecure,
+  maxAgeFromToken,
+  sessionCookieAttributes,
+  sessionCookieName,
+} from "@/lib/session";
+import { THEME_COOKIE_NAME, THEME_MAX_AGE_SECONDS, parseTheme } from "@/lib/theme";
+import type { Theme } from "@/lib/api";
 
 /**
  * The credential boundary (research.md R-001, R-002, R-008).
@@ -85,8 +93,9 @@ async function proxy(request: NextRequest, context: ProxyContext): Promise<NextR
     return NextResponse.json({ detail: "The API could not be reached." }, { status: 502 });
   }
 
-  const { response, token: fresh } = await relay(upstream, segments);
+  const { response, token: fresh, theme } = await relay(upstream, segments);
   applyCookie(response, upstream.status, segments, cookieName, fresh);
+  applyThemeCookie(response, theme);
   return response;
 }
 
@@ -102,6 +111,13 @@ interface Relayed {
   readonly response: NextResponse;
   /** The token this response produced, from the login body or the reissue header. */
   readonly token: string | null;
+  /**
+   * The account's presentation choice, from the login body's optional `preferences` (T035,
+   * research.md R-002 rule 1). `null` on every response except a successful login — there is nowhere
+   * else in the contract this could come from, and a stale value from an earlier request has no
+   * business surviving into an unrelated one.
+   */
+  readonly theme: Theme | null;
 }
 
 /**
@@ -123,7 +139,11 @@ async function relay(upstream: Response, segments: readonly string[]): Promise<R
       // Never forward a 200 login body we could not parse — the token we failed to find may still
       // be in it, and forwarding is exactly the leak this handler exists to prevent.
       console.error("[proxy] login returned a body that does not match the contract");
-      return { response: NextResponse.json({ detail: "The API could not be reached." }, { status: 502 }), token: null };
+      return {
+        response: NextResponse.json({ detail: "The API could not be reached." }, { status: 502 }),
+        token: null,
+        theme: null,
+      };
     }
 
     // `access_token` and `token_type` stop here; `expires_at` is not a credential and the login
@@ -132,6 +152,10 @@ async function relay(upstream: Response, segments: readonly string[]): Promise<R
     return {
       response: NextResponse.json({ expires_at: credentials.expires_at }, { status: upstream.status }),
       token: credentials.access_token,
+      // `parseTheme` refuses anything that is not exactly "dark"/"light", so a missing or malformed
+      // `preferences` (it is optional in the contract on purpose) yields `null` rather than a bad
+      // cookie value — `applyThemeCookie` below treats `null` as "nothing to write".
+      theme: parseTheme(extractPreferencesTheme(credentials)),
     };
   }
 
@@ -143,7 +167,19 @@ async function relay(upstream: Response, segments: readonly string[]): Promise<R
     ? new NextResponse(null, { status: upstream.status, headers })
     : new NextResponse(await upstream.arrayBuffer(), { status: upstream.status, headers });
 
-  return { response, token: upstream.headers.get("x-access-token") };
+  return { response, token: upstream.headers.get("x-access-token"), theme: null };
+}
+
+/**
+ * Read `preferences.theme` out of an already-shape-checked login body, tolerant of it being absent
+ * or malformed — `PreferencesRead` is declared optional in the contract precisely so a client that
+ * ignores it is still correct (`specs/002-pixel-arcade-skin/contracts/openapi.yaml`), so this proxy
+ * has to be equally tolerant rather than treating its absence as a parse failure worth a 502 over.
+ */
+function extractPreferencesTheme(credentials: { preferences?: unknown }): unknown {
+  const preferences = credentials.preferences;
+  if (typeof preferences !== "object" || preferences === null) return undefined;
+  return (preferences as Record<string, unknown>)["theme"];
 }
 
 /**
@@ -169,6 +205,28 @@ function applyCookie(
   if (token) response.cookies.set(cookieName, token, sessionCookieAttributes(maxAgeFromToken(token)));
 }
 
+/**
+ * The only place the proxy writes `ch_theme` (T035, research.md R-002 rule 1) — the sign-in moment,
+ * so the very first authenticated document is already correct rather than painting a default and
+ * correcting afterward. Every other write happens client-side (`lib/theme.ts`'s `writeThemeCookie`),
+ * because `ch_theme` is deliberately not `httpOnly` and the client owns every later change.
+ *
+ * `theme === null` (every response except a successful login that carried `preferences`) writes
+ * nothing — this cookie has no "clear on refusal" case the way the session cookie does, because it
+ * carries no credential to invalidate.
+ */
+function applyThemeCookie(response: NextResponse, theme: Theme | null): void {
+  if (theme === null) return;
+
+  response.cookies.set(THEME_COOKIE_NAME, theme, {
+    httpOnly: false,
+    secure: cookieSecure(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: THEME_MAX_AGE_SECONDS,
+  });
+}
+
 function isLogin(segments: readonly string[]): boolean {
   return segments.length === 2 && segments[0] === "auth" && segments[1] === "login";
 }
@@ -177,7 +235,9 @@ function isLogout(segments: readonly string[]): boolean {
   return segments.length === 2 && segments[0] === "auth" && segments[1] === "logout";
 }
 
-function isLoginBody(value: unknown): value is { access_token: string; expires_at: unknown } {
+function isLoginBody(
+  value: unknown,
+): value is { access_token: string; expires_at: unknown; preferences?: unknown } {
   return (
     typeof value === "object" &&
     value !== null &&

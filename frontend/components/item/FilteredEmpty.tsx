@@ -52,8 +52,9 @@ export function FilteredEmpty({
       data-testid="filtered-empty"
       data-platform={platform}
     >
+      {/* 002 T024: dropped font-display (12px broke FR-034). */}
       <span
-        className="border-hairline text-ink-mid font-display flex h-[22px] w-[22px] items-center justify-center rounded-sm border text-xs font-semibold"
+        className="border-hairline text-ink-mid flex h-[22px] w-[22px] items-center justify-center rounded-sm border text-xs font-semibold"
         aria-hidden="true"
       >
         {cue.monogram}
@@ -64,9 +65,15 @@ export function FilteredEmpty({
        * screen-reader user gets no page change to tell them the calendar just emptied. This is the
        * announcement that the narrowing happened and what caused it.
        */}
+      {/*
+       * 002 T024: 15px -> 16px, keeping font-display (Silkscreen). FR-034's floor is exactly 16px, so
+       * this was one pixel under it — raising it, rather than dropping the display face like the
+       * smaller labels on this surface, keeps this headline's weight consistent with FirstRun's
+       * sibling treatment (also font-display, also a `role="status"` headline).
+       */}
       <p
         role="status"
-        className="font-display text-ink text-[15px] leading-tight font-semibold tracking-[0.14em] uppercase"
+        className="font-display text-ink text-base leading-tight font-semibold tracking-[0.14em] uppercase"
         data-testid="filtered-empty-headline"
       >
         No {cue.label} items
@@ -81,10 +88,11 @@ export function FilteredEmpty({
        * options. It is the way out of a state where nothing else on screen is actionable, so it is
        * the last control that should be hard to hit.
        */}
+      {/* 002 T024: dropped font-display (12px broke FR-034) — missed in the first pass over this file. */}
       <button
         type="button"
         onClick={onClear}
-        className="border-hairline bg-surface-2 text-ink font-display focus-ring h-11 rounded-sm border px-4 text-xs font-semibold tracking-[0.16em] uppercase"
+        className="border-hairline bg-surface-2 text-ink focus-ring h-11 rounded-sm border px-4 text-xs font-semibold tracking-[0.16em] uppercase"
         data-testid="filtered-empty-clear"
       >
         Clear {cue.label} filter

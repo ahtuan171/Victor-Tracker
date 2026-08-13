@@ -81,7 +81,9 @@ test.describe("the calendar", () => {
     // "points at the capture action" is the half of the edge case that a bare "No items" would miss,
     // and naming the control is how this panel does it. The export pointed at capture by *renaming*
     // the band's button to `+ CAPTURE FIRST IDEA`; that button is measured below and does not fit.
-    await expect(panel).toContainText("+ Capture");
+    // "+ New" since 002 T016 renamed the action band's button (research.md R-003, the action-band
+    // width fix) — this panel's copy points at it by its current label.
+    await expect(panel).toContainText("+ New");
   });
 
   test("keeps the grid underneath, so the days are still there to drag onto", async ({
@@ -170,10 +172,12 @@ test.describe("the backlog drawer", () => {
   test("points at the capture action in both of its states", async ({ page, baseURL }) => {
     await openCalendar(page, baseURL, []);
 
-    await expect(page.getByTestId("backlog-empty-peek")).toContainText("+ Capture");
+    // "+ New" since 002 T016/T020 (see the note on the panel assertion above).
+    await expect(page.getByTestId("backlog-empty-peek")).toContainText("+ New");
 
     await page.getByTestId("backlog-toggle").click();
-    await expect(page.getByTestId("backlog-empty")).toContainText("Capture an idea");
+    // T051 reworded the copy; "Capture" is still the word that names the action.
+    await expect(page.getByTestId("backlog-empty")).toContainText("Capture one");
   });
 });
 

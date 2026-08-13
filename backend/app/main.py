@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.api import auth, content_items
+from app.api import auth, content_items, preferences
 from app.config import get_settings
 from app.schemas import ErrorResponse, InvariantViolationError
 
@@ -116,6 +116,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(content_items.router)
+app.include_router(preferences.router)
 
 
 @app.get(

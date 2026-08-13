@@ -10,6 +10,13 @@ drop-in** (`.claude/rules/design.md`).
 > modules. Later modules consume these; they do not introduce competing ones. Decisions here are
 > effectively project-wide.
 
+**Superseded 2026-08-06, and left in place as the record of what stage 2 of 001 was briefed against.**
+Two things in that quote stopped being true: the other three modules were **cancelled** at the 2.0.0
+pivot, and the rule itself was restated — a *feature* module may not introduce competing tokens, but
+the token layer may be replaced by an iteration whose whole subject is the token layer.
+`002-pixel-arcade-skin` is that iteration and replaces these tokens. The current rule is in
+`.claude/rules/design.md`; nothing else in this file has been edited.
+
 ---
 
 ## Hard constraints

@@ -140,12 +140,33 @@ def test_login_returns_a_token_that_authenticates(
 def test_login_returns_only_the_contracted_fields(
     client: TestClient, creator: Creator, creator_password: str
 ) -> None:
-    """A password hash reaching the client would be invisible until someone reads a network log."""
+    """A password hash reaching the client would be invisible until someone reads a network log.
+
+    `preferences` joined this set at T012 (002-pixel-arcade-skin): declared OPTIONAL in the
+    contract, but `login` always sets it — see `test_login_returns_the_creators_preferences` below
+    for what it carries.
+    """
     response = client.post(
         "/auth/login", json={"email": creator.email, "password": creator_password}
     )
 
-    assert set(response.json()) == {"access_token", "token_type", "expires_at"}
+    assert set(response.json()) == {"access_token", "token_type", "expires_at", "preferences"}
+
+
+def test_login_returns_the_creators_preferences(
+    client: TestClient, creator: Creator, creator_password: str
+) -> None:
+    """002-pixel-arcade-skin T012: the login response rides the account's preferences along so the
+    proxy can write the `ch_theme` cookie from this same response, with no extra round trip.
+
+    `creator` never sets `theme` or `sound_enabled`, so this is the default state — the same values
+    `GET /preferences` would return a moment later (research R-002's reconciliation).
+    """
+    response = client.post(
+        "/auth/login", json={"email": creator.email, "password": creator_password}
+    )
+
+    assert response.json()["preferences"] == {"theme": "dark", "sound_enabled": False}
 
 
 def test_login_expiry_matches_the_token_and_the_configured_lifetime(

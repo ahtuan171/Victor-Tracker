@@ -14,6 +14,7 @@ import {
   itemWithChanges,
   countOverdue,
   isOverdue,
+  nextDue,
   itemsLoaded,
   makePendingItem,
   pendingItemInserted,
@@ -251,6 +252,48 @@ test.describe("countOverdue", () => {
 
   test("is zero before the clock is known", () => {
     expect(countOverdue([item(1, { scheduled_date: "2020-01-01" })], null)).toBe(0);
+  });
+});
+
+test.describe("nextDue", () => {
+  test("the earliest not-yet-posted item due today or later", () => {
+    const state = [
+      item(1, { scheduled_date: "2026-09-01", status: "idea" }),
+      item(2, { scheduled_date: "2026-08-15", status: "draft" }),
+      item(3, { scheduled_date: "2026-08-20", status: "idea" }),
+    ];
+
+    expect(nextDue(state, "2026-08-02")).toBe("2026-08-15");
+  });
+
+  test("today itself counts as due, not overdue", () => {
+    expect(nextDue([item(1, { scheduled_date: "2026-08-02", status: "idea" })], "2026-08-02")).toBe(
+      "2026-08-02",
+    );
+  });
+
+  test("an overdue item is not \"next\" — that is the other fact the Ticker reports", () => {
+    expect(nextDue([item(1, { scheduled_date: "2026-08-01", status: "idea" })], "2026-08-02")).toBe(
+      null,
+    );
+  });
+
+  test("a posted item is excluded even if its date is still ahead", () => {
+    expect(nextDue([item(1, { scheduled_date: "2026-09-01", status: "posted" })], "2026-08-02")).toBe(
+      null,
+    );
+  });
+
+  test("undated items are excluded — there is no date to be next", () => {
+    expect(nextDue([item(1, { scheduled_date: null })], "2026-08-02")).toBe(null);
+  });
+
+  test("null before the clock is known, whatever is loaded", () => {
+    expect(nextDue([item(1, { scheduled_date: "2026-08-15" })], null)).toBe(null);
+  });
+
+  test("null against an empty list", () => {
+    expect(nextDue([], "2026-08-02")).toBe(null);
   });
 });
 

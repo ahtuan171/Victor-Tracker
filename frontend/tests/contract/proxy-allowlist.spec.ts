@@ -25,21 +25,37 @@ import {
  * as the frontend test tool). It touches no browser, so no page fixture appears below.
  */
 
-const CONTRACT_PATH = resolve(__dirname, "../../../specs/001-content-calendar/contracts/openapi.yaml");
+// Two contract files, not two APIs — specs/002-pixel-arcade-skin/contracts/openapi.yaml is a
+// delta on the 001 contract (its own header comment says why: two documents that each describe
+// their own iteration truthfully beat one that describes neither). Both are read here because
+// the allowlist has to vet the union, not just whichever file existed first.
+const CONTRACT_PATHS = [
+  resolve(__dirname, "../../../specs/001-content-calendar/contracts/openapi.yaml"),
+  resolve(__dirname, "../../../specs/002-pixel-arcade-skin/contracts/openapi.yaml"),
+];
 
 // OpenAPI 3.1 fixed fields of a Path Item that are operations. Everything else under a path —
 // `parameters`, `summary`, `$ref` — is not, and /content-items/{item_id} has a `parameters` key.
 const OPERATION_KEYS = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace"]);
 
-function contractPaths(): Record<string, Record<string, unknown>> {
-  const document: unknown = parse(readFileSync(CONTRACT_PATH, "utf8"));
+function pathsIn(contractPath: string): Record<string, Record<string, unknown>> {
+  const document: unknown = parse(readFileSync(contractPath, "utf8"));
   const paths = (document as { paths?: unknown }).paths;
 
-  expect(paths, `no paths object in ${CONTRACT_PATH}`).toBeTruthy();
+  expect(paths, `no paths object in ${contractPath}`).toBeTruthy();
   return paths as Record<string, Record<string, unknown>>;
 }
 
-/** "POST /auth/login" for every operation the contract declares, sorted. */
+/** Every `paths` entry across both contract files, keyed by path template. */
+function contractPaths(): Record<string, Record<string, unknown>> {
+  const merged: Record<string, Record<string, unknown>> = {};
+  for (const contractPath of CONTRACT_PATHS) {
+    Object.assign(merged, pathsIn(contractPath));
+  }
+  return merged;
+}
+
+/** "POST /auth/login" for every operation across both contract files, sorted. */
 function contractOperations(): string[] {
   const operations: string[] = [];
 
@@ -120,6 +136,8 @@ test.describe("isAllowed", () => {
     expect(isAllowed("GET", ["content-items", "42"])).toBe(true);
     expect(isAllowed("PATCH", ["content-items", "42"])).toBe(true);
     expect(isAllowed("DELETE", ["content-items", "42"])).toBe(true);
+    expect(isAllowed("GET", ["preferences"])).toBe(true);
+    expect(isAllowed("PATCH", ["preferences"])).toBe(true);
   });
 
   test("rejects a method the contract does not give that path", () => {
@@ -127,6 +145,8 @@ test.describe("isAllowed", () => {
     expect(isAllowed("DELETE", ["content-items"])).toBe(false);
     expect(isAllowed("PATCH", ["content-items"])).toBe(false);
     expect(isAllowed("POST", ["content-items", "42"])).toBe(false);
+    expect(isAllowed("POST", ["preferences"])).toBe(false);
+    expect(isAllowed("DELETE", ["preferences"])).toBe(false);
   });
 
   test("rejects the excluded health probe", () => {

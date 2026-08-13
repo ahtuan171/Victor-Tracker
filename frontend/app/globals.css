@@ -4,66 +4,111 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * VictorHub design tokens — stage 2.
+ * VictorHub design tokens — 002-pixel-arcade-skin.
  *
- * These values come from the Claude Design export in `design/content-calendar/`
- * (`VictorHub-Content-Calendar.dc.html`, panels `1a` dark / `2a` light). They replace the
- * placeholder shadcn palette that used to live here, which this file always described as provisional
- * and disposable for exactly this moment.
+ * This iteration is the one permitted to replace this whole layer (`.claude/rules/design.md`), and
+ * it does: the values below started from `spidey-tracker.mp4` via
+ * `design/002-pixel-arcade-skin/BRIEF.md` and the T004 sign-off (2026-08-08, 20px content / 10px
+ * frame) — the geometry from that sign-off is unchanged.
  *
- * Two rules travel with these values, and both outrank convenience:
+ * **2026-08-11 — re-harmonised toward the reference's own name.** `spidey-tracker.mp4` is a
+ * Spider-Man-themed tracker, and the first pass of this palette read as its *cyan-dominant* cousin
+ * instead — closer to a HUD than to the suit. Walked as two candidates rendered against the real
+ * components (frame, rivets, day cells, action band) rather than swatches alone; the owner picked
+ * **Candidate B, "Night Suit"**: black and red now carry the product, the former cyan chrome survives
+ * only as a *second*, deliberately quieter accent — `--ch-steel` below — reserved for the purely
+ * decorative details (the frame's bevel, the rivets, the ticker's scan-line), never for anything a
+ * person acts on. `--ch-brand` inherits every one of cyan's old jobs (focus, primary action, identity)
+ * unchanged; only its hue moved. No component file changed for this — same reason as ever, see below.
  *
- *   1. **The brand red is chrome, never meaning.** It is for focus, primary action, and identity.
- *      Status is NEVER communicated with it. The status ramp below is neutral / amber / green and is
- *      kept visibly separable from the red at 16px.
- *   2. **Colour is decoration on the status cue, not the cue itself.** R-005 encodes status as shape
- *      and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour here
- *      cannot break FR-017, and no component may start depending on hue to say what a status is.
+ * Three rules travel with these values:
  *
- * Content Calendar establishes the tokens for all four VictorHub modules (`.claude/rules/design.md`).
- * Later modules consume these; they do not introduce competing ones.
+ *   1. **`--ch-brand` (now red) is chrome, never meaning.** Focus, primary action, identity. Status is
+ *      NEVER communicated with it. `--ch-danger` stays a genuinely separate hue (amber/gold here, not
+ *      a second red) precisely so a primary button and a refusal never read as the same signal — the
+ *      one new hazard this re-harmonisation had to design around, since red-as-brand and red-as-error
+ *      is exactly the collision the outgoing cyan palette never had to avoid.
+ *   2. **`--ch-steel` is decoration on the machine, never a control colour.** It exists so the
+ *      product's original chrome hue survives as texture rather than disappearing outright — the
+ *      frame, the rivets, the ticker's moving highlight. Nothing interactive may be styled with it: an
+ *      accent a person cannot act on reading as actionable is the inverse of `--ch-brand`'s rule.
+ *   3. **Colour is decoration on the status cue, not the cue itself.** R-005 (001) encodes status as
+ *      shape and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour
+ *      here cannot break FR-017 (001) / SC-004 (002), and no component may start depending on hue to
+ *      say what a status is.
  *
- * Chart and sidebar tokens stay absent on purpose — v0.1 has neither surface, and tokens for
- * components that will not be built are the speculative infrastructure constitution VII names.
+ * These are the project's tokens, not the calendar's, and not this iteration's either
+ * (`.claude/rules/design.md`) — later modules consume them and may not introduce a competing set.
+ *
+ * Component files are untouched by this change. Every existing surface reads these same variable
+ * *names* through Tailwind classes already (`bg-surface-1`, `text-ink-mid`, `border-hairline`, …), so
+ * swapping the values here re-colours and re-types the whole product without editing a component —
+ * which is also why a screenshot after this change, not a code review, is what confirms it worked
+ * (`frontend/AGENTS.md`'s "a misspelled Tailwind class fails silently" trap applies here too).
+ *
+ * Chart and sidebar tokens stay absent on purpose — nothing in this product has either surface, and
+ * tokens for components that will not be built are the speculative infrastructure constitution VII
+ * names.
  */
 
 /*
- * Light is the export's counterpart turn, kept in the shadcn `:root` slot so the convention holds.
- * The app renders dark by default — that is the export's primary direction — via `class="dark"` on
- * <html> in `app/layout.tsx`.
+ * Light is new work, not a re-check (`design/002-pixel-arcade-skin/BRIEF.md` — the reference
+ * recording has no light turn). Read as a daylit version of the same suit, not an inverted dark
+ * theme: warm near-white neutrals, the red accent deepened for contrast on a light ground, steel blue
+ * carried over at the same restrained, decorative-only role it has in dark. The app renders dark by
+ * default via `class="dark"` on `<html>` (`app/layout.tsx`, FR-012) — light is reached only by the
+ * account's stored preference (002 US3).
  */
 :root {
   --radius: 0.125rem;
 
-  /* Surface stack — light */
-  --ch-void: #e9e9ee;
-  --ch-surface-0: #f6f6f9;
+  /* Surface stack — light, warm near-neutral rather than steel/cyan-tinted */
+  --ch-void: #eceaf0;
+  --ch-surface-0: #f6f5f8;
   --ch-surface-1: #ffffff;
-  --ch-surface-2: #fafafc;
-  --ch-surface-3: #f3f3f7;
-  --ch-hairline: #d5d7de;
+  --ch-surface-2: #ece9f2;
+  --ch-surface-3: #dcd7e8;
+  --ch-hairline: #c7c0d6;
 
   /* Ink */
-  --ch-ink-hi: #14141a;
-  --ch-ink-mid: #666c75;
-  --ch-ink-lo: #7c828b;
+  --ch-ink-hi: #14121b;
+  --ch-ink-mid: #524a63;
+  --ch-ink-lo: #756c88;
 
-  /* Brand red — chrome, focus, primary action only */
-  --ch-brand: #e8232f;
-  --ch-brand-hi: #c8102e;
-  --ch-brand-sunk: #fbe3e5;
+  /* Brand red — chrome, focus, primary action only. Never status, never a fourth meaning. Carries
+     every job the outgoing cyan had; only the hue changed (2026-08-11 re-harmonisation, see the file
+     header). Re-tuned 2026-08-11b to the "comic-tech" brief's exact suggested reds (dark: #FF1744). */
+  --ch-brand: #c10f31;
+  --ch-brand-hi: #8f0a23;
+  --ch-brand-sunk: #f7dfe2;
 
-  /* Status ramp — decoration over the shape/fill encoding */
-  --ch-status-idea: #6a7079;
-  --ch-status-draft: #b5781a;
-  --ch-status-posted: #1e9455;
+  /* The offset-shadow red behind a comic panel's double border (`.comic-panel` below) — deliberately
+     darker than `--ch-brand` itself, in the direction a drawn shadow would be, never used as a fill or
+     text colour. */
+  --ch-brand-deep: #8f0018;
+
+  /* Steel — the former brand cyan, demoted to a second, purely decorative accent: the frame's bevel,
+     the rivets, the ticker's scan-line. Never a control colour — see the file header's rule 2.
+     Re-tuned 2026-08-11b to the brief's suggested electric blue (dark: #2563EB). */
+  --ch-steel: #1d4ed1;
+  --ch-steel-hi: #1638a0;
+
+  /* Destructive amber/gold — deliberately not a second red, now that brand itself is red: a refusal
+     and a primary action must never share a hue. */
+  --ch-danger: #c07200;
+  --ch-danger-hi: #8f5400;
+
+  /* Status ramp — decoration over the shape/fill encoding, distinct from both accent hues */
+  --ch-status-idea: #3f5687;
+  --ch-status-draft: #8f611c;
+  --ch-status-posted: #1c7248;
 
   /* Overdue — a dashed left border, orthogonal to status, never a fourth state */
-  --ch-overdue: #5c5240;
+  --ch-overdue: #7d6329;
 
-  /* Elevation */
-  --ch-e1: 0 2px 6px rgb(24 26 34 / 0.13);
-  --ch-e2: 0 -10px 30px rgb(24 26 34 / 0.13);
+  /* Elevation — shadow base recomputed from the new --ch-ink-hi (#14121b), same 0.16 alpha */
+  --ch-e1: 0 2px 6px rgb(20 18 27 / 0.16);
+  --ch-e2: 0 -10px 30px rgb(20 18 27 / 0.16);
 
   /* shadcn surface contract */
   --background: var(--ch-surface-0);
@@ -82,11 +127,11 @@
   --muted: var(--ch-surface-3);
   --muted-foreground: var(--ch-ink-mid);
   /* shadcn's `accent` is a hover/active surface, NOT the brand. Keeping them distinct is what stops
-     a hover state from turning red and reading as meaning. */
+     a hover state from turning cyan and reading as meaning. */
   --accent: var(--ch-surface-3);
   --accent-foreground: var(--ch-ink-hi);
 
-  --destructive: var(--ch-brand-hi);
+  --destructive: var(--ch-danger);
   --destructive-foreground: #ffffff;
 
   --border: var(--ch-hairline);
@@ -95,28 +140,54 @@
 }
 
 .dark {
-  /* Surface stack — dark */
-  --ch-void: #07070a;
-  --ch-surface-0: #0a0a0c;
-  --ch-surface-1: #101014;
-  --ch-surface-2: #16161b;
-  --ch-surface-3: #1d1d24;
-  --ch-hairline: #2a2a33;
+  /* Surface stack — dark, near-black and cool-neutral rather than navy: "Night Suit" (2026-08-11),
+     re-tuned 2026-08-11b to the comic-tech brief's exact suggested neutrals (Background #09090B,
+     Surface #111114, Surface 2 #17171C). Kept at ~70% of the screen by area per the brief's own ratio
+     — every surface still reads through these five steps, none of them competing with the accent. */
+  --ch-void: #09090b;
+  --ch-surface-0: #0c0c0f;
+  --ch-surface-1: #111114;
+  --ch-surface-2: #17171c;
+  --ch-surface-3: #1f1f26;
+  --ch-hairline: #2a2a31;
 
-  --ch-ink-hi: #f2f3f5;
-  --ch-ink-mid: #8c939c;
-  --ch-ink-lo: #6b727b;
+  --ch-ink-hi: #f5f5f5;
+  --ch-ink-mid: #a7a3ad;
+  --ch-ink-lo: #6f6b76;
 
-  --ch-brand: #e8232f;
-  --ch-brand-hi: #ff4b54;
-  --ch-brand-sunk: #3a0e13;
+  /* Brand red — chrome, focus, primary action, identity. The reference is Spider-Man-themed
+     (`spidey-tracker.mp4`); this is what makes the product actually read that way rather than as its
+     cyan-HUD cousin. Never meaning — status is still never carried by colour alone. Re-tuned
+     2026-08-11b to the brief's exact suggested reds: Primary Red #FF1744 is `--ch-brand` itself,
+     Deep Red #B00020 is `--ch-brand-deep` (below) rather than `--ch-brand-hi` — the brief uses it as a
+     shadow layer, not a brighter emphasis state, and dark mode's emphasis direction is *brighter*. */
+  --ch-brand: #ff1744;
+  --ch-brand-hi: #ff5c7a;
+  --ch-brand-sunk: #2a0a10;
 
-  --ch-status-idea: #9aa0a8;
-  --ch-status-draft: #f0a63a;
-  --ch-status-posted: #4bc07a;
+  /* The offset-shadow red behind a comic panel's double border (`.comic-panel` below) — the brief's
+     "Deep Red". Never a fill or text colour; it exists to sit *behind* `--ch-brand`, like ink under a
+     misregistered print layer. */
+  --ch-brand-deep: #b00020;
 
-  /* Bone, dashed — separable from the solid red chrome in colour and in greyscale alike */
-  --ch-overdue: #dcd3be;
+  /* Steel — the outgoing brand cyan, kept alive as a second, decorative-only accent: the frame's
+     bevel, the rivets, the ticker's scan-line. Never a control colour. Re-tuned 2026-08-11b to the
+     brief's suggested electric blue, #2563EB, kept to ~5% of the interface by area. */
+  --ch-steel: #2563eb;
+  --ch-steel-hi: #5b82f5;
+
+  /* Destructive amber/gold — not a second red. Brand and danger must stay two different signals now
+     that brand itself is red, where before (cyan brand, red danger) that was true for free. */
+  --ch-danger: #ffb020;
+  --ch-danger-hi: #ffcb5c;
+
+  --ch-status-idea: #5b6b8c;
+  --ch-status-draft: #d99a2b;
+  --ch-status-posted: #2f9e63;
+
+  /* Warm khaki, dashed — separable from the red brand, the amber danger, and the steel accent alike,
+     in colour and in greyscale (SC-004). */
+  --ch-overdue: #b7975a;
 
   --ch-e1: 0 2px 6px rgb(0 0 0 / 0.5);
   --ch-e2: 0 -10px 30px rgb(0 0 0 / 0.75);
@@ -139,7 +210,7 @@
   --accent: var(--ch-surface-3);
   --accent-foreground: var(--ch-ink-hi);
 
-  --destructive: var(--ch-brand-hi);
+  --destructive: var(--ch-danger);
   --destructive-foreground: #ffffff;
 
   --border: var(--ch-hairline);
@@ -187,6 +258,21 @@
   --color-brand: var(--ch-brand);
   --color-brand-hi: var(--ch-brand-hi);
   --color-brand-sunk: var(--ch-brand-sunk);
+  --color-brand-deep: var(--ch-brand-deep);
+
+  /* New in 002: the accent hue split off `--brand` (chrome) so `--destructive` (red) is no
+     longer sharing a family with the primary/focus colour. Exposed for anything that needs the raw
+     hue rather than going through `bg-destructive` — the delete confirmation's refused-sign-out copy
+     and the Ticker's refusal cue are the two candidates named in tasks.md T027/T030. */
+  --color-danger: var(--ch-danger);
+  --color-danger-hi: var(--ch-danger-hi);
+
+  /* The 2026-08-11 re-harmonisation's second accent — the outgoing brand cyan, demoted to a
+     decorative-only role (file header rule 2). Registered as a Tailwind colour in case a future
+     surface wants it deliberately (`text-steel`, `border-steel`); today's only consumers are the
+     plain-CSS rules below (`.arcade-frame`, `.arcade-frame__rivet`, `.ticker-scan`). */
+  --color-steel: var(--ch-steel);
+  --color-steel-hi: var(--ch-steel-hi);
 
   --color-status-idea: var(--ch-status-idea);
   --color-status-draft: var(--ch-status-draft);
@@ -205,9 +291,16 @@
   --radius-lg: 4px;
   --radius-xl: 6px;
 
-  /* Oswald for display and labels, Barlow for everything a person reads as content. */
-  --font-display: var(--font-oswald);
-  --font-sans: var(--font-barlow);
+  /*
+   * Silkscreen for display and section labels, VT323 for everything a person reads as content
+   * (research.md R-001). Oswald and Barlow stay loaded (`app/layout.tsx`) until every surface has
+   * actually restyled onto these — swapping the binding here is what makes the whole product's type
+   * flip at once rather than one component at a time, matching how this token layer's colours above
+   * work. VT323 ships one weight (400) and Silkscreen two (400/700): hierarchy comes from size, case,
+   * colour and the frame now, not from a weight ramp.
+   */
+  --font-display: var(--font-silkscreen);
+  --font-sans: var(--font-vt323);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -241,6 +334,58 @@
  */
 
 /*
+ * The machine frame (T007) — the reference's bevelled cyan/steel housing around the working area,
+ * consumed by `components/arcade/Frame.tsx`. A token-level decision like the two shapes above, so it
+ * lives here rather than in the component.
+ *
+ * FR-008: the frame MUST consume less width at narrow viewports than at wide ones, and MUST never be
+ * the reason FR-004 (a control leaves the 375px viewport) or FR-005 (the body scrolls horizontally)
+ * fails. Padding, not a `border`, so the bevelled gradient can be part of the frame's own body rather
+ * than a flat rule — a `border` cannot carry a gradient the way a padded background can.
+ *
+ * **10px per side at ≤375px** — the owner's T004 sign-off (2026-08-08), over the 6px this task line
+ * still names as its starting point; `research.md` R-003 and `frontend/AGENTS.md` carry the reasoning
+ * and the corrected action-band arithmetic (~18px of spare width, not ~26px). Thicker at `sm`/`lg`,
+ * where the frame has width to spend without touching the 44px targets or the action band.
+ *
+ * **`--ch-steel`, not `--ch-brand`, since the 2026-08-11 re-harmonisation.** The housing is pure
+ * chrome — nothing about it is tappable — so it is exactly the decorative role `--ch-steel` exists
+ * for, and it is what keeps the machine's original blue visibly present once the brand accent itself
+ * turned red.
+ */
+.arcade-frame {
+  background: linear-gradient(155deg, var(--ch-steel) 0%, var(--ch-hairline) 55%, var(--ch-surface-2) 100%);
+  padding: 10px;
+}
+
+@media (min-width: 640px) {
+  .arcade-frame {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .arcade-frame {
+    padding: 20px;
+  }
+}
+
+/*
+ * Decorative rivets at the frame's four corners — not controls. A button-shaped element that does
+ * nothing is a wasted tap target, and this iteration adds no actions (spec Out of Scope), so
+ * `Frame.tsx` gives each one `aria-hidden` and no interactive role at all.
+ */
+.arcade-frame__rivet {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--ch-void);
+  /* `--ch-steel`, same reason as `.arcade-frame` above — decorative machine chrome, not a control. */
+  box-shadow: inset 0 0 0 1px var(--ch-steel);
+}
+
+/*
  * The one focus indicator (T067), defined here for the same reason the shape primitives below are:
  * it is a token-level decision, not a per-screen one, and by T067 it had more than twenty callers.
  *
@@ -268,35 +413,125 @@
 }
 
 /*
- * The same indicator drawn **inside** the control, for the two places an outset ring is painted and
- * then thrown away. Both were found by screenshot, not by review — a computed style cannot see a
- * clip, which is the whole reason `focus-states.spec.ts` also compares pixels.
+ * The same indicator drawn **inside** the control, for wherever an outset ring would be painted and
+ * then thrown away by something that clips the control's own box. Found by screenshot, not by
+ * review — a computed style cannot see a clip, which is the whole reason `focus-states.spec.ts` also
+ * compares pixels rather than stopping at `outline-style`.
  *
- *   1. **Anything wearing `.notch-card`.** That class is a `clip-path`, and a clip-path clips the
- *      element's outline along with everything else, so `+ CAPTURE`, the drawer's capture button,
- *      both sheet save buttons and the login submit drew a ring that was **entirely invisible**.
- *   2. **The view toggle.** `MONTH`/`WEEK` sit in a wrapper with `overflow-hidden` (it clips the two
- *      children to the group's rounded border), which left a 2px sliver showing on the inner edge
- *      only.
+ * **Re-derived at T008 (002), and the old fixed list of two cases is deliberately not carried over.**
+ * Both of 001's cases — `.notch-card`'s `clip-path`, and the view toggle's `overflow-hidden`
+ * wrapper — belonged to the outgoing visual language. `.notch-card`/`.notch-sheet` are now gone
+ * entirely (Phase 3 dropped every surface's usage, `/login`'s included, as the last holdout) and
+ * removed from this file below. Writing a fixed list here would either go stale the moment the first
+ * surface changes shape, or (worse) survive as plausible-looking documentation for a case that no
+ * longer exists.
  *
- * Ink rather than brand red, and that is forced rather than chosen: every control needing this is
- * brand-filled except the unselected half of the toggle, so a red ring inside a red button is the
- * red-on-red problem the outset version exists to avoid. Near-white reads on both.
+ * So the rule going forward: **whichever future task gives a control a shape that clips its own
+ * outline reaches for this class**, and `focus-states.spec.ts`'s pixel-comparison tests — not the
+ * computed-style sweep, which cannot see a clip — are what catch it if a task forgets. The mechanism
+ * is unchanged from 001: `outline`, never a `ring-*` box-shadow, kept for the same red-on-red reason
+ * on brand-filled controls; `outline-offset: -4px` so it lands inside the control's own box instead
+ * of on a surface a clip would remove; ink rather than brand colour so it still reads on the
+ * unselected half of a toggle group, which is never brand-filled.
  *
- * Use `.focus-ring` by default. Reach for this **only** when something clips the control's own box.
+ * Use `.focus-ring` by default. Reach for this only when something clips the control's own box —
+ * today that is the period-nav view toggle's `overflow-hidden` wrapper, and nothing else.
  */
 .focus-ring-inset:focus-visible {
   outline: 2px solid var(--ch-ink-hi);
   outline-offset: -4px;
 }
 
-/* Angular panel treatment — clipped corners, not uniform pill radii. */
-.notch-card {
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+/*
+ * The "comic panel" treatment (2026-08-11b pass 1, extended at T048) — a double-border effect:
+ * `--ch-brand-deep` sits behind the card as an offset shadow layer, like ink under a misregistered
+ * print, and the whole card lifts toward it on interaction.
+ *
+ * **The heavy half — the offset shadow and the lift — stays hover/focus-only.** T048's own reasoning
+ * is unchanged from pass 1: the brief's own words are "vẫn phải rõ ràng và usable, không hy sinh UX
+ * chỉ để làm đẹp," and a persistent offset shadow on every chip in a seven-row week list would be
+ * noise competing with the status cue. (The month grid's `micro` chips and the drag ghost never carry
+ * this class at all — see `ItemChip.tsx` — so "every chip in a 42-cell month grid" was never actually
+ * at risk here; it is the week list and the expanded backlog that this reasoning protects.)
+ *
+ * **The light half — an asymmetric corner — is resting-state, added at T048.** Brief §3 lists
+ * "slightly asymmetric shape" among the card's own properties, not its hover example, and rounding is
+ * cheap: it changes no dimension `viewport-audit.spec.ts` measures, only which corners are square.
+ * One corner only (top-left), so the shape reads as a deliberate break rather than a redraw of the
+ * whole chip.
+ *
+ * **The web-line accent (brief §6 — "Hover card → web line xuất hiện") is a `::after` layer**, a
+ * short diagonal line anchored at the same corner, invisible at rest and faded in with the same
+ * transition as the shadow. Purely decorative (`pointer-events: none`, no DOM node, nothing an
+ * assistive technology could land on) — the interaction it marks is already announced by the focus
+ * ring and the cursor.
+ *
+ * `transform` and `box-shadow` are both paint/compositing properties — neither changes the element's
+ * layout box, so this cannot be the reason a sibling reflows or a `boundingBox()` assertion elsewhere
+ * in the suite moves. `:focus-visible` alongside `:hover` is what makes this keyboard-reachable too,
+ * not just a mouse affordance; it composes with `.focus-ring`'s outline rather than replacing it, the
+ * outline sitting further out at its own 2px offset.
+ *
+ * `prefers-reduced-motion` is handled globally below (the `*` block collapses every
+ * `transition-duration` to near-zero), so this needs no reduced-motion branch of its own — the offset
+ * and the web line still appear, they simply stop animating into place (`reduced-motion.spec.ts`'s
+ * "the hover lift's transition" cases assert exactly this, against this class).
+ */
+.comic-panel {
+  position: relative;
+  border-radius: 2px 8px 2px 2px;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.notch-sheet {
-  clip-path: polygon(0 18px, 18px 0, 100% 0, 100% 100%, 0 100%);
+.comic-panel::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 16px;
+  height: 16px;
+  background-image: linear-gradient(
+    135deg,
+    transparent 46%,
+    var(--ch-steel) 46%,
+    var(--ch-steel) 50%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+
+.comic-panel:hover,
+.comic-panel:focus-visible {
+  transform: translate(-2px, -2px);
+  box-shadow: 3px 3px 0 0 var(--ch-brand-deep);
+}
+
+.comic-panel:hover::after,
+.comic-panel:focus-visible::after {
+  opacity: 0.6;
+}
+
+/*
+ * Button-press feedback (T052, comic-tech brief §8 — "Button press" among the named
+ * micro-interactions). `:active` only — never `:hover` or `:focus-visible` — so it fires exactly on
+ * the gesture that presses the control and nothing else; a settle on hover would fire from a mouse
+ * resting over the button, which is not a press. Applied to the product's most-tapped controls
+ * (capture, the period arrows) rather than every button, matching how `.comic-panel` above is scoped
+ * to where the interaction actually happens rather than applied blanket.
+ *
+ * Collapsed by the same global `prefers-reduced-motion` rule as everything else here — the settle
+ * still happens, it simply stops animating into place.
+ */
+.press-feedback {
+  transition: transform 100ms ease;
+}
+
+.press-feedback:active {
+  transform: scale(0.97) translateY(1px);
 }
 
 /*
@@ -333,6 +568,37 @@
     ),
     repeating-radial-gradient(circle at 50% 8%, rgb(20 20 26 / 0.04) 0 1px, transparent 1px 44px),
     radial-gradient(rgb(20 20 26 / 0.04) 0.6px, transparent 0.6px);
+}
+
+/*
+ * The Ticker's decorative motion (T027, FR-025, FR-031). The text it moves behind is never scrolled
+ * or clipped — every fact it carries is fully rendered and readable in a single still frame, which is
+ * what FR-031 requires — so this is pure chrome: a scanning highlight with no information encoded in
+ * its motion at all. `animation`, not `transition`, is what the reduced-motion rule immediately below
+ * catches automatically; nothing Ticker-specific is needed there.
+ *
+ * `--ch-steel`, not `--ch-brand`, since 2026-08-11: a scanning highlight with no information in it is
+ * decoration by the file header's own definition, and it is the last of the three places that still
+ * carries the machine's original blue now that the brand accent itself is red.
+ */
+@keyframes ticker-scan {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 160px 0;
+  }
+}
+
+.ticker-scan {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ch-steel) 0 2px,
+    transparent 2px 20px
+  );
+  background-size: 160px 100%;
+  animation: ticker-scan 5s linear infinite;
+  opacity: 0.3;
 }
 
 /*

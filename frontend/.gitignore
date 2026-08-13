@@ -44,3 +44,6 @@ next-env.d.ts
 # They are evidence for one run, not source — and a Playwright storageState written beside them
 # would be a live production session cookie inside the checkout.
 scripts/t072-shots/
+
+# T044's local hand-walk, same reasoning.
+scripts/t044-shots/

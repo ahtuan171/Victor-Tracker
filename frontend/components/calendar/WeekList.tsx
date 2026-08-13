@@ -120,10 +120,14 @@ function DaySection({
       data-today={isToday ? "" : undefined}
       data-testid="day-section"
     >
+      {/*
+       * 002 T018: dropped `font-display` (13px broke FR-034) and raised both this heading and
+       * `day-meta` below (11px) to the 12px floor.
+       */}
       <div className="mb-2 flex items-baseline gap-2">
         <h2
           className={cn(
-            "font-display text-[13px] leading-none font-semibold tracking-[0.16em] uppercase",
+            "text-xs leading-none font-semibold tracking-[0.16em] uppercase",
             // Today is brighter, the rest of the week is plain. A dimmer treatment for the other six
             // would make a week look mostly disabled; this marks one day rather than de-emphasising
             // six.
@@ -132,7 +136,7 @@ function DaySection({
         >
           {day.weekday} {day.dayOfMonth}
         </h2>
-        <span className="text-ink-lo text-[11px] leading-none" data-testid="day-meta">
+        <span className="text-ink-lo text-xs leading-none" data-testid="day-meta">
           {isToday ? "today" : describe(items.length)}
         </span>
       </div>

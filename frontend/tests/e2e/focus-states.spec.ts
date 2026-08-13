@@ -168,8 +168,20 @@ test("every control on the calendar shows focus when tabbed to", async ({ page, 
     item(2),
   ]);
 
-  // Long enough to reach the whole surface: sign-out, the four filter options, the drawer toggle,
-  // its capture button, the chips, the view toggle, both arrows and `+ CAPTURE`.
+  // Long enough to reach the whole surface: the nav drawer trigger, the four filter options, the
+  // backlog toggle, its capture button, the chips, the view toggle, both arrows and `+ CAPTURE`.
+  // Sign-out moved behind the nav drawer at 002 T030, so it is no longer on this walk — see the nav
+  // drawer's own test below.
+  expect(await tabForUnstyled(page, 30)).toEqual([]);
+});
+
+test("every control in the nav drawer shows focus when tabbed to", async ({ page, baseURL }) => {
+  await openCalendar(page, baseURL, [item(1), item(2)]);
+  await page.getByTestId("nav-drawer-trigger").click();
+  await page.getByTestId("nav-drawer-panel").waitFor();
+
+  // Close and sign-out, both added at 002 T029/T030 — the screen-list entry is a `<span>`, not a
+  // control, so it is not part of this walk.
   expect(await tabForUnstyled(page, 30)).toEqual([]);
 });
 
@@ -279,13 +291,28 @@ test("the focus ring is painted, not merely declared", async ({ page, baseURL })
   ]);
 
   for (const testId of [
-    "sign-out-action", // plain, on a dark surface
+    "nav-drawer-trigger", // plain, on a dark surface — sign-out's old spot in this list, T030
     "platform-filter-all", // brand-filled: the red-on-red case the offset solves
     "view-month", // inside an `overflow-hidden` group
     "capture-action", // `.notch-card`, whose clip-path eats an outset ring entirely
     "backlog-toggle",
     "period-next",
   ]) {
+    expect(await paintsAFocusRing(page, testId), `${testId} draws no focus ring`).toBe(true);
+  }
+});
+
+test("the focus ring is painted on the nav drawer's own controls", async ({ page, baseURL }) => {
+  await openCalendar(page, baseURL, [
+    item(1, { scheduled_date: "2026-08-12", status: "draft", platform: "tiktok" }),
+  ]);
+  await page.getByTestId("nav-drawer-trigger").click();
+  await page.getByTestId("nav-drawer-panel").waitFor();
+
+  // Moved out of the header at 002 T030 — checked here rather than in the sweep above because both
+  // controls exist only once the drawer is open, and opening it would put the scrim over every
+  // control that sweep already checks, breaking those screenshots' clip regions.
+  for (const testId of ["nav-drawer-close", "sign-out-action"]) {
     expect(await paintsAFocusRing(page, testId), `${testId} draws no focus ring`).toBe(true);
   }
 });

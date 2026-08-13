@@ -32,6 +32,9 @@ export const PROXY_ALLOWLIST: readonly AllowlistEntry[] = [
   { path: "/auth/logout", methods: ["POST"] },
   { path: "/content-items", methods: ["GET", "POST"] },
   { path: "/content-items/{item_id}", methods: ["GET", "PATCH", "DELETE"] },
+  // From specs/002-pixel-arcade-skin/contracts/openapi.yaml — a second contract file, not a second
+  // API. proxy-allowlist.spec.ts reads both, per that file's header comment.
+  { path: "/preferences", methods: ["GET", "PATCH"] },
 ];
 
 export interface ExcludedOperation {

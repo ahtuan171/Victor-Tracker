@@ -174,6 +174,13 @@ export function ItemChip({
         FRAME[size],
         openable &&
           "focus-ring text-left",
+        // The comic-panel treatment (2026-08-11b, extended T048) — `full`/`peek` only, and never on
+        // a ghost. `micro` sits in a ~50px day cell with no room to spare for an offset shadow
+        // without bleeding into the next cell; the drag overlay is not a thing a pointer "hovers", so
+        // the class would be inert there anyway, and omitting it says so rather than leaving a dead
+        // class name. The class now also carries a resting-state asymmetric corner (T048), not only
+        // the hover-only shadow/web-line — see `globals.css`'s own comment for which half is which.
+        openable && !ghost && (size === "full" || size === "peek") && "comic-panel",
         // T055: the gesture arbitration half that lives on the element. Without it a vertical swipe
         // beginning on a chip is captured as a drag and the grid does not scroll.
         !pending && "touch-none",
@@ -202,8 +209,11 @@ export function ItemChip({
         <span
           data-testid="item-title"
           className={cn(
-            "text-ink truncate",
-            size === "peek" ? "text-xs leading-tight" : "flex-1 text-sm leading-snug",
+            // 20px (T004's sign-off, `design/002-pixel-arcade-skin/BRIEF.md`): an item's title is
+            // content, and content is 20px end to end. `peek`'s 170px strip shows fewer characters
+            // before it truncates than it did at 12px — an accepted cost, not an oversight.
+            "text-ink truncate text-xl leading-tight",
+            size !== "peek" && "flex-1",
           )}
         >
           {item.title}
@@ -218,8 +228,11 @@ export function ItemChip({
       {overdue ? (
         <span
           className={cn(
-            "font-display text-overdue flex-none leading-none font-semibold tracking-[0.14em] uppercase",
-            size === "full" ? "text-[10px]" : "sr-only",
+            // VT323, not Silkscreen, and 12px is the FR-033 floor — both below the 16px FR-034
+            // enforces for the display face, so `full` (the only size that draws this rather than
+            // burying it in `sr-only`) uses the content face at the size floor rather than Silkscreen.
+            "text-overdue flex-none text-xs leading-none font-semibold tracking-[0.08em] uppercase",
+            size !== "full" && "sr-only",
           )}
           data-testid="item-overdue"
         >
@@ -230,9 +243,7 @@ export function ItemChip({
       <PlatformCue platform={item.platform} size={size} />
 
       {pending && size === "full" ? (
-        <span className="text-ink-lo font-display flex-none text-[10px] tracking-[0.16em] uppercase">
-          Saving
-        </span>
+        <span className="text-ink-lo flex-none text-xs tracking-[0.08em] uppercase">Saving</span>
       ) : null}
     </Element>
   );

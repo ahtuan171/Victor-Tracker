@@ -110,6 +110,17 @@ paths:
                     description: |
                       Roughly 30 days out (FR-002a). Reissued with a fresh window on any
                       authenticated request made past the halfway point.
+                  preferences:
+                    # Amended by iteration 002 (specs/002-pixel-arcade-skin/contracts/openapi.yaml,
+                    # "Amended in this iteration: POST /auth/login"). Deliberately OPTIONAL: a client
+                    # built against this file before the amendment is still correct, because
+                    # `GET /preferences` at app mount reaches the same state one moment later. The
+                    # backend sends it on every login regardless, so the proxy can write the
+                    # `ch_theme` cookie from the same response that sets the session cookie, with no
+                    # extra round trip on a stack whose cold first request was measured at 44.18s
+                    # (T072). This is the one edit iteration 002 makes to this file; the two new
+                    # operations it adds live in its own contract, not here.
+                    $ref: "../../002-pixel-arcade-skin/contracts/openapi.yaml#/components/schemas/Preferences"
         "401":
           $ref: "#/components/responses/InvalidCredentials"
         "422":

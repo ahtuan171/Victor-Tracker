@@ -63,8 +63,9 @@ export function PlatformFilter({
       className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-4 py-2"
       data-testid="platform-filter"
     >
+      {/* 002 T024: dropped font-display, 10px -> the 12px floor. */}
       <span
-        className="font-display text-ink-lo flex-none text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+        className="text-ink-lo flex-none text-xs leading-none font-semibold tracking-[0.2em] uppercase"
         id="platform-filter-label"
         aria-hidden="true"
       >
@@ -147,10 +148,21 @@ function FilterOption({
       onClick={onSelect}
       data-testid={testId}
       data-selected={selected ? "" : undefined}
+      // 002 T024: dropped font-display, 11px -> the 12px floor.
+      // T050 (comic-tech brief §9, "comic tabs"): the active option carries the brief's exact
+      // description — red fill, **dark** text rather than white (a comic-panel choice, not a
+      // contrast afterthought: `text-void` is not literally the darkest token in both presentations
+      // — it is near-white in light mode — but it always sits against `--ch-brand`'s own fill here,
+      // never against the page background, and reads clearly against that fill in both), a small
+      // solid offset shadow in `--ch-brand-deep`
+      // (the same offset red `.comic-panel` uses, so the two "something is active/interactive" cues
+      // in this product read as one language), and one squared corner rather than the shared
+      // `rounded-sm` — the brief's "diagonal/comic corner," kept to a single corner so it reads as a
+      // deliberate break rather than a redraw of the button.
       className={cn(
-        "font-display focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-[11px] leading-none font-semibold tracking-[0.14em] uppercase",
+        "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-xs leading-none font-semibold tracking-[0.14em] uppercase",
         selected
-          ? "border-brand bg-brand text-white"
+          ? "border-brand bg-brand text-void shadow-[2px_2px_0_0_var(--ch-brand-deep)] rounded-tr-none"
           : "border-hairline bg-surface-2 text-ink-mid",
       )}
     >

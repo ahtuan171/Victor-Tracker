@@ -68,12 +68,15 @@ export function FirstRun() {
         className="font-display text-ink text-[17px] leading-tight font-semibold tracking-[0.14em] uppercase"
         data-testid="first-run-headline"
       >
-        Nothing scheduled yet
+        {/* T051 (comic-tech brief §11): personality wording, adapted rather than copied from the
+            brief's own "NO MISSIONS YET" example — this product's own voice, not a lifted line. */}
+        No missions on the board yet
       </p>
 
+      {/* "+ New" (002 T024), matching the action band's label since T016 restyled it. */}
       <p className="text-ink-mid max-w-[260px] text-[13px] leading-relaxed">
-        Tap <b className="text-ink">+ Capture</b> to start one. It lands in the backlog below — drag
-        it onto a day when you know when it ships.
+        Tap <b className="text-ink">+ New</b> to log one. It drops into the backlog below — drag
+        it onto a day when you&apos;re ready to ship.
       </p>
     </div>
   );

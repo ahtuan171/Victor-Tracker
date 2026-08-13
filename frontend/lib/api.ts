@@ -61,6 +61,37 @@ export const INVARIANT_CODES = ["platform_required", "platform_locked"] as const
 export type InvariantCode = (typeof INVARIANT_CODES)[number];
 
 /**
+ * `Theme` in `specs/002-pixel-arcade-skin/contracts/openapi.yaml`. FR-010 — exactly two, `dark`
+ * before any choice (FR-012). Declared here alongside the 001 enums above rather than in a second
+ * file: one place for "the closed sets this client trusts", same reasoning as R-007's typed fetch
+ * wrapper being enough without a second toolchain.
+ */
+export const THEMES = ["dark", "light"] as const;
+export type Theme = (typeof THEMES)[number];
+
+/**
+ * `Preferences` in `specs/002-pixel-arcade-skin/contracts/openapi.yaml` — both fields always
+ * present, never omitted (unlike `ContentItem`'s nullable four, these are `NOT NULL` with a
+ * default, so there is no absent state to normalise on the way in).
+ */
+export interface Preferences {
+  readonly theme: Theme;
+  readonly sound_enabled: boolean;
+}
+
+/**
+ * `PreferencesUpdate` — at least one key, per the contract's `minProperties: 1`, which TypeScript
+ * has no way to express here any more than `ContentItemUpdate` could (the backend answers 422
+ * rather than treating an empty body as a silent no-op). Neither field is nullable — clearing a
+ * theme or a sound choice has no meaning — so unlike `ContentItemUpdate` there is no `| null` to
+ * keep apart from an omitted key.
+ */
+export interface PreferencesUpdate {
+  readonly theme?: Theme;
+  readonly sound_enabled?: boolean;
+}
+
+/**
  * `ContentItem` in the contract.
  *
  * The four nullable fields are **not** in the contract's `required` list, so a response may omit
@@ -285,6 +316,27 @@ export async function updateContentItem(
  */
 export async function deleteContentItem(id: number): Promise<void> {
   await request<void>("DELETE", `/content-items/${id}`);
+}
+
+/**
+ * Read the account's own presentation and sound choices (002 US3/US4).
+ *
+ * **No happy-path caller needs this on first paint** — `app/layout.tsx` reads the `ch_theme` cookie
+ * server-side for that (research.md R-002), specifically so the first document does not wait on a
+ * round trip. This exists for the mount-time reconciliation step R-002 also asks for: read the
+ * account's value once after the app is up, and if it disagrees with the cookie, the account wins.
+ */
+export function getPreferences(): Promise<Preferences> {
+  return request<Preferences>("GET", "/preferences");
+}
+
+/**
+ * Change one or both choices. Returns the **full** object, not the diff (same shape as
+ * `updateContentItem`'s reasoning) — a caller never has to reconstruct the new state from what it
+ * sent.
+ */
+export function updatePreferences(changes: PreferencesUpdate): Promise<Preferences> {
+  return request<Preferences>("PATCH", "/preferences", { body: changes });
 }
 
 // --- Transport ------------------------------------------------------------------------------

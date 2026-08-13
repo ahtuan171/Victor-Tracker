@@ -1,3 +1,5 @@
+import { Check } from "lucide-react";
+
 import type { Status } from "@/lib/api";
 import { statusCue, type CueSize } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -63,13 +65,21 @@ export function StatusCue({
         cue.fill === "half" &&
           "bg-[linear-gradient(90deg,var(--color-status-draft)_50%,transparent_50%)]",
         cue.check && "text-surface-0 grid place-items-center leading-none font-bold",
-        cue.check && CHECK_SIZE[size],
         className,
       )}
     >
-      {/* Hidden from assistive tech because the label above already says "Posted"; the glyph is the
-          visual half of the same fact, not a second one. */}
-      {cue.check ? <span aria-hidden="true">✓</span> : null}
+      {/*
+       * Hidden from assistive tech because the label above already says "Posted"; the glyph is the
+       * visual half of the same fact, not a second one.
+       *
+       * An SVG icon, not a sized text glyph (002): FR-033 forbids anything rendering below 12px, and
+       * the `full` cue is only 14px across — there is no font-size that both clears the floor and
+       * fits inside the disc. An icon's `width`/`height` are not text and are not subject to that
+       * floor; `CHECK_SIZE` below sizes the glyph to the disc it sits in instead.
+       */}
+      {cue.check ? (
+        <Check aria-hidden="true" strokeWidth={3} className={CHECK_SIZE[size]} />
+      ) : null}
     </span>
   );
 }
@@ -81,9 +91,9 @@ const GEOMETRY: Readonly<Record<CueSize, string>> = {
   full: "size-3.5 border-2",
 };
 
-/** The check inside a `posted` disc, sized to fit it rather than to a type scale. */
+/** The check inside a `posted` disc, sized to fit it rather than to a type scale (002: an icon, not text). */
 const CHECK_SIZE: Readonly<Record<CueSize, string>> = {
-  micro: "text-[6px]",
-  peek: "text-[8px]",
-  full: "text-[9px]",
+  micro: "size-1",
+  peek: "size-1.5",
+  full: "size-2",
 };

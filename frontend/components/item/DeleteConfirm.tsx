@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ApiError, type ContentItem } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
+import { playCue } from "@/lib/sound";
 
 /**
  * The delete confirmation (T056, FR-004, FR-020, SC-007, spec Edge Cases).
@@ -81,10 +82,12 @@ export function DeleteConfirm({
 
     try {
       await onDelete(item);
+      playCue("delete");
       onOpenChange(false);
     } catch (caught) {
       // The dialog stays open, and the row has already been put back on the surface behind it by
       // `itemRestored`. Closing here would leave the creator believing a deletion happened.
+      playCue("refuse");
       setError(
         caught instanceof ApiError
           ? caught.detail
@@ -103,18 +106,29 @@ export function DeleteConfirm({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent
-        className="notch-card bg-surface-2 border-hairline gap-0 p-5 shadow-e2"
-        data-testid="delete-confirm"
-      >
-        <AlertDialogTitle className="font-display text-ink mb-2.5 text-[15px] leading-tight font-semibold tracking-[0.14em] uppercase">
+      {/*
+       * `notch-card` dropped (002 T023): the reference's chrome is sharp-cornered, and the primitive
+       * (`ui/alert-dialog.tsx`, restyled at T025) already carries `border-hairline`/`rounded-sm`/
+       * `shadow-e2` — kept here anyway via `cn`'s dedup, harmlessly redundant, so this override is
+       * only the two things that actually differ from the primitive: the surface tint and spacing.
+       */}
+      <AlertDialogContent className="bg-surface-2 gap-0 p-5" data-testid="delete-confirm">
+        {/*
+         * No local font-size or font-family here (002 T023, dropped `text-[15px] font-display`): the
+         * primitive's own `text-base font-display` is already 16px Silkscreen, which is exactly
+         * FR-034's floor for the display face. The 15px override was silently breaking that floor by
+         * one pixel — found by `text-size-audit.spec.ts`, not by eye.
+         */}
+        <AlertDialogTitle className="text-ink mb-2.5 leading-tight tracking-[0.14em]">
           Delete this item?
         </AlertDialogTitle>
 
         <AlertDialogDescription
-          // `break-words` because this sentence quotes the creator's own title, and a title with no
-          // spaces in it is a single unbreakable word as far as the line breaker is concerned — see
-          // the note on the row below, which is the same defect one element over.
+          // Already compliant pre-002 and unchanged here: 13px, font-sans (no font-display override),
+          // clears both FR-033's 12px floor and FR-034 (the display face is never involved). `break-
+          // words` because this sentence quotes the creator's own title, and a title with no spaces in
+          // it is a single unbreakable word as far as the line breaker is concerned — see the note on
+          // the row below, which is the same defect one element over.
           className="text-ink-mid mb-3.5 text-[13px] leading-relaxed break-words"
           data-testid="delete-confirm-message"
         >
@@ -174,9 +188,10 @@ export function DeleteConfirm({
            * away from a common gesture": `Enter` keeps the item, and the destructive action is
            * somewhere a thumb has to travel to deliberately.
            */}
+          {/* `font-display` dropped (002 T023) — 13px Silkscreen broke FR-034; VT323 (font-sans) now. */}
           <AlertDialogCancel
             autoFocus
-            className="border-hairline bg-surface-3 text-ink font-display focus-ring h-12 w-full rounded-sm border text-[13px] font-semibold tracking-[0.16em] uppercase"
+            className="border-hairline bg-surface-3 text-ink focus-ring h-12 w-full rounded-sm border text-[13px] font-semibold tracking-[0.16em] uppercase"
             data-testid="delete-keep"
           >
             Keep item
@@ -192,8 +207,11 @@ export function DeleteConfirm({
             disabled={deleting}
             // Outlined and muted rather than a filled brand button. The export is explicit that the
             // destructive action carries the *lower* visual weight — a red button is the one a thumb
-            // reaches for without reading.
-            className="border-brand-hi/50 text-brand-hi font-display focus-ring h-12 w-full rounded-sm border bg-transparent text-[13px] font-semibold tracking-[0.16em] uppercase disabled:opacity-50"
+            // reaches for without reading. `border-danger-hi`/`text-danger-hi`, not `brand-hi` (002
+            // T023): this is the one control on the surface that should read as a warning, and brand
+            // is chrome-only now that the accent split into a dedicated danger red. `font-display`
+            // dropped for the same FR-034 reason as `delete-keep` above.
+            className="border-danger-hi/50 text-danger-hi focus-ring h-12 w-full rounded-sm border bg-transparent text-[13px] font-semibold tracking-[0.16em] uppercase disabled:opacity-50"
             data-testid="delete-confirm-action"
           >
             {deleting ? "Deleting…" : "Delete permanently"}

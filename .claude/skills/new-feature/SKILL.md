@@ -37,8 +37,11 @@ implementation starts — see the branch strategy in `.claude/rules/workflow.md`
 
 ## Stage 2 — Design
 
-The design system already exists from Content Calendar. This module consumes its tokens — colour,
-spacing, type scale — and does not introduce competing ones.
+The design system already exists. A **feature** module consumes its tokens — colour, spacing, type
+scale — and does not introduce competing ones. Replacing that layer is permitted only in an iteration
+whose entire subject *is* the token layer, which restyles every existing surface at once; see
+`.claude/rules/design.md`. If a module seems to need a new token, that is a signal about the token
+layer, not a licence to extend it locally.
 
 Export from claude.ai/design into `design/<feature>/`. Then walk each screen against the acceptance
 criteria in `spec.md`. Any field visible in a design but absent from the spec means one of the two is

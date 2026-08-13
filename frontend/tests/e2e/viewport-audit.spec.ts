@@ -184,8 +184,37 @@ async function auditSurface(page: Page, surface: string): Promise<void> {
   expect(await bodyScrollsSideways(page), `${surface}: body scrolls horizontally`).toBe(false);
 }
 
-test.describe("the routes", () => {
-  test("/login", async ({ page }) => {
+/**
+ * 002 T028 (Phase 3 checkpoint) ran this sweep against a fabricated light presentation, because the
+ * real switch (Phase 5, T032–T037) did not exist yet: `app/layout.tsx` hard-coded `class="dark"` on
+ * `<html>` and a `page.evaluate` override forced the light token values in afterward, on every
+ * navigation, because hydration silently discarded anything written before it (two dead-end
+ * mechanisms tried and rejected — `addInitScript`-based `classList` and `<style>`-element approaches
+ * both got reconciled away).
+ *
+ * **T037 replaces all of that with the real mechanism now that it exists.** `setThemeCookie` below
+ * sets `ch_theme` before the test's *first* navigation; `app/layout.tsx` reads it server-side
+ * (T033), so light is correct from the very first response and needs no post-navigation correction —
+ * unlike the old override, this cookie survives every subsequent `goto`/`reload` in the same test on
+ * its own, which is why the per-navigation `applyTheme(page)` calls this replaces are simply gone
+ * rather than swapped for an equivalent. This sweep still is not a substitute for `theme.spec.ts`'s
+ * own tests (persistence, first-paint correctness, device reconciliation) — it answers one question,
+ * "does every surface still fit and show every control", under the real switch instead of a stand-in
+ * for it.
+ */
+async function setThemeCookie(page: Page, baseURL: string | undefined, theme: "dark" | "light"): Promise<void> {
+  if (theme !== "light") return;
+  await page.context().addCookies([{ name: "ch_theme", value: "light", url: baseURL! }]);
+}
+
+for (const theme of ["dark", "light"] as const) {
+  test.describe(`[${theme}]`, () => {
+    test.beforeEach(async ({ page, baseURL }) => {
+      await setThemeCookie(page, baseURL, theme);
+    });
+
+    test.describe("the routes", () => {
+      test("/login", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
 
@@ -239,7 +268,8 @@ test.describe("the routes", () => {
     await page.getByTestId("view-week").click();
 
     // `28 Dec 2026 – 3 Jan 2027` is the longest title this product can produce, and it shares the
-    // header row with the sign-out control (T077).
+    // header row with the nav drawer trigger (T029; it held the sign-out control here until 002
+    // T030 moved that into the drawer itself).
     await page.clock.setFixedTime(Date.UTC(2026, 11, 30, 3, 0, 0));
     await page.reload();
     // The view is client state, so a reload lands back on the month grid.
@@ -346,3 +376,5 @@ test.describe("the overlay surfaces", () => {
     await auditSurface(page, "delete confirmation");
   });
 });
+  });
+}

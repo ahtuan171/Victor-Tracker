@@ -110,7 +110,7 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 | The cookie is a **routing hint**, never an authorisation decision | The signing secret lives on Render and deliberately never reaches Vercel (R-001), so nothing on this side can tell a live token from a dead one — and it does not need to. Unauthenticated is stopped before any markup exists (SC-006 is about the HTML, not the screen); expired is caught by the backend rejecting the bearer, surfacing as the 401 `lib/api.ts` handles. Guessing wrong costs one redirect and renders no content. Do not "harden" this by verifying a JWT here — that would mean shipping the signing secret to Vercel. |
 | The `(app)` guard is checked **twice** — in the group layout and again in `calendar/page.tsx` | App Router layouts are not re-executed on soft navigations, so once the app is open a client-side route change reuses a credential check from when the tab was opened. Page segments *are* re-fetched, which is why the second check is a page and not another layout. Both call `hasSessionCookie`, so there is one definition of "is there a session". **A full page load exercises both at once**, so no e2e test can tell them apart — deleting the page-level check leaves `session-guard.spec.ts` green. This row is the guard. (T027's e2e tests were written-and-skipped through Phase 2 and switched on at T033.) |
 | Read the browser clock with `useSyncExternalStore`, not `useEffect` + `useState` | R-006's addendum describes the effect form and it is correct, but it sets state from an effect — which React 19's compiler lint flags — and renders once with the wrong value before correcting itself. `getServerSnapshot` returning `null` gives the same guarantee with neither problem. Pass **module-scope** functions: an inline `() => today()` is a new identity every render, which is the subscription version of the unstable-params bug. Safe to call repeatedly because `today()` returns a string and React compares snapshots with `Object.is`. |
-| **`app/globals.css` is the only file allowed to contain a colour**, and its values come from the stage-2 export | The design export in `design/content-calendar/` establishes the tokens for **all four** modules (`.claude/rules/design.md`), so a hex written into a component is a project-wide decision taken in the wrong place. Every surface from T033 on says `bg-surface-1`, `text-ink-mid`, `text-status-draft` — those names exist in `@theme inline` precisely so no one re-derives a hex per component. |
+| **`app/globals.css` is the only file allowed to contain a colour**, and its values come from the token layer | Those tokens are the **project's**, not the calendar's (`.claude/rules/design.md`), so a hex written into a component is a project-wide decision taken in the wrong place. The token *values* are replaceable — `002-pixel-arcade-skin` replaces them wholesale — and this rule is what makes that a one-file change instead of a hunt; a feature module may not replace them at all. Every surface from T033 on says `bg-surface-1`, `text-ink-mid`, `text-status-draft` — those names exist in `@theme inline` precisely so no one re-derives a hex per component. |
 | The app is dark by **`class="dark"` on `<html>`**, not by `prefers-color-scheme` | The export's primary direction is the dark one and v0.1 ships no theme switch, so a media query would make the design a coin flip on the creator's OS setting. The light counterpart is still in `:root`, so turning this into a real preference later is one line, not a re-skin. |
 | Form fields keep **`text-base` (16px)** even though the export's body size is 15px | iOS zooms the page in when focusing any input under 16px, which on a 375px-floor product throws away the layout on first tap. This is the one place the design is knowingly not followed to the pixel; it is a platform constraint, not a preference. |
 | The corner and texture treatments are **plain CSS classes** (`.notch-card`, `.notch-sheet`, `.web-grain`), not React components | They are token-level decisions — the visual language's corner and grain — rather than anything with behaviour, and a CSS class is the smallest thing that can carry a `clip-path`. Each already had two callers on the login surface alone, so this is not abstraction ahead of need. |
@@ -121,6 +121,10 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 
 | There is **one focus indicator**, `.focus-ring` in `globals.css`, plus `.focus-ring-inset` for controls that clip | T067. It lives beside `.notch-card` and `.web-grain` for the same stated reason — a token-level decision rather than a per-screen one — and by T067 it had more than twenty callers, so it is not abstraction ahead of need. **`outline`, never a `ring-*` box-shadow**: on the brand-filled controls a ring is painted in the element's own layer, which is red on red. **`outline-offset: 2px` is what actually solves that**, putting the ring on the dark surface outside the control. Use `.focus-ring` by default and `.focus-ring-inset` **only** where something clips the control's box — see the trap below for the two cases, which is the whole of the list. |
 | Focus is `:focus-visible`, and the six pre-existing `ring-*` sites were migrated rather than left alone | Two spellings of one decision is how they drift; `ItemChip` had `ring-2` while nothing else on the calendar had anything. `:focus` rather than `:focus-visible` is the other tempting shortcut and it is worse than nothing — a ring on every mouse tap is the noise that gets focus styles deleted. |
+
+| **002's action band (T003): VT323 labels, `+ CAPTURE` → `+ NEW`, padding 32px → 16px — display lettering never appears in the band, at any size** | `research.md` R-003 computed the band against a 363px-inside-frame budget before the frame thickness was decided. Re-measured against the **real** fonts loaded at T002 (production build, `document.fonts.ready`, `letter-spacing: 0.05em` as the type scale sets it): `MONTH` renders **36px**, `WEEK` **28.8px** in VT323 at 16px — both narrower than Oswald's `MONTH` at today's 13px (38.4px), confirming R-001's finding that VT323 is the *narrower* face despite looking larger. **T004 (2026-08-08) set the frame at 10px per side, not 6px** — the owner's choice from a real side-by-side against 14px — which narrows the surviving margin to **~18px** (355px inside, ~337px needed) rather than the ~26px a 6px frame would have left. Still fits, with less room to give back. **Not yet applied to `PeriodNav.tsx`** — that is T016's job, "applying T003's decision" per its own task line — this row exists so T016 does not have to re-derive it. `viewport-audit.spec.ts` is the gate once it lands, never a `scrollWidth` check (see the trap of the same name below). |
+| **Silkscreen is never used in the action band, at any size** | FR-034 already forbids the display face below 16px; R-003 adds a stronger, band-specific rule — Silkscreen's advance width (1.84× Oswald's) fails the band even at sizes FR-034 would otherwise permit. If a future task reaches for Silkscreen to add visual weight to a band control, this is why not. |
+| **Content text (T004): 20px, not 18px** — chosen by the owner 2026-08-08 from a real side-by-side on a day cell, both rendered in the actual VT323 file | `research.md` R-001 left this open between 18px (advance/x-height close to outgoing Barlow's 16px) and 20px (x-height matches Barlow's exactly, at a cost in vertical space). 20px won. **T017's "does 18px content push six rows past 667px" question is not resolved by this — it needs re-checking at 20px, which costs more vertical space than the 18px estimate did**, not less. Treat the month grid's row height as unmeasured until T017 actually does it. |
 
 ## Traps
 
@@ -493,6 +497,34 @@ make it conditional.
 succeeds and produces a component importing a nonexistent `cn` and referencing undefined CSS variables,
 so the failure surfaces later as an unstyled component rather than as an init error. Both files are now
 checked in by hand — check for them after any future `init`.
+
+**A real backend left running turns a stubbed e2e file into a flaky one, and the symptom looks like a
+resource problem before it looks like a stale container.** `docker compose ps` showing
+`victorhub-backend-1` up is enough: every e2e file's session cookie is the literal string
+`"stub-session"`, and CI's own condition — the one every file here was actually validated against —
+is **no backend at all**. A real one answers `GET /preferences` (called unconditionally from
+`CalendarShell`'s mount effect, T034/T038) with a genuine `401`, and `lib/api.ts`'s `request()`
+redirects to `/login` on any 401 except from `/auth/*` — mid-test, on a page most files never stub
+that endpoint for. The failures this produces are erratic (some fast, some the full 30s timeout,
+worse under more Playwright workers) and read exactly like a parallelism/capacity problem, which cost
+real time in `002-pixel-arcade-skin`'s Phase 7 chasing worker counts before the actual cause was
+found. **`docker compose stop backend` before a local e2e run**, unless the file under test stubs
+every endpoint `CalendarShell` reaches (`content-items` **and** `preferences`) — `docker compose
+start backend` after, so the environment used for backend work isn't left down for the next session.
+
+**A Playwright script driving `pnpm dev` from `127.0.0.1` hydrates nothing, and nothing reports an
+error.** Found writing T043's greyscale screenshot script. `next dev` (Turbopack) logs `Blocked
+cross-origin request to Next.js dev resource … from "127.0.0.1"` and only names the HMR websocket —
+but hydration itself silently never runs from that origin either: every resource still answers 200,
+`page.on("pageerror")` and `page.on("requestfailed")` both stay silent, SSR content (anything that
+does not depend on a `useEffect` or `useSyncExternalStore` read) renders and looks complete, and the
+page just sits there — `CalendarShell`'s `period` never leaves `null` because the client-side clock
+read that would set it never runs. The fix is the origin, not the app: point the script at
+`localhost:3000`, not `127.0.0.1:3000` — `playwright.config.ts`'s own `webServer` already uses
+`127.0.0.1` for the *test-runner* flow (T057's dev-overlay trap), so this is specific to a **standalone
+script** that launches its own browser rather than going through `playwright test`. When a page looks
+server-rendered-only and no automated wait ever resolves, check the dev server's own log for this
+line before suspecting the component.
 
 ## Commands
 

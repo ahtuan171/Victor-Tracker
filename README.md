@@ -1,143 +1,181 @@
 # VictorHub
 
-Run it locally, look at it, and give feedback. That is what this file is for — if you want to
-*change* the code, read [`backend/README.md`](backend/README.md) and
-[`frontend/README.md`](frontend/README.md) instead, and the agent guidance in
+File này dùng để **chạy sản phẩm trên máy bạn, nhìn nó, và góp ý**. Nếu bạn muốn *sửa code*, đọc
+[`backend/README.md`](backend/README.md), [`frontend/README.md`](frontend/README.md) và
 [`CLAUDE.md`](CLAUDE.md).
 
-> **Renamed to VictorHub in text and UI (2026-08-08); the live infrastructure has not caught up
-> yet.** The repository path, the GitLab project, both deploy targets and the GitHub mirror still say
-> "creator-hub" — renaming those means re-pointing two live deployments and a mirror, so that part is
-> a separate, manual pass (see `.claude/memory.md`).
+> **Đã đổi tên thành VictorHub trong văn bản và giao diện (2026-08-08); hạ tầng đang chạy thì chưa
+> theo kịp.** Đường dẫn repo, project GitLab, hai target deploy và GitHub mirror vẫn còn ghi
+> "creator-hub" — đổi những chỗ đó nghĩa là phải trỏ lại hai deployment đang chạy và một mirror, nên
+> phần đó tách thành một lượt riêng, làm thủ công (xem `.claude/memory.md`).
 
-## What actually exists right now
+## Hiện đang có gì
 
-| | State |
+| | Trạng thái |
 |---|---|
-| **Content Calendar** | **Built, tested, deployed.** Everything below walks through it. |
-| **Travel map** | **Not built.** Next iteration — there is nothing to look at yet. |
+| **Content Calendar** | **Đã xây, đã test, đã deploy.** Toàn bộ hướng dẫn dưới đây là về nó. |
+| **Pixel-arcade re-skin** (002) | **Đã xây xong (T001–T053), đang chờ merge vào `main` (MR !63).** Hướng dẫn dưới đây vẫn mô tả `main` hiện tại (bản trước re-skin) — sau khi merge, nút `+ CAPTURE` đổi thành `+ New`, giao diện đổi hẳn sang phong cách pixel-arcade/comic-tech, có thêm nav drawer (theme sáng/tối, âm thanh, đăng xuất). |
+| **Travel map** (003) | Chưa xây. Đánh số lại thành 003 vì 002 đã dùng cho re-skin ở trên. |
 
-271 backend tests and 432 frontend tests pass on `main`, none skipped.
-
----
-
-## Before the first run
-
-Three things, and the first one catches almost everybody.
-
-1. **Start Docker Desktop.** Its daemon does not survive a reboot, and without it the app fails in a
-   way that looks like a bug in the login page rather than a missing database.
-2. **Create `.env` in the repository root** by copying `.env.example`. Two values matter:
-   - `JWT_SECRET` — there is a **minimum length**, and a short one stops the backend booting with a
-     validation error rather than a helpful message.
-   - `SEED_CREATOR_EMAIL` / `SEED_CREATOR_PASSWORD` — the account you will sign in with. **Do not use
-     a `.local` address**: it is a reserved TLD and the email validator refuses it outright.
-   `.env` is gitignored and never leaves your machine.
-3. **Tools**: Docker, `uv`, `pnpm`, Node 24.
+`main`: **271 test backend + 432 test frontend**, xanh hết, không skip cái nào.
 
 ---
 
-## Start the backend
+## 1. Chuẩn bị (làm một lần)
+
+1. **Bật Docker Desktop.** Daemon không sống qua lần reboot; thiếu nó thì lỗi trông giống bug ở
+   trang login chứ không giống thiếu database.
+2. **Tạo `.env` ở thư mục gốc** bằng cách copy `.env.example`. Hai giá trị quan trọng:
+   - `JWT_SECRET` — có **độ dài tối thiểu**; ngắn quá thì backend không boot.
+   - `SEED_CREATOR_EMAIL` / `SEED_CREATOR_PASSWORD` — tài khoản bạn sẽ đăng nhập. **Đừng dùng đuôi
+     `.local`**, email validator từ chối thẳng.
+   `.env` đã gitignore, không rời khỏi máy bạn.
+3. **Cần có**: Docker, `uv`, `pnpm`, Node 24.
+
+---
+
+## 2. Chạy back-end
 
 ```bash
 docker compose up -d db backend
+curl http://127.0.0.1:8000/health          # đợi tới khi trả {"status":"ok"}
+docker compose exec backend uv run python -m app.scripts.seed_user   # tạo tài khoản, chạy 1 lần
 ```
 
-The first `backend` start takes about **70 seconds** while `uv sync` runs — it is not hung. Wait for
-it to answer:
+Lần khởi động `backend` đầu tiên mất khoảng **70 giây** vì `uv sync` chạy — không phải treo.
 
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Then create your account (once):
-
-```bash
-docker compose exec backend uv run python -m app.scripts.seed_user
-```
-
-Re-running this **changes the password** of the existing account. A *different* email is refused on
-purpose: there is no owner column on content items, so two accounts would silently share every item.
+Chạy lại `seed_user` chỉ **đổi mật khẩu** của tài khoản đang có. Một email *khác* bị từ chối có chủ
+đích: content item không có cột chủ sở hữu, nên hai tài khoản sẽ dùng chung mọi item.
 
 ---
 
-## Start the frontend — two ways, and the choice matters
+## 3. Kiểm tra back-end (không cần giao diện)
+
+### Swagger UI — cách nhanh nhất để thấy toàn bộ tính năng back-end
+
+Mở <http://127.0.0.1:8000/docs>. Đây là tài liệu API sinh từ chính code đang chạy, và **bấm thử được
+ngay trong trình duyệt**. Toàn bộ back-end chỉ có 8 thao tác:
+
+| Thao tác | Làm gì |
+|---|---|
+| `GET /health` | Sống hay chết. **Không** chạm database — cố ý, để một cú nấc của DB không giết service. |
+| `POST /auth/login` | Đổi email + mật khẩu lấy access token. Sai email hay sai mật khẩu đều trả **cùng một** thông báo 401 — không tiết lộ nửa nào sai. |
+| `POST /auth/logout` | Kết thúc phiên. Token hết hạn vẫn logout được; chỉ khi *không* gửi token nào mới 401. |
+| `POST /content-items` | Tạo ý tưởng. **Chỉ cần title.** |
+| `GET /content-items` | Liệt kê. Lọc được theo `date_from`/`date_to`, `scheduled=none` (backlog), `platform`. |
+| `GET /content-items/{id}` | Đọc một item. |
+| `PATCH /content-items/{id}` | Sửa từng phần. |
+| `DELETE /content-items/{id}` | Xoá. |
+
+**Cách dùng /docs**: bấm `POST /auth/login` → `Try it out` → điền email/mật khẩu trong `.env` →
+`Execute` → copy `access_token` → bấm nút **Authorize** ở góc trên phải → dán token. Từ đó mọi
+endpoint `/content-items` đều gọi thử được.
+
+### Nếu thích dòng lệnh
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"...","password":"..."}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+curl -s -X POST http://127.0.0.1:8000/content-items \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"title":"Thử một ý tưởng"}'
+
+curl -s "http://127.0.0.1:8000/content-items?scheduled=none" -H "authorization: Bearer $TOKEN"
+```
+
+### Vài quy tắc nghiệp vụ đáng thử phá
+
+Đây là chỗ back-end *phải* từ chối. Nếu nó không từ chối, đó là bug thật:
+
+- Tạo item với `title` là `"   "` (toàn khoảng trắng) → phải **422**.
+- `PATCH` một item sang `status: "draft"` khi nó chưa có `platform` → phải **409**, kèm
+  `code: "platform_required"`.
+- Xoá `platform` của một item đang ở `draft`/`posted` → phải **409**, `code: "platform_locked"`.
+- Gọi bất kỳ endpoint `/content-items` nào mà không kèm token → phải **401** (không phải 403).
+
+### Chạy bộ test back-end
+
+```bash
+cd backend && uv run pytest        # cần docker compose up -d db
+```
+
+---
+
+## 4. Chạy front-end
 
 ```bash
 cd frontend
 pnpm install
 ```
 
-Then pick deliberately:
+Rồi chọn **có chủ đích**:
 
-| | Command | Use it when |
+| | Lệnh | Dùng khi |
 |---|---|---|
-| **Dev** | `pnpm dev` | You are changing code and want hot reload. |
-| **Production** | `pnpm build`, then `API_BASE_URL=http://127.0.0.1:8000 SESSION_COOKIE_SECURE=false pnpm start` | **You are looking at the product to give feedback.** |
+| Dev | `pnpm dev` | Bạn đang sửa code và muốn hot reload. |
+| **Production** | `pnpm build`, rồi `API_BASE_URL=http://127.0.0.1:8000 SESSION_COOKIE_SECURE=false pnpm start` | **Bạn đang xem sản phẩm để góp ý.** |
 
-Both serve <http://localhost:3000>.
+Cả hai đều ở <http://localhost:3000>.
 
-**Use the production build for reviewing, and here is why it is not a detail.** Next's dev overlay —
-the floating "N" button, bottom-left — sits *exactly* over the `MONTH` / `WEEK` toggle at 375px and
-swallows the click. Under `pnpm dev` the view toggle looks broken and is not. This has cost real
-debugging time more than once.
+**Vì sao phải dùng bản production để review** — nút nổi "N" (dev overlay của Next) nằm **đúng** trên
+nút chuyển `MONTH` / `WEEK` ở 375px và nuốt cú chạm. Dưới `pnpm dev`, nút chuyển view trông như
+hỏng mà thực ra không hỏng.
 
-The two environment variables are both load-bearing. Without `SESSION_COOKIE_SECURE=false` the proxy
-sets a `Secure` cookie, the browser refuses to store it over plain `http://`, and a **correct**
-sign-in bounces you straight back to the login page — which reads as a broken session guard rather
-than as a cookie that was never saved.
+Hai biến môi trường đều chịu lực. Thiếu `SESSION_COOKIE_SECURE=false` thì proxy set cookie `Secure`,
+trình duyệt từ chối lưu qua `http://`, và một lần đăng nhập **đúng** vẫn bị đá về trang login.
 
 ---
 
-## Look at it at 375px. This is not a preference
+## 5. Xem ở 375px — đây là ràng buộc, không phải sở thích
 
-Mobile-first is a hard constraint here, not a nicety: the product is designed at phone width and
-desktop is an enhancement. **Feedback given from a maximised desktop window is feedback about a
-layout nobody designed.**
+Sản phẩm được thiết kế theo chiều rộng điện thoại; desktop chỉ là phần mở rộng. **Góp ý từ cửa sổ
+desktop phóng to là góp ý về một layout không ai thiết kế cả.**
 
-In Chrome or Edge: `F12` → the device-toolbar icon (`Ctrl+Shift+M`) → set **375 × 667**, or pick
-iPhone SE. Keep it there for the whole walkthrough.
+Chrome/Edge: `F12` → biểu tượng device toolbar (`Ctrl+Shift+M`) → đặt **375 × 667** (hoặc chọn
+iPhone SE). Giữ nguyên suốt cả lượt đi.
 
 ---
 
-## The walkthrough
+## 6. Đi qua sản phẩm
 
-Go in this order. Each step says what *should* happen, so "this feels wrong" can be pinned to
-something specific.
+Theo đúng thứ tự này. Mỗi bước ghi rõ điều *đáng lẽ* phải xảy ra, để "chỗ này thấy sai sai" gắn được
+vào một thứ cụ thể.
 
-1. **Sign in.** Email and password from your `.env`.
-2. **First run.** With no items, the calendar explains itself instead of showing a blank grid — and
-   the grid is still visible beneath the message.
-3. **Capture an idea.** Tap `+ CAPTURE`, type a title, save. That is **three interactions and no
-   more** — it is a measured budget, so if it feels like four, say so. Only a title is asked for; a
-   platform or a date at this moment would be friction.
-4. **The backlog drawer.** Your new idea is there, at the bottom. It has a collapsed peek strip and
-   an expanded state. It is a drawer on the calendar, deliberately not a separate page.
-5. **Month and week.** Toggle between them. The month grid is always six rows, so nothing under your
-   thumb moves as you navigate. The week view is seven stacked sections, not seven columns.
-6. **Navigate periods.** Arrows move a month or a week. Watch the title and the eyebrow.
-7. **Read status without reading text.** Status is shape and fill — outline, half, solid with a check
-   — never colour alone. **Squint at it, or take a greyscale screenshot.** If you cannot tell the
-   three apart, that is a real failure, not a preference.
-8. **Drag an item onto a day.** Then drag it back to the backlog. A scroll gesture that starts on an
-   item must scroll, never pick it up.
-9. **Open an item.** Change title, hook, platform, status, date. One save sends one request.
-10. **Try to break a rule.** Move an item past `idea` with no platform — it should refuse and point
-    at the control that fixes it, without you leaving the screen.
-11. **Filter by platform.** Should feel instant. Filter to a platform with nothing in it — the screen
-    should name the filter rather than go blank.
-12. **Published link.** Paste a URL on an item, then open it from the calendar. Move the item back to
-    `draft` — **the link must survive**, because the post it points at is still live.
-13. **Overdue.** Schedule something in the past. It gets a dashed left border and the header counts
-    it. Overdue is a condition, not a fourth status.
-14. **Delete.** Item → `DELETE ITEM` → `DELETE PERMANENTLY`. Three deliberate taps, and `KEEP ITEM`
-    is what `Enter` and `Escape` do.
-15. **Tab through everything** with a keyboard. Every control shows a visible focus outline.
-16. **Nothing may leave the screen.** No horizontal scrolling, and no control cut off at the right
-    edge, on any screen or sheet.
-17. **Sign out** from the header.
+1. **Đăng nhập** bằng email/mật khẩu trong `.env`.
+2. **Lần đầu.** Chưa có item nào thì lịch tự giải thích chính nó thay vì hiện lưới trống — và lưới
+   vẫn nhìn thấy được phía sau lời giải thích.
+3. **Ghi một ý tưởng.** Chạm `+ CAPTURE`, gõ tiêu đề, lưu. Đó là **đúng ba thao tác** — có ngân sách
+   đo được, nên nếu bạn thấy nó giống bốn thao tác thì nói ra. Chỉ hỏi tiêu đề; hỏi platform hay
+   ngày ở khoảnh khắc này là ma sát.
+4. **Ngăn backlog.** Ý tưởng vừa tạo nằm ở đó, dưới đáy. Có trạng thái thu gọn và trạng thái mở. Nó
+   là ngăn kéo *trên* trang lịch, cố ý không phải một trang riêng.
+5. **Tháng và tuần.** Chuyển qua lại. Lưới tháng luôn sáu hàng, nên không có gì dịch chuyển dưới
+   ngón cái khi bạn điều hướng. Tuần là bảy khối xếp dọc, không phải bảy cột.
+6. **Chuyển kỳ.** Mũi tên đi tới/lui một tháng hoặc một tuần. Nhìn tiêu đề và dòng nhãn phía trên.
+7. **Đọc trạng thái mà không đọc chữ.** Trạng thái là hình dạng và độ đặc — viền rỗng, nửa đặc, đặc
+   có dấu tích — không bao giờ chỉ bằng màu. **Nheo mắt, hoặc chụp màn hình rồi chuyển sang trắng
+   đen.** Nếu không phân biệt được ba trạng thái, đó là lỗi thật.
+8. **Kéo một item vào một ngày.** Rồi kéo ngược về backlog. Một cú vuốt bắt đầu từ item phải là
+   cuộn trang, không được nhấc item lên.
+9. **Mở một item.** Đổi title, hook, platform, status, ngày. Một lần lưu gửi một request.
+10. **Thử phá luật.** Chuyển item khỏi `idea` khi chưa có platform — nó phải từ chối và chỉ thẳng
+    vào ô cần sửa, không bắt bạn rời màn hình.
+11. **Lọc theo platform.** Phải thấy tức thì. Lọc sang platform không có item nào — màn hình phải
+    nói rõ đang lọc gì, thay vì trắng trơn.
+12. **Link đã đăng.** Dán URL vào một item rồi mở nó từ lịch. Đưa item ngược về `draft` — **link
+    phải còn**, vì bài đăng nó trỏ tới vẫn đang sống.
+13. **Quá hạn.** Đặt lịch một item vào quá khứ. Nó có viền trái nét đứt và header đếm nó. Quá hạn là
+    một *điều kiện*, không phải trạng thái thứ tư.
+14. **Xoá.** Item → `DELETE ITEM` → `DELETE PERMANENTLY`. Ba chạm có chủ đích, và `KEEP ITEM` là thứ
+    `Enter` với `Escape` chọn.
+15. **Tab qua mọi thứ** bằng bàn phím. Mọi control phải hiện viền focus nhìn thấy được.
+16. **Không thứ gì được ra khỏi màn hình.** Không cuộn ngang, không control nào bị cắt ở mép phải,
+    trên mọi màn hình và mọi panel.
+17. **Đăng xuất** từ header.
 
-### Reset between runs
+### Xoá sạch dữ liệu giữa hai lượt
 
 ```bash
 docker compose exec -T db psql -U creatorhub -d creatorhub -c "delete from content_item;"
@@ -145,36 +183,36 @@ docker compose exec -T db psql -U creatorhub -d creatorhub -c "delete from conte
 
 ---
 
-## The deployed version
+## Bản đã deploy
 
-- Frontend: <https://creator-hub-hazel.vercel.app>
-- Backend: <https://creator-hub-1dgs.onrender.com>
+- Front-end: <https://creator-hub-hazel.vercel.app>
+- Back-end: <https://creator-hub-1dgs.onrender.com> (Swagger ở `/docs`)
 
-**The first visit of the day takes about 45 seconds, and that is known.** The request crosses two
-suspended free tiers stacked — Render spins the service down and Neon auto-suspends the database.
-Warm, the same page is under two seconds. Please do not report the cold start as a bug; the fix is a
-paid tier or a keep-warm ping, and it is a deliberate deferral.
+**Lần truy cập đầu tiên trong ngày mất khoảng 45 giây, và điều này đã biết.** Request đầu đi qua
+**hai** tầng free tier đang ngủ chồng lên nhau — Render tắt service và Neon tự treo database. Khi đã
+ấm, cùng trang đó dưới 2 giây. Đừng báo cold start như một bug; cách chữa là trả tiền hoặc ping giữ
+ấm, và đó là quyết định hoãn có chủ đích.
 
 ---
 
-## When something looks broken
+## Khi thấy có vẻ hỏng
 
-| Symptom | What it actually is |
+| Triệu chứng | Thực ra là gì |
 |---|---|
-| Login page hangs; nothing reaches the API | Docker daemon stopped. Start Docker Desktop, then `docker compose up -d db backend`. |
-| `MONTH` / `WEEK` toggle does nothing at 375px | Next's dev overlay covering it. Use the production build. |
-| Sign-in succeeds, then bounces back to `/login` | `SESSION_COOKIE_SECURE=false` missing from the `pnpm start` command. |
-| Backend will not boot, complains about a setting | `JWT_SECRET` too short, or a variable set to an **empty** string — an empty value overrides a default and then fails its own constraint. |
-| `pnpm typecheck` red right after switching branches | Stale generated route types. `rm -rf .next` and re-run. CI never sees this. |
-| `playwright test` refuses to start (`EADDRINUSE`) | A server left over on port 3100. Kill it. |
-| A panel renders transparent or unstyled | A misspelled Tailwind class. It fails **silently** — no build, lint, or test error. |
+| Trang login treo, không request nào tới API | Docker daemon đã tắt. Bật Docker Desktop rồi `docker compose up -d db backend`. |
+| Nút `MONTH` / `WEEK` không ăn ở 375px | Dev overlay của Next đè lên. Dùng bản production. |
+| Đăng nhập đúng nhưng bị đá về `/login` | Thiếu `SESSION_COOKIE_SECURE=false` trong lệnh `pnpm start`. |
+| Backend không boot, kêu về một setting | `JWT_SECRET` quá ngắn, hoặc một biến bị set thành chuỗi **rỗng** — giá trị rỗng ghi đè default rồi tự vi phạm ràng buộc của chính nó. |
+| `pnpm typecheck` đỏ ngay sau khi đổi nhánh | Route type sinh ra đã cũ. `rm -rf .next` rồi chạy lại. CI không bao giờ gặp. |
+| `playwright test` không khởi động (`EADDRINUSE`) | Còn server cũ giữ cổng 3100. Kill nó. |
+| Một panel render trong suốt hoặc mất style | Sai chính tả một class Tailwind. Nó hỏng **im lặng** — không lỗi build, lint hay test. |
 
 ---
 
-## Where to read more
+## Đọc thêm
 
-- [`CLAUDE.md`](CLAUDE.md) — current state, decisions, and what to do next
-- [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — the principles every change is checked against
-- [`specs/001-content-calendar/`](specs/001-content-calendar/) — what Content Calendar was specified to do
-- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, including the one acceptance criterion that fails cold
-- [`docs/retro-01.md`](docs/retro-01.md) — the first iteration's retrospective
+- [`CLAUDE.md`](CLAUDE.md) — trạng thái hiện tại, các quyết định, và việc tiếp theo
+- [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — nguyên tắc mọi thay đổi bị soi chiếu vào
+- [`specs/001-content-calendar/`](specs/001-content-calendar/) — Content Calendar được đặc tả để làm gì
+- [`CHANGELOG.md`](CHANGELOG.md) — đã ship những gì, gồm cả tiêu chí nghiệm thu duy nhất bị trượt khi lạnh
+- [`docs/retro-01.md`](docs/retro-01.md) — retro của iteration đầu tiên

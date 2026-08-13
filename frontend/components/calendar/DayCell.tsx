@@ -76,9 +76,15 @@ export function DayCell({
       data-in-period={inPeriod ? "" : undefined}
       data-testid="day-cell"
     >
+      {/*
+       * 002 T017: 10px -> the 12px floor. `aria-hidden` exempts this from the automated text-size
+       * sweep (it also skips real focus-trap sentinels, which is what it was written for), but a
+       * sighted creator still reads this number regardless of what a screen reader does with it, so
+       * FR-033's floor applies in spirit even where the test cannot currently see it.
+       */}
       <span
         className={cn(
-          "absolute top-[3px] right-1 text-[10px] leading-none font-semibold",
+          "absolute top-[3px] right-1 text-xs leading-none font-semibold",
           inPeriod ? "text-ink-mid" : "text-ink-lo/60",
         )}
         aria-hidden="true"
@@ -91,10 +97,18 @@ export function DayCell({
       ))}
 
       {hidden > 0 ? (
+        // 002 T017 bumped 14px -> 16px to stop FR-033's 12px text floor clipping, but left the
+        // control itself under FR-006's 44px tap-target floor — a real `<button>`, unlike the two
+        // chips beside it, whose own 44px exemption is documented and this one never was (found at
+        // the Phase 3 checkpoint's reviewer pass). Bumped to h-11 (44px) here rather than documenting
+        // an exception: this is genuinely "a control a person taps" in FR-006's sense, the cost is a
+        // taller cell only on the rare day that actually overflows two chips, and the cell already
+        // grows in place for `expanded` — this is the same shape of growth, just from a taller
+        // trigger rather than more chips.
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-3.5 rounded-sm border text-[8px] leading-3 font-semibold"
+          className="border-hairline bg-surface-3 text-ink-mid focus-ring h-11 rounded-sm border text-xs leading-none font-semibold"
           data-testid="day-overflow"
         >
           +{hidden} more

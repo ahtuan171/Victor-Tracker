@@ -174,7 +174,9 @@ test.describe("periodTitle and periodEyebrow", () => {
     test(`name a month, in ${tz}`, () => {
       inTimezone(tz, () => {
         expect(periodTitle("2026-03-17", "month")).toBe("March 2026");
-        expect(periodEyebrow("2026-03-17", "month")).toBe("Content Calendar");
+        // T049 (comic-tech brief §5): the issue number is the month number, zero-padded — March is
+        // the 3rd month, so Issue #03, matching the brief's own "August → Issue #08" example.
+        expect(periodEyebrow("2026-03-17", "month")).toBe("Victor Tracker · Issue #03");
       });
     });
 

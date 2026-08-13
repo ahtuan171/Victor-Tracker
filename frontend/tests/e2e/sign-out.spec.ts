@@ -12,6 +12,13 @@ import { expect, test, type Page } from "@playwright/test";
  * missing; the transport underneath is covered by `tests/client/api.spec.ts` and
  * `backend/tests/test_auth.py`.
  *
+ * **002 T030 moved the control from the header into `arcade/NavDrawer.tsx`'s own footer (FR-017)**,
+ * so every test here opens the drawer first — a single header tap is no longer enough to reach it,
+ * which is the point: FR-017 asks that leaving the account sit further from a thumb's resting
+ * position than the actions used frequently, and two taps deep is the mechanism that now gives it
+ * that distance. The behaviour these tests pin (the 401 swallow, the refusal message, the redirect)
+ * is unchanged from T077 — only the surface it lives in moved.
+ *
  * The proxy is stubbed, as in every other file here — CI runs the production bundle with no FastAPI
  * behind it. What that costs is stated in `.claude/memory.md`: a green run says nothing about the
  * browser → proxy → FastAPI → Postgres seam, which is why quickstart V1.4 and V8.1 walk it by hand.
@@ -36,6 +43,12 @@ async function openCalendar(page: Page, baseURL: string | undefined): Promise<vo
   await signedIn(page, baseURL);
   await page.goto("/calendar");
   await page.getByTestId("capture-action").waitFor();
+}
+
+/** Open the nav drawer, the one place `sign-out-action` lives since T030. */
+async function openDrawer(page: Page): Promise<void> {
+  await page.getByTestId("nav-drawer-trigger").click();
+  await page.getByTestId("nav-drawer-panel").waitFor();
 }
 
 /**
@@ -63,17 +76,32 @@ function stubLogout(
   return { calls };
 }
 
-test("the calendar carries a sign-out control", async ({ page, baseURL }) => {
+test("sign-out is not reachable from the calendar in a single tap", async ({ page, baseURL }) => {
   await openCalendar(page, baseURL);
+
+  // FR-017: not a single accidental tap. The control exists, but only inside the drawer this test
+  // has not opened yet.
+  await expect(page.getByTestId("sign-out-action")).not.toBeVisible();
+});
+
+test("the drawer carries a sign-out control, at its far end", async ({ page, baseURL }) => {
+  await openCalendar(page, baseURL);
+  await openDrawer(page);
 
   await expect(page.getByTestId("sign-out-action")).toBeVisible();
   // A label rather than a bare glyph: it is the one control in the product whose mis-tap costs the
   // creator their session, and every other control here is a written word.
   await expect(page.getByTestId("sign-out-action")).toHaveAccessibleName(/sign out/i);
+
+  // "At its far end" (FR-017, T030's task line): below the screen list, not beside it.
+  const screens = (await page.getByTestId("nav-drawer-screens").boundingBox())!;
+  const signOut = (await page.getByTestId("sign-out-action").boundingBox())!;
+  expect(signOut.y).toBeGreaterThanOrEqual(screens.y + screens.height);
 });
 
 test("signing out ends the session and lands on the login page", async ({ page, baseURL }) => {
   await openCalendar(page, baseURL);
+  await openDrawer(page);
   const logout = stubLogout(page);
 
   await page.getByTestId("sign-out-action").click();
@@ -91,6 +119,7 @@ test("signing out of an already-dead session still reaches the login page", asyn
   baseURL,
 }) => {
   await openCalendar(page, baseURL);
+  await openDrawer(page);
   const logout = stubLogout(page, 401);
 
   await page.getByTestId("sign-out-action").click();
@@ -108,6 +137,7 @@ test("a refused sign-out keeps the creator on the calendar and says so", async (
   baseURL,
 }) => {
   await openCalendar(page, baseURL);
+  await openDrawer(page);
   stubLogout(page, 500);
 
   await page.getByTestId("sign-out-action").click();
@@ -118,25 +148,10 @@ test("a refused sign-out keeps the creator on the calendar and says so", async (
   // sign-out" read backwards.
   await expect(page.getByTestId("sign-out-message")).toHaveText(/could not sign you out/i);
   expect(new URL(page.url()).pathname).toBe("/calendar");
-  // Still offered, because the creator's next move is to try again.
+  // Still offered, because the creator's next move is to try again — and the drawer stayed open
+  // through the refusal rather than closing on it, which would have hidden the very message this
+  // asserts.
   await expect(page.getByTestId("sign-out-action")).toBeEnabled();
-});
-
-test("sign-out is not in the action band, and the band still fits", async ({ page, baseURL }) => {
-  await openCalendar(page, baseURL);
-
-  const viewport = page.viewportSize()!;
-  const signOut = (await page.getByTestId("sign-out-action").boundingBox())!;
-  const capture = (await page.getByTestId("capture-action").boundingBox())!;
-
-  // **A measurement, not a preference.** The action band holds the view toggle, two arrows and
-  // `+ CAPTURE`: 300px of content plus 24px of gaps plus 32px of padding = 356px of the 375px floor,
-  // leaving 19px. A 44px target and its gap need 50px. T077's task line said "action band" and was
-  // amended for this reason — putting it there means breaking either the tap floor
-  // (`.claude/rules/design.md`) or FR-021, and FR-022 asks thumb reach for the actions the creator
-  // performs *frequently* — "capture, status change, date change" — which sign-out is not.
-  expect(signOut.y + signOut.height).toBeLessThan(capture.y);
-  expect(capture.x + capture.width).toBeLessThanOrEqual(viewport.width);
 });
 
 test("the sign-out control meets the 44px tap floor and does not overflow", async ({
@@ -144,6 +159,7 @@ test("the sign-out control meets the 44px tap floor and does not overflow", asyn
   baseURL,
 }) => {
   await openCalendar(page, baseURL);
+  await openDrawer(page);
 
   const viewport = page.viewportSize()!;
   const box = (await page.getByTestId("sign-out-action").boundingBox())!;
@@ -156,7 +172,7 @@ test("the sign-out control meets the 44px tap floor and does not overflow", asyn
   expect(overflows).toBe(false);
 });
 
-test("the header still fits its longest period title beside the sign-out control", async ({
+test("the header still fits its longest period title beside the drawer trigger", async ({
   page,
   baseURL,
 }) => {
@@ -166,9 +182,10 @@ test("the header still fits its longest period title beside the sign-out control
   });
 
   // The same worst case `period-nav.spec.ts` pins: 31 December 2026 is a Thursday, so its week is
-  // `28 Dec 2026 – 3 Jan 2027`, the longest title this product can produce. That test predates the
-  // sign-out control; this one is here because the control took width out of the same row, and the
-  // header is the band with the least slack after the action bar.
+  // `28 Dec 2026 – 3 Jan 2027`, the longest title this product can produce. This test predates the
+  // drawer trigger (it used to pin the sign-out control T030 moved out of this row); it stays here
+  // because the header is the band with the least slack after the action bar, whichever control
+  // shares the row with the title.
   await page.clock.setFixedTime(Date.UTC(2026, 11, 31, 3, 0, 0));
   await page.goto("/calendar");
   await page.getByTestId("capture-action").waitFor();
@@ -181,8 +198,8 @@ test("the header still fits its longest period title beside the sign-out control
   expect(overflows).toBe(false);
 
   const title = (await page.getByTestId("calendar-period").boundingBox())!;
-  const signOut = (await page.getByTestId("sign-out-action").boundingBox())!;
+  const trigger = (await page.getByTestId("nav-drawer-trigger").boundingBox())!;
   // Adjacent, not overlapping — an overflow-hidden title that had been silently clipped would still
   // satisfy the scroll check above.
-  expect(title.x + title.width).toBeLessThanOrEqual(signOut.x);
+  expect(title.x + title.width).toBeLessThanOrEqual(trigger.x);
 });

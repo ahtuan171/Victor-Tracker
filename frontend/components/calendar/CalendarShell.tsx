@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   DndContext,
@@ -13,6 +13,8 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 
+import { NavDrawer } from "@/components/arcade/NavDrawer";
+import { Ticker } from "@/components/arcade/Ticker";
 import { BACKLOG_DROP_ID, BacklogDrawer } from "@/components/backlog/BacklogDrawer";
 import { FirstRun } from "@/components/calendar/FirstRun";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
@@ -24,16 +26,12 @@ import { FilteredEmpty } from "@/components/item/FilteredEmpty";
 import { ItemChip } from "@/components/item/ItemChip";
 import { ItemSheet } from "@/components/item/ItemSheet";
 import { PlatformFilter } from "@/components/item/PlatformFilter";
-import {
-  ApiError,
-  logout,
-  type ContentItem,
-  type ContentItemUpdate,
-  type Platform,
-} from "@/lib/api";
+import { ApiError, getPreferences, type ContentItem, type ContentItemUpdate, type Platform } from "@/lib/api";
 import { isDateOnly, today, type DateOnly } from "@/lib/dates";
-import { countOverdue, selectByPlatform, useContentItems } from "@/lib/items";
+import { countOverdue, nextDue, selectByPlatform, useContentItems } from "@/lib/items";
 import { periodEyebrow, periodTitle, shiftPeriod, type CalendarView } from "@/lib/period";
+import { playCue, setSoundEnabled } from "@/lib/sound";
+import { reconcileTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -107,6 +105,30 @@ export function CalendarShell() {
 
   /** Null on the server and during hydration, the creator's own day afterwards — see the note above. */
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+
+  /**
+   * Step 3 of research.md R-002's mechanism for theme, run once per mount: read the account's own
+   * presentation choice and, if it disagrees with what the `ch_theme` cookie already showed, the
+   * account wins — `reconcileTheme` corrects both the visible class and the cookie. A network failure
+   * here is not reported anywhere; the document already painted a valid theme from whatever the
+   * cookie held (`app/layout.tsx`), so there is nothing broken to surface, only a correction that did
+   * not happen.
+   *
+   * The same read also loads the sound choice (T038, FR-022). Sound has no first-paint obligation —
+   * unlike the theme, nothing about it is heard until an action causes it, so there is no cookie and
+   * no flash to prevent, only `lib/sound.ts`'s cached `enabled` to bring in line with the account
+   * before the first cue-worthy action has a chance to fire.
+   */
+  useEffect(() => {
+    void getPreferences()
+      .then((preferences) => {
+        reconcileTheme(preferences.theme);
+        setSoundEnabled(preferences.sound_enabled);
+      })
+      .catch((error: unknown) => {
+        console.error("[theme] could not read the account's preference to reconcile against", error);
+      });
+  }, []);
 
   const [view, setView] = useState<CalendarView>("month");
 
@@ -196,6 +218,14 @@ export function CalendarShell() {
   const visible = selectByPlatform(items, platform);
 
   /**
+   * Computed once, handed to the header count and the Ticker alike (T027, FR-028) — "one value, two
+   * presentations", never two independent reads of `visible` that happen to agree today but carry no
+   * guarantee of it tomorrow.
+   */
+  const overdueCount = countOverdue(visible, today);
+  const dueDate = nextDue(visible, today);
+
+  /**
    * Both sensors, and the `PointerSensor`'s constraint is the whole of T055.
    *
    * Without an activation constraint the sensor claims the gesture the instant a finger moves on a
@@ -242,7 +272,12 @@ export function CalendarShell() {
     // and the row visibly returning to its old day is the feedback. **A 404 is the exception T070
     // added** — the row does not return, it is removed, and a chip that silently disappears mid-drag
     // is the one outcome a creator would read as the app losing their item.
-    void updateItem(item, { scheduled_date }).catch((error: unknown) => noticeIfGone(error, item));
+    void updateItem(item, { scheduled_date })
+      .then(() => playCue("move"))
+      .catch((error: unknown) => {
+        noticeIfGone(error, item);
+        playCue("refuse");
+      });
   }
 
   /**
@@ -275,12 +310,18 @@ export function CalendarShell() {
     // against this element, which is what keeps it *on* the calendar surface (R-003a) instead of
     // becoming a full-screen overlay that reads as a second screen.
     //
-    // **`h-dvh`, not `min-h-dvh`** — and the difference is the whole of FR-022 on this surface. With a
-    // minimum, the column's height is still its content's, so `flex-1` on `<main>` has nothing to
-    // shrink against: six rows of grid plus the drawer push the action band *below* the fold and the
-    // page scrolls vertically to reach it. A fixed height is what gives `<main>` a size to be
-    // `min-h-0` against, so the grid scrolls inside its own container the way
-    // `.claude/rules/design.md` requires and the band stays under the thumb.
+    // **`h-full`, not `min-h-*` — the difference is still the whole of FR-022 on this surface, only
+    // the *source* of the fixed height moved.** `002-pixel-arcade-skin` wired `Frame` in at
+    // `app/layout.tsx`, and `body` is now the one true `h-dvh` (`Frame.tsx`'s docstring has the full
+    // chain). This component just has to keep passing that height through rather than re-establishing
+    // it — `h-full` fills whatever `Frame` gives it. Using `h-dvh` again here would work by accident
+    // (it would still be a real pixel height), but it would be a *second* viewport-height authority
+    // nested inside the frame's padding, which is redundant now and wrong the day the frame's own
+    // thickness changes at a wider breakpoint. A `min-h-*` here reproduces the original bug regardless
+    // of what sits above it: with a minimum, the column's height is still its content's, so `flex-1`
+    // on `<main>` has nothing to shrink against — six rows of grid plus the drawer push the action
+    // band *below* the fold and the page scrolls vertically to reach it, which is exactly what
+    // `min-h-0` on `<main>` and a fixed height up the whole chain exist to prevent.
     <DndContext
       sensors={sensors}
       /*
@@ -299,7 +340,7 @@ export function CalendarShell() {
       onDragCancel={() => setDragging(null)}
       onDragEnd={onDragEnd}
     >
-      <div className="bg-surface-0 text-ink relative flex h-dvh flex-col overflow-hidden">
+      <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
         {/*
          * Both counts describe **what is on screen**, so both narrow with the filter.
          *
@@ -314,7 +355,7 @@ export function CalendarShell() {
           period={period}
           view={view}
           itemCount={visible.length}
-          overdueCount={countOverdue(visible, today)}
+          overdueCount={overdueCount}
           loading={status === "loading"}
         />
 
@@ -351,10 +392,11 @@ export function CalendarShell() {
              * the creator can miss entirely, and a timer is the kind of thing that makes a suite
              * flaky. `h-11` is the 44px floor, as everywhere else.
              */}
+            {/* 002 (found while wiring T027): dropped font-display, 10px -> the 12px floor. */}
             <button
               type="button"
               onClick={() => setStaleTitle(null)}
-              className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring -my-0.5 h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+              className="border-hairline bg-surface-2 text-ink-mid focus-ring -my-0.5 h-11 flex-none rounded-sm border px-2.5 text-xs font-semibold tracking-[0.14em] uppercase"
               data-testid="stale-notice-dismiss"
             >
               Dismiss
@@ -370,10 +412,13 @@ export function CalendarShell() {
          */}
         <main className="min-h-0 flex-1 overflow-y-auto" aria-busy={status === "loading"}>
           {status === "error" ? (
+            // `border-danger-hi`/`text-danger-hi`, not `brand` (002): brand is chrome-only now that
+            // the accent split into cyan (chrome) and a dedicated danger red for errors/refusals —
+            // the same fix T015/T021/T022 applied to this surface's other error states.
             <p
               id="calendar-error"
               role="alert"
-              className="border-brand-hi bg-brand-sunk text-ink m-4 border-l-4 px-3 py-2 text-sm"
+              className="border-danger-hi text-danger-hi m-4 border-l-4 px-3 py-2 text-sm"
             >
               {error}
             </p>
@@ -470,6 +515,14 @@ export function CalendarShell() {
           />
         </CalendarActionBar>
 
+        {/*
+         * The moving-text strip (T027) — "along the bottom" per the reference, so it sits below the
+         * action band as the surface's last row. Values computed once, above, and handed to both this
+         * and the header count (FR-028) — never recomputed here, which would be a second reading of
+         * the same fact rather than a guaranteed-identical one.
+         */}
+        <Ticker overdueCount={overdueCount} due={dueDate} />
+
         <CaptureSheet open={capturing} onOpenChange={setCapturing} onCapture={createItem} />
 
         {/*
@@ -556,22 +609,14 @@ function readNoToday(): DateOnly | null {
  * exactly the one the creator has lost track of, and a count that emptied itself as they navigated
  * away from the problem would be the opposite of what the treatment is for.
  *
- * ## Sign-out lives here, and the task line said the action band
+ * ## Sign-out lived here (T077); it moved into the nav drawer at T030
  *
- * T077, and the amendment is recorded in `tasks.md` with the measurement behind it. The action band
- * carries the view toggle, two arrows and `+ CAPTURE`: **300px of content, 24px of gaps and 32px of
- * padding — 356px of the 375px floor, leaving 19px.** A 44px target and its gap need 50px, so
- * putting sign-out there means breaking either `.claude/rules/design.md`'s tap floor or FR-021's
- * "the page body MUST NOT scroll horizontally". FR-022 asks thumb reach for the actions the creator
- * performs **frequently** — it names them: "capture, status change, date change" — and sign-out is
- * none of the three. Distance from the thumb is a *feature* here for the same reason it is a cost
- * there: this is the one control whose mis-tap ends the session.
- *
- * It sits **above** the counts rather than beside them, which is what makes it nearly free: the
- * right-hand column is then `max(button, counts)` wide instead of their sum, so the period title
- * loses ~5px rather than ~91px. The longest title this product can produce is a cross-boundary week
- * (`28 Dec 2026 – 3 Jan 2027`), and both `period-nav.spec.ts` and `sign-out.spec.ts` pin it against
- * horizontal overflow.
+ * T077 put it in this header rather than the action band, for a measurement recorded in `tasks.md`:
+ * the band's own content plus gaps plus padding left only 19px against the 375px floor, where a 44px
+ * target and its gap need 50px. T030 moves the control one surface further out, into
+ * `arcade/NavDrawer.tsx`'s own footer (FR-017), and that reasoning is recorded there now rather than
+ * here — this header keeps only the drawer's trigger, which is what T029 added in the same right-hand
+ * column sign-out used to occupy alone.
  */
 function CalendarHeader({
   period,
@@ -586,63 +631,46 @@ function CalendarHeader({
   overdueCount: number;
   loading: boolean;
 }) {
-  /**
-   * Set only when the request is refused, and it keeps the creator here.
-   *
-   * Only the proxy can clear an httpOnly cookie, so a refused logout leaves the session **alive** —
-   * navigating to `/login` anyway would report an ending that did not happen. `logout()` already
-   * swallows a 401 (the session was over, which is where this was going), so anything reaching this
-   * branch is a session that is still open.
-   */
-  const [signOutError, setSignOutError] = useState<string | null>(null);
-
-  /** Disables the control for the moment before the page swaps, as `login-form.tsx` does on submit. */
-  const [signingOut, setSigningOut] = useState(false);
-
-  async function signOut(): Promise<void> {
-    if (signingOut) return;
-    setSigningOut(true);
-    setSignOutError(null);
-
-    try {
-      await logout();
-    } catch {
-      setSignOutError("Could not sign you out. Your session is still open — try again.");
-      setSigningOut(false);
-      return;
-    }
-
-    // `window.location.replace`, never a router push: the `(app)` guard is a server component and
-    // App Router layouts are not re-executed on soft navigations, so a client-side push could land
-    // on `/login` with the server never re-reading the now-cleared cookie. `replace` also keeps the
-    // signed-in page out of history, where going back would only bounce off the guard.
-    window.location.replace("/login");
-  }
-
   return (
-    <header className="border-hairline border-b px-4 pt-5 pb-3">
+    // T053 (comic-tech brief §7): the same faint texture the two empty states and the login panel
+    // already carry, here behind the header eyebrow and title — "the calendar corner" the brief asks
+    // for. `.web-grain` is a background-image only, so adding it costs no extra markup and nothing
+    // it measures (`viewport-audit.spec.ts`, `text-size-audit.spec.ts`) reads a background layer.
+    <header className="border-hairline web-grain border-b px-4 pt-5 pb-3">
       <div className="flex items-end justify-between gap-3">
         <div>
           {/*
-           * `Content Calendar` on the month view, `Week 11` on the week view — the export's `1c` and
-           * `1e` headers. The eyebrow carries the week number rather than the title, because the title
-           * has to name the actual days and there is not room at 375px for both.
+           * `Victor Tracker · Issue #NN` on the month view, `Week 11` on the week view (T049, comic-tech
+           * brief §5) — see `periodEyebrow`'s own docstring for why the issue number needs no counter
+           * of its own. The eyebrow carries the week number rather than the title on the week view,
+           * because the title has to name the actual days and there is not room at 375px for both.
+           */}
+          {/*
+           * 002-pixel-arcade-skin, T015: dropped `font-display` here — FR-034 forbids the display
+           * face (Silkscreen) below 16px, and this eyebrow was 10px, which also broke FR-033's
+           * absolute 12px floor on its own. VT323 (the ambient `font-sans`) at the 12px floor now.
            */}
           <p
-            className="text-brand font-display mb-1.5 text-[10px] leading-none font-semibold tracking-[0.24em] uppercase"
+            className="text-brand mb-1.5 text-xs leading-none font-semibold tracking-[0.24em] uppercase"
             data-testid="calendar-eyebrow"
           >
-            {period === null ? "Content Calendar" : periodEyebrow(period, view)}
+            {/*
+             * `Victor Tracker` alone while `period` is null (T049) — the month is not known yet, so
+             * no issue number is guessed; the same reasoning the title's own empty string follows two
+             * lines down.
+             */}
+            {period === null ? "Victor Tracker" : periodEyebrow(period, view)}
           </p>
           {/*
-           * `-skew-x-6` and the uppercase Oswald are the export's display treatment, not decoration
-           * added here. An empty string rather than a fallback month while `period` is null: a
-           * placeholder month would be a wrong month for a moment, which is the exact failure the
-           * after-mount read exists to prevent.
+           * The uppercase Silkscreen is the display treatment (T015 dropped the export's `-skew-x-6`
+           * — the reference's pixel lettering is set upright, and a skew reads as a leftover from the
+           * outgoing Oswald-condensed language rather than a pixel-arcade choice). An empty string
+           * rather than a fallback month while `period` is null: a placeholder month would be a wrong
+           * month for a moment, which is the exact failure the after-mount read exists to prevent.
            */}
           <h1
             className={cn(
-              "font-display -skew-x-6 leading-none font-bold tracking-wide uppercase",
+              "font-display leading-none font-bold tracking-wide uppercase",
               // The week title names days and a month, so it is longer than `MARCH 2026` and drops a
               // size — the export's own `1c`/`1e` difference. A cross-boundary week is longer still,
               // which is why the range abbreviates its months in `lib/period.ts`.
@@ -656,20 +684,12 @@ function CalendarHeader({
 
         <div className="flex flex-none flex-col items-end gap-1.5">
           {/*
-           * `h-11` is the 44px floor, as everywhere else — every shadcn size variant is desktop-scaled,
-           * so the height is explicit rather than inherited. The label is a written word for the same
-           * reason the rest of the product's controls are (`+ CAPTURE`, `MONTH`, `CLEAR`): a lone glyph
-           * would be the only icon-only control here, and this is the worst one to leave ambiguous.
+           * T029: the drawer's trigger. It used to sit above a sign-out button in this same column
+           * (T077); T030 moved that control into the drawer's own footer, so this is the column's
+           * only button now — narrower than "Sign out" was, so the width this column claims can only
+           * have gone down, not up.
            */}
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            disabled={signingOut}
-            className="border-hairline bg-surface-2 text-ink-mid font-display focus-ring h-11 flex-none rounded-sm border px-2.5 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
-            data-testid="sign-out-action"
-          >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
+          <NavDrawer />
 
           <p className="text-ink-mid text-right text-xs leading-snug" data-testid="calendar-counts">
             {loading ? (
@@ -695,22 +715,6 @@ function CalendarHeader({
           </p>
         </div>
       </div>
-
-      {/*
-       * Full width rather than inside the right-hand column, which is 44px wide by design — a
-       * sentence there would push the period title and break the very constraint that put the
-       * control in this band. It renders only on a refusal, so the header's height is unchanged in
-       * the case that always happens.
-       */}
-      {signOutError === null ? null : (
-        <p
-          role="alert"
-          className="text-brand-hi pt-2 text-xs leading-relaxed"
-          data-testid="sign-out-message"
-        >
-          {signOutError}
-        </p>
-      )}
     </header>
   );
 }
@@ -727,9 +731,15 @@ function CalendarHeader({
  * They are passed in as children rather than built here so this band stays what it is — a layout with
  * one rule about where a thumb can reach — while `PeriodNav` owns what the controls do.
  *
- * **The band is the tightest row in the product**: toggle, two arrows and `+ CAPTURE` inside 375px
- * with 16px of padding either side. `gap-1.5` rather than the export's 8px buys the margin that keeps
- * it from clipping, and `tests/e2e/viewport.spec.ts` asserts the body never scrolls sideways.
+ * **The band is the tightest row in the product**, and 002-pixel-arcade-skin's T016 re-solved it
+ * rather than inheriting the export's numbers, per the decision recorded in `frontend/AGENTS.md`
+ * ("002's action band (T003)") and `research.md` R-003: VT323 in the labels (narrower than the
+ * outgoing Oswald despite looking larger), `+ Capture` → `+ New`, and the band's own horizontal
+ * padding **32px → 16px** (`px-4` → `px-2` below). Silkscreen never appears in this band at any
+ * size — R-003 measured it at 1.84× the advance width, which fails even before the frame's own
+ * padding is subtracted from 375px. `gap-1.5` is unchanged from before the restyle; the arithmetic
+ * still leaves ~18px spare against the 10px frame set at T004, and `viewport-audit.spec.ts` is what
+ * actually confirms it now that the real fonts are in place, never a `scrollWidth` check.
  */
 function CalendarActionBar({
   onCapture,
@@ -739,18 +749,24 @@ function CalendarActionBar({
   children: ReactNode;
 }) {
   return (
-    <div className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-4 pt-2.5 pb-4">
+    <div className="border-hairline bg-surface-0 flex items-center gap-1.5 border-t px-2 pt-2.5 pb-4">
       {children}
 
       <span className="flex-1" />
 
+      {/*
+       * `notch-card` dropped and `focus-ring-inset` reverted to the outset `focus-ring` (T016): the
+       * clip-path this button used to wear is exactly what forced the inset variant in the first
+       * place, and the reference's chrome is sharp-cornered, not notched — `rounded-none` matches it.
+       */}
       <button
         type="button"
         onClick={onCapture}
-        className="bg-brand notch-card font-display focus-ring-inset h-11 flex-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
+        // T052: press-feedback on the product's single most-tapped control.
+        className="press-feedback bg-brand focus-ring h-11 flex-none rounded-none px-4 text-xs font-semibold tracking-[0.12em] whitespace-nowrap text-white uppercase shadow-e1"
         data-testid="capture-action"
       >
-        + Capture
+        + New
       </button>
     </div>
   );
