@@ -1,0 +1,722 @@
+openapi: 3.1.0
+
+info:
+  title: VictorHub — Travel Map API (iteration 003)
+  version: 0.3.0
+  description: |
+    A **new, standalone resource space** — `/trips`, `/destinations`, `/locations`, and the
+    per-destination photograph endpoints — distinct from `001-content-calendar`'s `/content-items`
+    and `002-pixel-arcade-skin`'s `/preferences`. Unlike 002's contract, this is not a delta: nothing
+    here amends an existing operation, so this file is the whole of what this iteration adds, full
+    stop.
+
+    Auth is unchanged from `001`: a bearer token, attached server-side by the Next.js proxy from an
+    httpOnly cookie, with the same sliding-reissue mechanism (an `X-Access-Token` response header past
+    the token's half-life, rewritten into the cookie by the proxy and stripped before the browser sees
+    it — see `001`'s contract for the full description, not restated here for the same reason `002`'s
+    contract gives).
+
+    Error bodies are the uniform `{"detail": "<string>"}` `001` already established, referenced from
+    that file rather than redefined here.
+
+    **Two things in the frontend must be taught about this contract**, exactly as `002`'s note says
+    about its own two operations: `proxy-allowlist.spec.ts` needs every operation below either allowed
+    or excluded-with-a-reason, and `api-types.spec.ts` needs `DestinationStatus` and `TripStatus`
+    added alongside `001`'s `Status` and `Platform`.
+
+servers:
+  - url: http://localhost:8000
+    description: Local docker-compose
+  - url: https://creator-hub-1dgs.onrender.com
+    description: |
+      Production (Render). Copy this hostname, never retype it — Render appends a random suffix to
+      service hostnames, and its edge answers an unknown host with a `404 text/plain "Not Found"`
+      that is byte-identical to what the Vercel proxy returns when `API_BASE_URL` is wrong.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /trips:
+    get:
+      tags: [trips]
+      summary: List every Trip
+      operationId: listTrips
+      description: |
+        Returns every Trip belonging to the single account. No pagination — constitution VII's
+        single-owner scope makes a personal number of trips the only volume this has to handle, the
+        same assumption `001`'s unparameterised `content-items` read already makes.
+      responses:
+        "200":
+          description: Every Trip
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trip"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+    post:
+      tags: [trips]
+      summary: Create a Trip
+      operationId: createTrip
+      description: FR-014. `name`, `start_date`, `end_date` are required; `status` defaults to `wishlist`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /trips/{trip_id}:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    get:
+      tags: [trips]
+      summary: Read one Trip
+      operationId: getTrip
+      responses:
+        "200":
+          description: The Trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [trips]
+      summary: Change one or more fields of a Trip
+      operationId: updateTrip
+      description: |
+        Partial update, `001`'s semantics: an omitted key means "leave it". At least one key required
+        — an empty body is a 422, the same rule `002`'s `PATCH /preferences` states.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [trips]
+      summary: Delete a Trip and every Destination that belongs to it
+      operationId: deleteTrip
+      description: |
+        FR-018. Cascades to every Destination whose `trip_id` is this Trip (`ON DELETE CASCADE`,
+        data-model.md), and to their Photographs. The frontend confirmation naming what will be lost
+        happens **before** this call — the API itself performs the delete unconditionally once called,
+        the same division `001`'s `DELETE /content-items/{id}` already draws between "the API deletes"
+        and "the UI confirms."
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /destinations:
+    get:
+      tags: [destinations]
+      summary: List Destinations, optionally narrowed
+      operationId: listDestinations
+      description: |
+        FR-001, FR-010, FR-019. With no query parameters, returns every Destination regardless of
+        Trip membership — this is the map's own read, and every Destination renders on it (FR-001,
+        FR-019) whether or not it has a Trip.
+      parameters:
+        - name: trip_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Narrow to one Trip's Destinations (the organising view, User Story 3).
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DestinationStatus"
+          description: FR-010's map filter.
+      responses:
+        "200":
+          description: Matching Destinations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Destination"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+    post:
+      tags: [destinations]
+      summary: Create a Destination
+      operationId: createDestination
+      description: |
+        FR-015, FR-020, FR-021. `trip_id` is optional (FR-020) — omit it for a place marked
+        independent of any Trip. `latitude`/`longitude` are required on this call: this operation is
+        reached **after** `GET /locations/search` has already resolved a name to coordinates
+        (FR-011); it does not itself geocode a free-text name. `start_date`/`end_date` are optional
+        (data-model.md's note on why, against §12's own listing).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DestinationCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Destination"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /destinations/{destination_id}:
+    parameters:
+      - name: destination_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    get:
+      tags: [destinations]
+      summary: Read one Destination, with its note and photograph URLs
+      operationId: getDestination
+      description: |
+        Always includes `note` and `photographs` regardless of `status` — FR-009's "no gallery on a
+        non-Visited pin" is a **frontend** display rule (INV-3, data-model.md), not a reason for the
+        API to withhold data that exists. Each photograph's `url` is a presigned GET, minted fresh on
+        this call (FR-024) — never a stored or cached link.
+      responses:
+        "200":
+          description: The Destination
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DestinationDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [destinations]
+      summary: Change one or more fields of a Destination
+      operationId: updateDestination
+      description: |
+        Partial update, `001`'s semantics. Covers FR-016 (edit), FR-006 (note), FR-028 (status, any
+        direction, no validation beyond "one of the three values") and re-attaching or clearing
+        `trip_id`. Changing `name` does **not** re-geocode — a name edit is a label change; a location
+        change is a new search via `GET /locations/search` followed by sending new
+        `latitude`/`longitude` here explicitly, so a coordinate never changes as a side effect of a
+        typo fix.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DestinationUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Destination"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [destinations]
+      summary: Delete a Destination and its photographs
+      operationId: deleteDestination
+      description: FR-016. Cascades to `photograph` rows (`ON DELETE CASCADE`); does not touch its Trip.
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /locations/search:
+    get:
+      tags: [locations]
+      summary: Resolve a typed place name to candidate coordinates
+      operationId: searchLocations
+      description: |
+        FR-011, FR-012. Proxies **Nominatim** (research.md R-001) — the backend calls it, not the
+        browser, so the required `User-Agent` and the roughly-one-request-per-second usage policy are
+        satisfied by one identified caller rather than left to the browser. **This is the one request
+        in this iteration that discloses owner-typed text to a third party**, and it is disclosed on
+        purpose and stated here rather than left implicit — see research.md R-001 for why that is
+        different from, and narrower than, the map-tile viewport disclosure `tech-defaults.md` already
+        accepted. Nothing else — no note, no photograph, no saved Destination name — ever leaves the
+        origin for this purpose.
+
+        Returns zero or more candidates; the frontend presents them for the owner to pick one
+        (User Story 3, scenario 2). Zero results is a **200 with an empty array**, not a 404 — no
+        result matching a search is an ordinary outcome, not an error (FR-012).
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: The place name as typed by the owner.
+      responses:
+        "200":
+          description: Zero or more candidate matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LocationCandidate"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "502":
+          description: Nominatim was unreachable or timed out. The frontend surfaces this as FR-012's "search failed, retry" — never as an empty result set, which would read as "no matches" rather than "the search itself failed."
+          content:
+            application/json:
+              schema:
+                $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+  /destinations/{destination_id}/photos:
+    parameters:
+      - name: destination_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    post:
+      tags: [photographs]
+      summary: Confirm a photograph upload and record it against a Destination
+      operationId: createPhotograph
+      description: |
+        FR-023, FR-025. Called **after** the browser has already `PUT` the image bytes directly to
+        object storage using the presigned URL from `POST /destinations/{destination_id}/photos/upload-url`
+        — this call never receives image bytes, only the `object_key` that upload already used. The
+        backend does not verify the object exists before recording it (no HEAD request to R2 on this
+        path); a photograph pointing at a key that never finished uploading fails visibly the first
+        time its presigned GET URL is requested, which is an acceptable, honest failure for a
+        single-owner tool with no requirement asking for stronger guarantees.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotographCreate"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photograph"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /destinations/{destination_id}/photos/upload-url:
+    parameters:
+      - name: destination_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    post:
+      tags: [photographs]
+      summary: Mint a short-lived presigned URL for uploading one photograph
+      operationId: createPhotoUploadUrl
+      description: |
+        FR-023. Returns a presigned PUT URL and the `object_key` the browser must upload to and then
+        pass to `POST /destinations/{destination_id}/photos` to confirm. The upload itself (the `PUT`
+        with image bytes) goes **directly from the browser to Cloudflare R2** — this backend never
+        receives the image (`tech-defaults.md`'s Object Storage section, and the reason T072's cold
+        latency numbers gave for keeping large payloads off a Render service that may be cold-starting).
+      responses:
+        "200":
+          description: A presigned upload URL and the key it uploads to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUploadUrl"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /destinations/{destination_id}/photos/{photo_id}:
+    parameters:
+      - name: destination_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    delete:
+      tags: [photographs]
+      summary: Remove one photograph from a Destination
+      operationId: deletePhotograph
+      description: |
+        Not named as its own line in `spec.md`'s FR list, but implied by FR-016's "edit... a
+        Destination" — a photograph is part of a Destination's editable content, and removing one
+        wrongly attached image is ordinary editing, not a new capability. Deletes the database row;
+        does **not** delete the R2 object (no requirement asks for storage reclamation, and a
+        single-owner account's photo volume does not justify building it here).
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    DestinationStatus:
+      type: string
+      enum: [visited, planned, wishlist]
+      description: |
+        FR-002, FR-026. Free-form in every direction (FR-028) — no value is reachable only from
+        another specific value. "Currently Traveling" is **not** in this enum; it is computed
+        client-side from a `planned` Destination's dates (research.md R-004) and never stored.
+
+    TripStatus:
+      type: string
+      enum: [wishlist, planned, booked, upcoming, traveling, completed]
+      description: |
+        Descriptive only (FR-014) — nothing in this contract branches on a Trip's status, and it
+        drives no map pin. Kept as a closed enum rather than free text for the same reason `001`'s
+        `Status`/`Platform` are enums: an invalid value should be unstorable.
+
+    Trip:
+      type: object
+      required: [id, name, start_date, end_date, status, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          maxLength: 200
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TripStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TripCreate:
+      type: object
+      required: [name, start_date, end_date]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TripStatus"
+
+    TripUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TripStatus"
+
+    Destination:
+      type: object
+      required: [id, name, latitude, longitude, status, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        trip_id:
+          type: integer
+          nullable: true
+          description: FR-020 — absent means this Destination belongs to no Trip.
+        name:
+          type: string
+          maxLength: 200
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        start_date:
+          type: string
+          format: date
+          nullable: true
+          description: "Nullable per data-model.md's note — the Quick Add flow's \"No date yet\" (spec.md §11 reference)."
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DestinationStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DestinationDetail:
+      description: FR-005 — `Destination` plus its note and its photographs, each with a freshly minted read URL.
+      allOf:
+        - $ref: "#/components/schemas/Destination"
+        - type: object
+          required: [note, photographs]
+          properties:
+            note:
+              type: string
+              nullable: true
+            photographs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Photograph"
+
+    DestinationCreate:
+      type: object
+      required: [name, latitude, longitude]
+      properties:
+        trip_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          maxLength: 200
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DestinationStatus"
+        note:
+          type: string
+          nullable: true
+
+    DestinationUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        trip_id:
+          type: integer
+          nullable: true
+          description: Set to attach/re-attach to a Trip; explicit `null` detaches it (FR-020's symmetry).
+        name:
+          type: string
+          maxLength: 200
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DestinationStatus"
+        note:
+          type: string
+          nullable: true
+
+    LocationCandidate:
+      type: object
+      required: [name, address, latitude, longitude]
+      properties:
+        name:
+          type: string
+          description: A short label for the match (e.g. "Kyoto").
+        address:
+          type: string
+          description: The fuller resolved address/description Nominatim returns, shown so the owner can tell two same-named places apart.
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    Photograph:
+      type: object
+      required: [id, url, created_at]
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+          format: uri
+          description: A presigned GET URL, minted on this response and expiring — never stored, never public (FR-024).
+        created_at:
+          type: string
+          format: date-time
+
+    PhotographCreate:
+      type: object
+      required: [object_key]
+      properties:
+        object_key:
+          type: string
+          maxLength: 512
+          description: The key the browser already `PUT` to, returned by `POST .../photos/upload-url`.
+
+    PhotoUploadUrl:
+      type: object
+      required: [upload_url, object_key, expires_at]
+      properties:
+        upload_url:
+          type: string
+          format: uri
+          description: A presigned `PUT` URL. The browser uploads image bytes here directly.
+        object_key:
+          type: string
+          maxLength: 512
+          description: Pass this back to `POST .../photos` once the `PUT` succeeds.
+        expires_at:
+          type: string
+          format: date-time
+
+  responses:
+    # Referencing 001's Error schema across files rather than restating it — the same choice 002's
+    # contract makes, for the same reason: one definition cannot disagree with itself.
+
+    Unauthenticated:
+      description: No credential, or one the server will not accept.
+      content:
+        application/json:
+          schema:
+            $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+    NotFound:
+      description: No row with this id belongs to the authenticated account.
+      content:
+        application/json:
+          schema:
+            $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+    ValidationError:
+      description: Request failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../001-content-calendar/contracts/openapi.yaml#/components/schemas/Error"
+
+  # ---------------------------------------------------------------------------
+  # Explicitly NOT added
+  # ---------------------------------------------------------------------------
+  #
+  # * No /activities or /calendar endpoints — FR-027, deferred to a later iteration.
+  # * No /trips/{id}/route — route display is out of scope for this iteration (spec.md).
+  # * No cost/budget fields on Trip or Destination — out of scope for this iteration despite being
+  #   constitutionally permitted since the 2.1.0 amendment (spec.md, "Why this iteration…").
+  # * No category/priority fields or category-based filtering on Destination — out of scope
+  #   (spec.md Assumptions).
+  # * No PUT, only PATCH, for Trip and Destination updates — matching 001's partial-update precedent;
+  #   nothing in this spec asks for whole-resource replacement semantics.
