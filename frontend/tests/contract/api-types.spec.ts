@@ -4,7 +4,14 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { parse } from "yaml";
 
-import { INVARIANT_CODES, PLATFORMS, STATUSES, THEMES } from "../../lib/api";
+import {
+  DESTINATION_STATUSES,
+  INVARIANT_CODES,
+  PLATFORMS,
+  STATUSES,
+  THEMES,
+  TRIP_STATUSES,
+} from "../../lib/api";
 
 /**
  * `lib/api.ts` is hand-written from the contract, so this is what stops it drifting from one.
@@ -23,6 +30,9 @@ const CONTRACT_001 = resolve(__dirname, "../../../specs/001-content-calendar/con
 // The 002 contract is a delta on 001, not a second API (see its own header comment) — Theme lives
 // only here, so this file has to read both rather than just the one it started with.
 const CONTRACT_002 = resolve(__dirname, "../../../specs/002-pixel-arcade-skin/contracts/openapi.yaml");
+// 003, unlike 002, is a new standalone resource space rather than a delta (its own header comment)
+// — DestinationStatus and TripStatus live only here.
+const CONTRACT_003 = resolve(__dirname, "../../../specs/003-travel-map/contracts/openapi.yaml");
 
 function schemasIn(contractPath: string): Record<string, unknown> {
   const document: unknown = parse(readFileSync(contractPath, "utf8"));
@@ -59,4 +69,12 @@ test("InvariantCode matches the contract's 409 codes", () => {
 
 test("Theme matches the 002 contract — FR-010's two presentations, dark first", () => {
   expect([...THEMES]).toEqual(contractEnum("Theme", CONTRACT_002));
+});
+
+test("DestinationStatus matches the 003 contract — FR-002/FR-026's map-pin states", () => {
+  expect([...DESTINATION_STATUSES]).toEqual(contractEnum("DestinationStatus", CONTRACT_003));
+});
+
+test("TripStatus matches the 003 contract — FR-014's descriptive six", () => {
+  expect([...TRIP_STATUSES]).toEqual(contractEnum("TripStatus", CONTRACT_003));
 });
