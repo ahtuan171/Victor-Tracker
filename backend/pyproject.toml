@@ -25,6 +25,10 @@ dependencies = [
     # a main dependency at 003-travel-map T006: `app/services/geocoding.py` calls Nominatim over
     # HTTP at runtime, not just in tests, so the same client now has a second, production caller.
     "httpx2>=2.9",
+    # R2's S3-compatible presigned-URL generation (tech-defaults.md's Object storage section).
+    # `plan.md` leaves the exact library a task-level decision (T007) — boto3 is the standard,
+    # well-tested choice, and no Cloudflare-specific SDK exists or is needed.
+    "boto3>=1.43.71",
 ]
 
 [dependency-groups]
@@ -32,6 +36,9 @@ dev = [
     "pytest>=9.0",
     "ruff>=0.16",
     "mypy>=2.3",
+    # boto3 ships no inline types; the official mypy-boto3 stubs are what keep app/services/
+    # object_storage.py under `disallow_any_unimported` below.
+    "boto3-stubs[s3]>=1.43.71",
 ]
 
 # Application, not a library: nothing installs `app` as a distribution. `uv run` puts the project
