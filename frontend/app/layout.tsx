@@ -59,7 +59,7 @@ const silkscreen = Silkscreen({
 });
 
 export const metadata: Metadata = {
-  title: "VictorHub",
+  title: "Victor Tracker",
   description: "Content calendar for a single creator.",
 };
 

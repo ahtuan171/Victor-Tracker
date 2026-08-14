@@ -1,4 +1,4 @@
-# VictorHub — frontend
+# Victor Tracker — frontend
 
 Next.js **App Router** (not Pages), TypeScript, Tailwind 4, shadcn/ui, `@dnd-kit`, managed with
 `pnpm`. This is the Content Calendar surface for v0.1: a mobile-first planning calendar for a single

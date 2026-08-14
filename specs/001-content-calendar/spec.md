@@ -244,4 +244,4 @@ Named explicitly because each is an attractive thing to add mid-build.
 - Bulk import or export of any kind — no file upload, no paste-many box, no migration from a notes app. Items are entered one at a time through the same capture flow described in FR-005.
 - Notifications, reminders, and any form of push or email.
 - Multiple users, sharing, collaboration, roles, or approval flows.
-- The other three VictorHub modules — Growth Tracker, Media Kit Generator, Deal/Collab Tracker. No field, address, or screen in this iteration may exist to serve them.
+- The other three Victor Tracker modules — Growth Tracker, Media Kit Generator, Deal/Collab Tracker. No field, address, or screen in this iteration may exist to serve them.

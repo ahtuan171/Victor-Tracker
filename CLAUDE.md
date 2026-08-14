@@ -2,6 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Status as of 2026-08-14: **The product's brand text changed again, to "Victor Tracker."**
+
+**Read this paragraph before the "2026-08-13" one below it, and before the brand-text paragraph
+further down that still says the name is "VictorHub."** The owner renamed the product's brand text a
+second time on 2026-08-14, from "VictorHub" to **"Victor Tracker."** This is the same name
+`002-pixel-arcade-skin`'s T049 already chose for the in-app comic-book masthead (`Victor Tracker ·
+Issue #NN` in `CalendarShell`'s header, picked 2026-08-11 specifically to avoid the redesign brief's
+Marvel-IP-adjacent "SPIDEY TRACKER" example) — that name is now promoted to the product's actual
+brand text rather than staying a second, cosmetic layer sitting above "VictorHub." Every user-facing
+string, doc and comment describing the **current** product name was renamed in one MR
+(`chore/rename-victor-tracker`), the same Tier-1/Tier-2 split the first rename used: brand text only,
+never infrastructure. **The live infrastructure was already lagging behind the first rename and lags
+behind this one too, unchanged** — the GitLab project path, `origin`, the GitHub mirror and the
+Render/Vercel service names/URLs still say "creator-hub", and the local Docker Postgres user/database
+defaults still say "creatorhub" (`.claude/memory.md`, Deferred, same reasoning as before: none of
+that is user-visible). **One thing did change locally**: the Docker Compose project name
+(`victorhub` → `victor-tracker`), which orphans any already-running local containers' volume under
+the old project name — run `docker compose down` under the old name first, or just re-seed after
+`docker compose up -d db backend` under the new one; the seed is one row and costs nothing to redo.
+
+**Every remaining mention of "VictorHub" below this paragraph is describing history accurately** —
+the 2026-08-05 constitution amendment, the 2026-08-08 first rename, the literal filenames of
+`design/content-calendar/`'s export (unchanged, kept for provenance) — and is left as written, not
+retrofitted to claim "Victor Tracker" happened a rename earlier than it did.
+
 ## Status as of 2026-08-13: **`v0.2.0` is tagged; the travel map (renumbered `003`) is next.**
 
 **Read this paragraph before the "2026-08-11" one below it, which still describes the insertion of
@@ -359,7 +384,7 @@ The binary's path is non-standard and not on the PATH of a shell that predates t
 
 A **personal travel memory map** for one person. A world map carrying two kinds of pin — places
 visited and places wanted — where tapping a visited pin opens the photographs, notes and experiences
-kept against it. Still named VictorHub for infrastructure reasons; see the status section.
+kept against it. Still named Victor Tracker for infrastructure reasons; see the status section.
 
 **v0.2 ships the Travel Map only.** Its one capability, in the sense constitution III means, is the
 map itself. Content Calendar rides along from v0.1 as a secondary scheduling surface behind the

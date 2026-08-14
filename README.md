@@ -1,13 +1,15 @@
-# VictorHub
+# Victor Tracker
 
 File này dùng để **chạy sản phẩm trên máy bạn, nhìn nó, và góp ý**. Nếu bạn muốn *sửa code*, đọc
 [`backend/README.md`](backend/README.md), [`frontend/README.md`](frontend/README.md) và
 [`CLAUDE.md`](CLAUDE.md).
 
-> **Đã đổi tên thành VictorHub trong văn bản và giao diện (2026-08-08); hạ tầng đang chạy thì chưa
-> theo kịp.** Đường dẫn repo, project GitLab, hai target deploy và GitHub mirror vẫn còn ghi
-> "creator-hub" — đổi những chỗ đó nghĩa là phải trỏ lại hai deployment đang chạy và một mirror, nên
-> phần đó tách thành một lượt riêng, làm thủ công (xem `.claude/memory.md`).
+> **Đã đổi tên thương hiệu hai lần, hạ tầng đang chạy thì chưa theo kịp cả hai lần.** Lần một:
+> CreatorHub → VictorHub trong văn bản và giao diện (2026-08-08). Lần hai: VictorHub → **Victor
+> Tracker** (2026-08-14), cùng phạm vi — văn bản, comment, UI, không đụng hạ tầng. Đường dẫn repo,
+> project GitLab, hai target deploy và GitHub mirror vẫn còn ghi "creator-hub" — đổi những chỗ đó
+> nghĩa là phải trỏ lại hai deployment đang chạy và một mirror, nên phần đó tách thành một lượt
+> riêng, làm thủ công (xem `.claude/memory.md`).
 
 ## Hiện đang có gì
 
