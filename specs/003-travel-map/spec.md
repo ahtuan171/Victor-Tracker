@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "The Travel Map module — VictorHub's primary capability per the constitution's 2.0.0 pivot. A world map of places visited and places wanted, where tapping a visited pin opens the photographs and notes kept against it, organised through Trips and Destinations, with route display and trip budgeting now permitted by the 2.1.0 constitution amendment. Derived from the 'Victor Tracker' input draft at drafts/travel-tracker.spec.draft.md."
+**Input**: User description: "The Travel Map module — Victor Tracker's primary capability per the constitution's 2.0.0 pivot. A world map of places visited and places wanted, where tapping a visited pin opens the photographs and notes kept against it, organised through Trips and Destinations, with route display and trip budgeting now permitted by the 2.1.0 constitution amendment. Derived from the 'Victor Tracker' input draft at drafts/travel-tracker.spec.draft.md."
 
 ## Why this iteration, and what it deliberately does not build
 

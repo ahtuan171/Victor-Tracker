@@ -1,7 +1,7 @@
 openapi: 3.1.0
 
 info:
-  title: VictorHub — Content Calendar API
+  title: Victor Tracker — Content Calendar API
   version: 0.1.0
   description: |
     Eight operations across five paths. Two are public — health and login — and the other six require

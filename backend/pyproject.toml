@@ -1,7 +1,7 @@
 [project]
-name = "victorhub-backend"
+name = "victor-tracker-backend"
 version = "0.1.0"
-description = "VictorHub Content Calendar API"
+description = "Victor Tracker Content Calendar API"
 requires-python = ">=3.13"
 
 dependencies = [

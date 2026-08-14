@@ -937,7 +937,7 @@ wheels = [
 ]
 
 [[package]]
-name = "victorhub-backend"
+name = "victor-tracker-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

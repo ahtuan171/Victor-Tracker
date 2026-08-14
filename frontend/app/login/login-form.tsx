@@ -133,7 +133,7 @@ export function LoginForm() {
               className="bg-brand size-3 [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]"
             />
             <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.28em] uppercase">
-              VictorHub
+              Victor Tracker
             </span>
           </div>
 

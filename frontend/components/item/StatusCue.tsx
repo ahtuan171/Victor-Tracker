@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  * is the property SC-004 is actually about.
  *
  * The colour comes through `var(--color-status-*)`, the token `app/globals.css` defines. **Never a
- * hex**: the design export establishes these tokens for all four VictorHub modules, so a literal
+ * hex**: the design export establishes these tokens for all four Victor Tracker modules, so a literal
  * here would be a project-wide decision taken in a component.
  *
  * ## It names itself

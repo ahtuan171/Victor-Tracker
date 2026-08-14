@@ -1,7 +1,7 @@
 openapi: 3.1.0
 
 info:
-  title: VictorHub — Travel Map API (iteration 003)
+  title: Victor Tracker — Travel Map API (iteration 003)
   version: 0.3.0
   description: |
     A **new, standalone resource space** — `/trips`, `/destinations`, `/locations`, and the

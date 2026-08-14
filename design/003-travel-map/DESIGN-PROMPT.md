@@ -1,4 +1,4 @@
-# Claude Design prompt — VictorHub Travel Map (003)
+# Claude Design prompt — Victor Tracker Travel Map (003)
 
 Paste the block below into claude.ai/design. Derived mechanically from `BRIEF.md`; if the two ever
 disagree, `BRIEF.md` wins.
@@ -7,7 +7,7 @@ disagree, `BRIEF.md` wins.
 
 ## 1. What you are designing
 
-**VictorHub** is a personal travel memory map for a single owner. It already ships a Content
+**Victor Tracker** is a personal travel memory map for a single owner. It already ships a Content
 Calendar (a status pipeline for planning posts) in a "pixel-arcade" visual language — a dark,
 cinematic, comic-book-console aesthetic with a bevelled machine frame, pixel display type, and a
 single hot red accent. This session is **not** designing that language — it already exists and is

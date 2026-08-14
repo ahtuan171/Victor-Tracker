@@ -143,6 +143,35 @@ cannot zoom past country outlines, and a memory attaches to a place, not to a co
 advantage (no third-party request at all) is why the tile disclosure is written down in
 `tech-defaults.md` rather than waved through.
 
+**2026-08-14 — the product's brand text was renamed a second time, VictorHub → Victor Tracker,
+collapsing a two-layer naming scheme into one.** `002-pixel-arcade-skin`'s T049 (2026-08-11) had
+already picked "Victor Tracker" as the in-app comic-book masthead text (`Victor Tracker · Issue #NN`,
+`CalendarShell`'s header) — chosen specifically because the redesign brief's own literal "SPIDEY
+TRACKER" example crosses into Marvel's IP ("Spidey" is Spider-Man's own nickname), and "Victor" was
+picked because it ties back to "VictorHub", the brand name at the time. That left two names live at
+once: "VictorHub" as the real brand text (docs, `<title>`, package names) and "Victor Tracker" as a
+second, cosmetic layer inside the calendar's own header. On 2026-08-14 the owner decided to stop
+carrying both and made "Victor Tracker" the product's actual brand text, superseding "VictorHub"
+everywhere — see the Deferred entry above for the mechanical Tier 1/Tier 2 record.
+
+**Worth recording separately from the mechanics: this rename surfaced during a session that also had
+to twice decline using an actual Spider-Man mask image** the owner supplied as a proposed background
+asset for the (real, already-shipped) "Victor Tracker" header — the same character-likeness exclusion
+`002`'s own design brief already states (`design/002-pixel-arcade-skin/BRIEF.md`: "no Spider-Man
+wordmark, no spider emblem, no character likeness, no studio logos"), and now restated again in
+`design/003-travel-map/BRIEF.md` as "permanent, not scoped to that one iteration." The two threads are
+related, not coincidental: "Victor Tracker" exists specifically *because* this product's own design
+process already ruled out leaning on Spider-Man IP, and the exclusion held again here even though this
+time an actual image asset was offered rather than just a design idea. **The rule this confirms:
+owner permission does not resolve a third-party IP concern** — Marvel/Sony's rights to the character
+are not the owner's to waive, and that is true regardless of how the request is phrased or how many
+times it is repeated. Also worth keeping: the mockup screenshot that prompted this whole thread was
+initially reported as "not found anywhere in the codebase" — a real search error (grepping
+`VictorHub` instead of `VICTOR TRACKER`, the actual rendered string), not a sign the screenshot was
+fake. **A negative grep result proves the search term was absent, not that the feature is.** Try the
+literal on-screen string, in its actual case, before concluding a UI element doesn't exist in the
+source.
+
 ## Traps
 
 Only the ones that bite outside a single tree. **Backend traps live in
@@ -287,6 +316,17 @@ semantics, and possibly the live URLs themselves. The runbook (order: GitHub mir
 push-mirror config → GitLab project path → `origin` → Render → Vercel → re-walk `t072-walk.mjs` →
 update docs with final URLs) is recorded in the rename plan from that session; do it as its own pass
 whenever dashboard access is available, not as a side quest inside a feature branch.
+
+**Superseded again 2026-08-14 — a second Tier 1 pass, VictorHub → Victor Tracker.** Same shape as the
+first: `chore/rename-victor-tracker` touched every brand-text occurrence of "VictorHub" in
+documentation, UI strings, page titles and comments, moved the `docker-compose.yml` project name to
+`victor-tracker`, and the backend package name to `victor-tracker-backend`. **Same exclusions as
+before, unchanged again**: local Postgres `creatorhub`/`creatorhub_test` defaults, the
+`ch_session`/`ch_theme` cookie names. **Tier 2 above is still the accurate, current state** — every
+infra name it lists still says "creator-hub", now two brand-text renames behind. See the Decisions
+entry below for why the name changed a second time (it collapses a naming scheme
+`002-pixel-arcade-skin` had already introduced) and for a note on the Spider-Man-IP question that
+came up in the same session.
 
 **2026-08-05 — retargeting `content_item` from content pipeline to trip itinerary.** Content Calendar
 survives the pivot unchanged, behind the nav drawer. Its `platform`, `status` and `published_url`

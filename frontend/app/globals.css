@@ -558,6 +558,17 @@
  * Web-line geometry plus halftone grain, at the export's opacities. Structural texture, never busy,
  * and purely decorative — it carries no information, so it is hidden from assistive technology by
  * being a background rather than an element.
+ *
+ * `background-attachment: fixed` is load-bearing, not a scroll-effect choice. `CalendarHeader` and
+ * `FirstRun` each carry this class independently on their own box, and with the default `scroll`
+ * attachment a percentage `background-position` resolves against *that element's own* height — so
+ * two adjacent panels of different heights (a ~110px header, a ~300px empty-state panel) each get
+ * their own conic-gradient origin, and the rays visibly change phase at the seam between them,
+ * reading as one pattern breaking or duplicating rather than a single continuous texture. `fixed`
+ * resolves the same percentage against the viewport instead (CSS Backgrounds §3.8), so every element
+ * carrying `.web-grain` samples the same infinite field and lines up at any shared boundary with no
+ * DOM restructuring needed. The pattern no longer scrolls with content, which is the correct reading
+ * for a texture meant to feel painted on the surface behind it, not attached to any one panel.
  */
 .web-grain {
   background-image:
@@ -576,6 +587,7 @@
     auto,
     auto,
     3px 3px;
+  background-attachment: fixed;
 }
 
 /* The texture is drawn in white, so it only reads on the dark surfaces it was designed for. */

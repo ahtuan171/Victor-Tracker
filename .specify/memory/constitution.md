@@ -25,13 +25,14 @@ Reasoning for this amendment: the owner decided on 2026-08-11 that the "Victor T
 
 Deferred TODOs: none. All placeholder tokens remain replaced.
 
-Note on the project name: the brand text is "VictorHub" as of 2026-08-08. The repository path, the
-GitLab project, both deploy targets and the GitHub mirror still say "creator-hub" — renaming those
-touches the project path, the git remotes, the mirror URL and two deployed services, so that part is
-tracked as a separate manual pass in `.claude/memory.md` rather than done here.
+Note on the project name: the brand text was "VictorHub" from 2026-08-08 until 2026-08-14, when the
+owner renamed it again to "Victor Tracker" — reasoning in `.claude/memory.md`'s Decisions. The
+repository path, the GitLab project, both deploy targets and the GitHub mirror still say "creator-hub"
+— renaming those touches the project path, the git remotes, the mirror URL and two deployed services,
+so that part is tracked as a separate manual pass in `.claude/memory.md` rather than done here.
 -->
 
-# VictorHub Constitution
+# Victor Tracker Constitution
 
 ## Core Principles
 

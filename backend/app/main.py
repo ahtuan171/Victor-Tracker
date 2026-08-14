@@ -27,10 +27,10 @@ class HealthResponse(BaseModel):
 
 
 app = FastAPI(
-    title="VictorHub — Content Calendar API",
+    title="Victor Tracker — Content Calendar API",
     version="0.1.0",
     description=(
-        "Content Calendar for VictorHub v0.1. Contract: "
+        "Content Calendar for Victor Tracker v0.1. Contract: "
         "specs/001-content-calendar/contracts/openapi.yaml, which is the source of truth — if this "
         "generated document disagrees with it, the code is what is wrong."
     ),

@@ -56,7 +56,7 @@ exist and neither alters the entity.
   satisfied.
 - *Technology-agnostic success criteria*: SC-005 states "under 1 second without a full page reload"
   as a user-observable outcome rather than a response-time budget for a specific layer.
-- *Scope bounded*: "Out of Scope for This Iteration" names the other three VictorHub modules
+- *Scope bounded*: "Out of Scope for This Iteration" names the other three Victor Tracker modules
   explicitly, per constitution principle III.
 - *No speculative multi-user*: FR-003 and the Key Entities section state that the content item has
   no owner concept, per constitution principle VII.
