@@ -26,7 +26,7 @@ without. `maplibre-gl` is **already installed** (added during the pre-planning s
 `chore/003-maplibre-headless-spike`, merged to `main` before this branch existed) — no setup task for
 it.
 
-- [ ] T001 Add R2 credential settings (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+- [x] T001 Add R2 credential settings (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
       `R2_BUCKET_NAME`) to `backend/app/config.py`'s `Settings` class, following the existing pattern,
       plus `.env.example` — no code reads them yet, this only makes the names exist once and prevents
       the "empty variable overrides a default" trap `CLAUDE.md`'s Decisions table already names.
@@ -38,16 +38,16 @@ it.
 **Purpose**: The schema, services, and client wiring every user story needs. No user story task
 starts before this phase is green.
 
-- [ ] T002 Add `DestinationStatus` and `TripStatus` enums to `backend/app/models.py` (data-model.md's Enumerations)
-- [ ] T003 Add `Trip`, `Destination`, `Photograph` SQLModel classes to `backend/app/models.py`, per data-model.md's column tables (depends on T002)
-- [ ] T004 Generate and apply the Alembic migration for `trip`, `destination`, `photograph` in `backend/alembic/versions/` — both enum types, both foreign keys `ON DELETE CASCADE`, both indexes (`ix_destination_trip_id`, `ix_destination_status`, `ix_photograph_destination_id`) (depends on T003)
-- [ ] T005 [P] Add `TripCreate`/`TripUpdate`/`Trip`, `DestinationCreate`/`DestinationUpdate`/`Destination`/`DestinationDetail`, `PhotographCreate`/`Photograph`/`PhotoUploadUrl`, `LocationCandidate` schemas to `backend/app/schemas.py`, matching contracts/openapi.yaml exactly
-- [ ] T006 [P] Add `backend/app/services/geocoding.py` — a Nominatim client wrapper (`search(query: str) -> list[LocationCandidate]`), sending the required identifying `User-Agent` (research.md R-001)
-- [ ] T007 [P] Add `backend/app/services/object_storage.py` — R2 presigned-PUT and presigned-GET helpers (`tech-defaults.md`'s Object Storage section), reading the settings from T001
-- [ ] T008 Register stub routers for `trips`, `destinations`, `locations`, `photographs` in `backend/app/main.py` (depends on T004, T005)
-- [ ] T009 [P] Add `frontend/lib/api.ts` client functions for every operation in contracts/openapi.yaml (Trip/Destination CRUD, location search, photo upload flow) — bodies calling stub endpoints until Phase 3+ fills them in
-- [ ] T010 [P] Extend `frontend/tests/contract/api-types.spec.ts` to compare `DestinationStatus` and `TripStatus` against contracts/openapi.yaml on disk, matching the existing `Status`/`Platform` check
-- [ ] T011 Extend `frontend/tests/contract/proxy-allowlist.spec.ts` so every operation in contracts/openapi.yaml is either allowed or excluded-with-a-reason — per that contract's own note that this file must be taught about it
+- [x] T002 Add `DestinationStatus` and `TripStatus` enums to `backend/app/models.py` (data-model.md's Enumerations)
+- [x] T003 Add `Trip`, `Destination`, `Photograph` SQLModel classes to `backend/app/models.py`, per data-model.md's column tables (depends on T002)
+- [x] T004 Generate and apply the Alembic migration for `trip`, `destination`, `photograph` in `backend/alembic/versions/` — both enum types, both foreign keys `ON DELETE CASCADE`, both indexes (`ix_destination_trip_id`, `ix_destination_status`, `ix_photograph_destination_id`) (depends on T003)
+- [x] T005 [P] Add `TripCreate`/`TripUpdate`/`Trip`, `DestinationCreate`/`DestinationUpdate`/`Destination`/`DestinationDetail`, `PhotographCreate`/`Photograph`/`PhotoUploadUrl`, `LocationCandidate` schemas to `backend/app/schemas.py`, matching contracts/openapi.yaml exactly
+- [x] T006 [P] Add `backend/app/services/geocoding.py` — a Nominatim client wrapper (`search(query: str) -> list[LocationCandidate]`), sending the required identifying `User-Agent` (research.md R-001)
+- [x] T007 [P] Add `backend/app/services/object_storage.py` — R2 presigned-PUT and presigned-GET helpers (`tech-defaults.md`'s Object Storage section), reading the settings from T001
+- [x] T008 Register stub routers for `trips`, `destinations`, `locations`, `photographs` in `backend/app/main.py` (depends on T004, T005)
+- [x] T009 [P] Add `frontend/lib/api.ts` client functions for every operation in contracts/openapi.yaml (Trip/Destination CRUD, location search, photo upload flow) — bodies calling stub endpoints until Phase 3+ fills them in
+- [x] T010 [P] Extend `frontend/tests/contract/api-types.spec.ts` to compare `DestinationStatus` and `TripStatus` against contracts/openapi.yaml on disk, matching the existing `Status`/`Platform` check
+- [x] T011 Extend `frontend/tests/contract/proxy-allowlist.spec.ts` so every operation in contracts/openapi.yaml is either allowed or excluded-with-a-reason — per that contract's own note that this file must be taught about it
 
 **Checkpoint**: Schema exists, migration applied, services callable, client and contract tests know
 about the new surface. No user-facing behaviour yet.
@@ -61,17 +61,17 @@ about the new surface. No user-facing behaviour yet.
 **Independent Test**: with places in every status, open the map and confirm each is visually
 distinguishable without tapping it.
 
-- [ ] T012 [US1] Implement `GET /destinations` (list, optional `trip_id`/`status` query params) in `backend/app/api/destinations.py`
-- [ ] T013 [US1] Implement `POST /destinations` (create; requires `latitude`/`longitude` already resolved — INV-1) in `backend/app/api/destinations.py`
-- [ ] T014 [P] [US1] Add `frontend/components/map/MapView.tsx` — a MapLibre instance against CARTO's dark-matter style, sized to the 375×667 floor (FR-003, FR-004)
-- [ ] T015 [P] [US1] Add `frontend/lib/map.ts` — pure functions mapping `DestinationStatus` to a pin's visual treatment, plus the Currently-Traveling overlay computed from `today()` (research.md R-004), matching `lib/items.ts`'s pure-functions-plus-thin-hook split (`frontend/AGENTS.md`)
-- [ ] T016 [US1] Add `frontend/components/map/DestinationPin.tsx` — renders one pin using `lib/map.ts`'s treatment (FR-002, shape not colour alone) (depends on T015)
-- [ ] T017 [US1] Wire `MapView` to load every Destination via `GET /destinations` and render one `DestinationPin` per row (depends on T012, T014, T016)
-- [ ] T018 [US1] Add `frontend/app/(app)/map/page.tsx`, guarded the same way `calendar/page.tsx` is (`hasSessionCookie`, `frontend/AGENTS.md`)
-- [ ] T019 [US1] Handle the empty-map state in `frontend/components/map/MapView.tsx` — renders with a reasonable default view and invites the first place, no error (User Story 1 scenario 2)
-- [ ] T020 [US1] Handle near-overlapping pins in `frontend/components/map/MapView.tsx` so both remain individually reachable at the current zoom (User Story 1 scenario 3)
-- [ ] T021 [P] [US1] `backend/tests/test_destinations.py` — list, create, INV-1 (coordinates never null on a stored row)
-- [ ] T022 [P] [US1] `frontend/tests/e2e/map.spec.ts` — V1: pins render, are status-distinguishable, empty state, 375px viewport-audit — DOM and `page.screenshot()` assertions only, **never** a canvas pixel read (research.md R-002)
+- [x] T012 [US1] Implement `GET /destinations` (list, optional `trip_id`/`status` query params) in `backend/app/api/destinations.py`
+- [x] T013 [US1] Implement `POST /destinations` (create; requires `latitude`/`longitude` already resolved — INV-1) in `backend/app/api/destinations.py`
+- [x] T014 [P] [US1] Add `frontend/components/map/MapView.tsx` — a MapLibre instance against CARTO's dark-matter style, sized to the 375×667 floor (FR-003, FR-004)
+- [x] T015 [P] [US1] Add `frontend/lib/map.ts` — pure functions mapping `DestinationStatus` to a pin's visual treatment, plus the Currently-Traveling overlay computed from `today()` (research.md R-004), matching `lib/items.ts`'s pure-functions-plus-thin-hook split (`frontend/AGENTS.md`)
+- [x] T016 [US1] Add `frontend/components/map/DestinationPin.tsx` — renders one pin using `lib/map.ts`'s treatment (FR-002, shape not colour alone) (depends on T015)
+- [x] T017 [US1] Wire `MapView` to load every Destination via `GET /destinations` and render one `DestinationPin` per row (depends on T012, T014, T016)
+- [x] T018 [US1] Add `frontend/app/(app)/map/page.tsx`, guarded the same way `calendar/page.tsx` is (`hasSessionCookie`, `frontend/AGENTS.md`)
+- [x] T019 [US1] Handle the empty-map state in `frontend/components/map/MapView.tsx` — renders with a reasonable default view and invites the first place, no error (User Story 1 scenario 2)
+- [x] T020 [US1] Handle near-overlapping pins in `frontend/components/map/MapView.tsx` so both remain individually reachable at the current zoom (User Story 1 scenario 3)
+- [x] T021 [P] [US1] `backend/tests/test_destinations.py` — list, create, INV-1 (coordinates never null on a stored row)
+- [x] T022 [P] [US1] `frontend/tests/e2e/map.spec.ts` — V1: pins render, are status-distinguishable, empty state, 375px viewport-audit — DOM and `page.screenshot()` assertions only, **never** a canvas pixel read (research.md R-002)
 
 **Checkpoint**: US1 is independently functional — a real map, real pins, real statuses.
 

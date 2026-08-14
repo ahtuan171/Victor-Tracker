@@ -80,6 +80,32 @@ test("every marked place appears as a pin whose status is distinguishable withou
   }
 });
 
+test("two places at exactly the same coordinates both remain individually reachable, never merged into one (scenario 3)", async ({
+  page,
+  baseURL,
+}) => {
+  // Deliberately identical latitude/longitude — the one case `disambiguateCoincidentPins`
+  // (`lib/map.ts`) exists for. The offset it applies (~7m) is sub-pixel at `fitBoundsOnce`'s
+  // `maxZoom: 12`, so this test does not assert on-screen separation — `tests/client/map.spec.ts`
+  // already proves the coordinate math deterministically, with no renderer needed. What this test
+  // proves instead, at the DOM level a pure-function test cannot reach: two Destinations that share
+  // one coordinate still produce **two** independent marker elements, never deduped or merged into
+  // one that silently drops the other (`syncMarkers`'s marker map is keyed by Destination id, not
+  // by coordinate — this is the regression test for that staying true).
+  await openMap(page, baseURL, [
+    destination({ id: 1, name: "Shibuya Crossing", status: "visited" }),
+    destination({ id: 2, name: "Shibuya Station", status: "wishlist" }),
+  ]);
+
+  const pins = page.getByTestId("destination-pin");
+  await expect(pins).toHaveCount(2);
+
+  // Not merely present in the DOM — reachable independently, each with its own accessible name,
+  // which is what "not merged into one that hides the other" means for a tap target.
+  await expect(page.locator('[aria-label*="Shibuya Crossing"]')).toHaveCount(1);
+  await expect(page.locator('[aria-label*="Shibuya Station"]')).toHaveCount(1);
+});
+
 test("a genuine map renders — real tiles, real attribution (FR-003, FR-004, tech-defaults.md)", async ({
   page,
   baseURL,
