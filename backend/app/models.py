@@ -1,7 +1,9 @@
-"""The two tables.
+"""All tables, across both shipped iterations.
 
-Column-for-column what [data-model.md](../../specs/001-content-calendar/data-model.md) specifies. If
-this file and that document disagree, one of them is wrong and the answer is not "adjust the code
+Column-for-column what each iteration's own `data-model.md` specifies —
+[001](../../specs/001-content-calendar/data-model.md) for `content_item` and `creator`,
+[003](../../specs/003-travel-map/data-model.md) for `trip`, `destination` and `photograph`. If this
+file and either document disagree, one of them is wrong and the answer is not "adjust the code
 quietly" — see the non-negotiables in CLAUDE.md.
 
 Two absences are load-bearing and easy to "fix" by accident:
@@ -31,10 +33,13 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Float,
+    ForeignKey,
     Identity,
     Index,
     Integer,
     String,
+    Text,
     func,
     text,
 )
@@ -78,6 +83,32 @@ class Theme(StrEnum):
 
     DARK = "dark"
     LIGHT = "light"
+
+
+class DestinationStatus(StrEnum):
+    """FR-002, FR-026 (003-travel-map). Drives a map pin's fill.
+
+    Unconstrained in the direction it may change (FR-028) — no ordering table, unlike `Status`
+    above, because there is no sequence to preserve: any of the three is reachable from either
+    other at any time (data-model.md's State transitions).
+    """
+
+    VISITED = "visited"
+    PLANNED = "planned"
+    WISHLIST = "wishlist"
+
+
+class TripStatus(StrEnum):
+    """FR-014 (003-travel-map). Descriptive only — drives no pin, and no requirement in that spec
+    depends on its exact values beyond "a status exists" (data-model.md).
+    """
+
+    WISHLIST = "wishlist"
+    PLANNED = "planned"
+    BOOKED = "booked"
+    UPCOMING = "upcoming"
+    TRAVELING = "traveling"
+    COMPLETED = "completed"
 
 
 STATUS_ORDER: tuple[Status, ...] = (Status.IDEA, Status.DRAFT, Status.POSTED)
@@ -217,4 +248,114 @@ class ContentItem(SQLModel, table=True):
             server_default=func.now(),
             onupdate=func.now(),
         )
+    )
+
+
+class Trip(SQLModel, table=True):
+    """A named span of travel a Destination may optionally belong to (003-travel-map FR-014)."""
+
+    __tablename__ = "trip"
+
+    id: int | None = Field(default=None, sa_column=_identity_pk())
+    name: str = Field(sa_column=Column(String(200), nullable=False))
+    start_date: date = Field(sa_column=Column(Date, nullable=False))
+    end_date: date = Field(sa_column=Column(Date, nullable=False))
+
+    status: TripStatus = Field(
+        default=TripStatus.WISHLIST,
+        sa_column=Column(
+            _pg_enum(TripStatus, "tripstatus"),
+            nullable=False,
+            server_default=TripStatus.WISHLIST.value,
+        ),
+    )
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        )
+    )
+
+
+class Destination(SQLModel, table=True):
+    """One marked place: a map pin, and the note/photographs a Visited one opens to.
+
+    `trip_id` is nullable (FR-020 — a Destination MAY exist unattached to any Trip) and cascades
+    on delete. `latitude`/`longitude` are `NOT NULL` with no default — INV-1: there is no code path
+    that inserts a row before geocoding has already resolved both, so the guarantee lives in the
+    API layer's control flow rather than in a `CHECK` (data-model.md explains why 0,0 rules out a
+    constraint expressed from these columns alone).
+    """
+
+    __tablename__ = "destination"
+
+    id: int | None = Field(default=None, sa_column=_identity_pk())
+
+    trip_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("trip.id", ondelete="CASCADE"), nullable=True, index=True
+        ),
+    )
+
+    name: str = Field(sa_column=Column(String(200), nullable=False))
+    latitude: float = Field(sa_column=Column(Float, nullable=False))
+    longitude: float = Field(sa_column=Column(Float, nullable=False))
+
+    # Nullable against §12's own "required" listing — the Quick Add flow's "No date yet" choice
+    # only makes sense if a Destination can be saved with no dates at all (data-model.md).
+    start_date: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    end_date: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+
+    status: DestinationStatus = Field(
+        default=DestinationStatus.WISHLIST,
+        sa_column=Column(
+            _pg_enum(DestinationStatus, "destinationstatus"),
+            nullable=False,
+            server_default=DestinationStatus.WISHLIST.value,
+            index=True,
+        ),
+    )
+
+    note: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        )
+    )
+
+
+class Photograph(SQLModel, table=True):
+    """One R2 object key attached to a Destination — never image bytes (FR-024, FR-025)."""
+
+    __tablename__ = "photograph"
+
+    id: int | None = Field(default=None, sa_column=_identity_pk())
+
+    destination_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("destination.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+
+    object_key: str = Field(sa_column=Column(String(512), nullable=False))
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     )

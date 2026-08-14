@@ -46,11 +46,24 @@ to itself and pass no matter what either one said. The spec is the answer key he
 of the two things under test.
 """
 
-EXPECTED_TABLES = {"creator", "content_item", "alembic_version"}
+EXPECTED_TABLES = {
+    "creator",
+    "content_item",
+    "trip",
+    "destination",
+    "photograph",
+    "alembic_version",
+}
 """The whole schema. `alembic_version` is Alembic's bookkeeping, not ours.
 
 Constitution VII forbids "organization entities" as well as owner columns, and a new *table* is how
 that arrives — `organization`, `workspace`, `team`, `role`. A column allowlist would not see it.
+
+`trip`, `destination` and `photograph` joined this set at 003-travel-map T008: the 2.0.0
+constitution amendment ratified the travel map as this product's actual next module, and
+`specs/003-travel-map/data-model.md` is those three tables' own answer key — this test does not
+duplicate that review, it only keeps the schema from growing a *fourth*, unratified table
+(`growth_metric`, `deal` — the modules the same amendment cancelled) without this test noticing.
 """
 
 
@@ -116,12 +129,13 @@ def test_content_item_has_no_foreign_key_to_anything(session: Session) -> None:
     assert foreign_keys == []
 
 
-def test_the_schema_holds_no_table_beyond_the_two_the_spec_describes(session: Session) -> None:
+def test_the_schema_holds_no_table_beyond_the_ones_the_spec_describes(session: Session) -> None:
     """Constitution VII forbids organization entities, and those arrive as tables, not columns.
 
-    Also a scope check with a wider reach than it looks: v0.1 ships Content Calendar only, so a
-    `growth_metric` or `deal` table appearing here would mean a later module had started leaking
-    into this one — the specific failure this project is structured to avoid.
+    Also a scope check with a wider reach than it looks: this product ships Content Calendar and
+    the Travel Map, and nothing else — so a `growth_metric` or `deal` table appearing here would
+    mean one of the 2.0.0 amendment's *cancelled* modules had started leaking back in, the
+    specific failure this project is structured to avoid.
     """
     assert set(inspect(session.get_bind()).get_table_names()) == EXPECTED_TABLES
 
