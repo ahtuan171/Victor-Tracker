@@ -61,6 +61,29 @@ class Settings(BaseSettings):
         ),
     )
 
+    r2_account_id: str = Field(
+        default="",
+        description="Cloudflare account id for the R2 bucket holding trip photographs "
+        "(003-travel-map).",
+    )
+
+    r2_access_key_id: str = Field(
+        default="",
+        description="R2 S3-compatible access key id. No code reads these yet — added at T001 so "
+        "the names exist before T007's presigned-URL service reads them.",
+    )
+
+    r2_secret_access_key: str = Field(
+        default="",
+        description="R2 S3-compatible secret access key.",
+    )
+
+    r2_bucket_name: str = Field(
+        default="",
+        description="R2 bucket name. Photographs only, per tech-defaults.md's Object storage "
+        "section.",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
