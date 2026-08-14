@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.api import auth, content_items, preferences
+from app.api import auth, content_items, destinations, locations, photographs, preferences, trips
 from app.config import get_settings
 from app.schemas import ErrorResponse, InvariantViolationError
 
@@ -27,12 +27,15 @@ class HealthResponse(BaseModel):
 
 
 app = FastAPI(
-    title="Victor Tracker — Content Calendar API",
-    version="0.1.0",
+    title="Victor Tracker API",
+    version="0.3.0",
     description=(
-        "Content Calendar for Victor Tracker v0.1. Contract: "
-        "specs/001-content-calendar/contracts/openapi.yaml, which is the source of truth — if this "
-        "generated document disagrees with it, the code is what is wrong."
+        "Victor Tracker's backend, across every shipped iteration. Content Calendar's contract "
+        "is specs/001-content-calendar/contracts/openapi.yaml; presentation preferences (theme, "
+        "sound) are specs/002-pixel-arcade-skin/contracts/openapi.yaml; the Travel Map — Trip, "
+        "Destination and photograph routes — is specs/003-travel-map/contracts/openapi.yaml. "
+        "Each is the source of truth for its own resources — if this generated document "
+        "disagrees with one, the code is what is wrong."
     ),
     # Declared globally so the generated schema shows the flattened shape the handler below actually
     # returns, rather than FastAPI's own array-of-objects `HTTPValidationError`. Verified at T020:
@@ -117,6 +120,10 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(content_items.router)
 app.include_router(preferences.router)
+app.include_router(trips.router)
+app.include_router(destinations.router)
+app.include_router(locations.router)
+app.include_router(photographs.router)
 
 
 @app.get(
