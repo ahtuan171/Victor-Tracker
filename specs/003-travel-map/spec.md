@@ -89,6 +89,20 @@ Deferred section once this spec is committed, not built here.
   passes, the Destination stays Planned until the owner marks it Visited by hand; no automatic
   transition is required of this spec (see Edge Cases).
 
+- **Q: Can a Destination's status move freely between Visited, Planned, and Wishlist in any
+  direction, or only forward along Wishlist → Planned → Visited?**
+  **A: Freely, in any direction, at any time.** Chosen over a one-way pipeline because the cost of
+  being wrong is asymmetric: a guided pipeline that turns out to be too rigid blocks a correction (a
+  place marked Visited by mistake, or a Planned trip that falls through and reverts to Wishlist) with
+  no escape hatch, while free-form status costs nothing when the owner never needs to reverse one.
+  No state-machine validation is required of this spec — any of the three values is always a valid
+  target from any of the other two. Recorded as FR-028.
+
+- **Q: Should marking a new place carry a specific interaction budget, the way Content Calendar's
+  capture flow is fixed at three (`.claude/memory.md`, 2026-07-29)?**
+  **A: Yes — at most three interactions**, matching that precedent: select or search a location, then
+  choose a status. SC-003 now states this as a number rather than a qualitative description.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See where I've been and where I want to go (Priority: P1)
@@ -176,8 +190,8 @@ the moment an idea to visit somewhere occurs, which is the same "capture costs a
 this product already learned building Content Calendar (`.claude/memory.md`, 2026-07-29). P2 because
 User Stories 1–3 already deliver a working map without it — this is what makes adding to it fast.
 
-**Independent Test**: from the map, mark a new place Wishlist in the fewest taps the quick-add flow
-allows, and confirm it appears on the map immediately without a separate save step.
+**Independent Test**: from the map, mark a new place Wishlist in at most three interactions (SC-003),
+and confirm it appears on the map immediately without a separate save step.
 
 **Acceptance Scenarios**:
 
@@ -313,6 +327,8 @@ status's pins remain visible, with a control to return to "all."
 - **FR-027**: This iteration does not build Activity or a Calendar surface for trip itineraries — see
   "Why this iteration, and what it deliberately does not build" and the Clarifications section above.
   Any future iteration adding it starts from its own `spec.md`, not from an assumption made here.
+- **FR-028**: The owner MUST be able to change a Destination's status to any of the other two values
+  at any time, in any direction — the system MUST NOT restrict status changes to a one-way sequence.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -333,9 +349,9 @@ status's pins remain visible, with a control to return to "all."
 - **SC-001**: Opening the map, an owner with places in every status can tell which are Visited, Planned,
   and Wishlist without tapping any of them.
 - **SC-002**: A visited place's photographs and notes are reachable in exactly one tap from its pin.
-- **SC-003**: Marking a new Wishlist place — from the owner's decision to add it, to it appearing on
-  the map — takes no more interactions than the quick-add flow requires, with no intermediate page the
-  owner must navigate away from and back to the map for.
+- **SC-003**: Marking a new place on the map — from selecting or searching a location to choosing its
+  status — takes **at most three interactions**, with no intermediate page the owner must navigate
+  away from and back to the map for.
 - **SC-004**: The map is fully usable — every pin reachable, the view pannable and zoomable — on a
   375px-wide screen, matching every other surface this product ships.
 - **SC-005**: A location search that matches a real place resolves to coordinates and places a pin

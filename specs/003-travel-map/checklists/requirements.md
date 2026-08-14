@@ -13,8 +13,10 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain — all 3 resolved 2026-08-14 (trip-membership,
-      Destination status vocabulary, Activity/Calendar scope); see Clarifications in spec.md
+- [x] No [NEEDS CLARIFICATION] markers remain — 5 resolved across `/speckit-specify` and
+      `/speckit-clarify`, both 2026-08-14 (trip-membership, Destination status vocabulary,
+      Activity/Calendar scope, status-transition freedom, quick-add interaction budget); see
+      Clarifications in spec.md
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,6 +34,7 @@
 
 ## Notes
 
-- All items pass. `/speckit-clarify` should confirm no further ambiguities remain rather than surface
-  new ones — the three highest-impact ones were resolved inline with the owner during
-  `/speckit-specify` itself, before this checklist was finalised.
+- All items pass. `/speckit-clarify` (2026-08-14) found two further genuine ambiguities beyond the
+  three resolved during `/speckit-specify` — status-transition freedom and the quick-add interaction
+  budget — both now resolved and integrated. No Outstanding or Deferred categories remain; ready for
+  `/speckit-plan`.
