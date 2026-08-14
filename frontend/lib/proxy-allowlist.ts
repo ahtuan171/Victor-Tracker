@@ -35,6 +35,18 @@ export const PROXY_ALLOWLIST: readonly AllowlistEntry[] = [
   // From specs/002-pixel-arcade-skin/contracts/openapi.yaml — a second contract file, not a second
   // API. proxy-allowlist.spec.ts reads both, per that file's header comment.
   { path: "/preferences", methods: ["GET", "PATCH"] },
+  // From specs/003-travel-map/contracts/openapi.yaml — unlike 002, a genuinely new, standalone
+  // resource space (its own header comment says so), not a delta on an existing one. Every
+  // operation below is called from the browser (frontend/lib/api.ts, T009), so all fourteen are
+  // allowed rather than excluded.
+  { path: "/trips", methods: ["GET", "POST"] },
+  { path: "/trips/{trip_id}", methods: ["GET", "PATCH", "DELETE"] },
+  { path: "/destinations", methods: ["GET", "POST"] },
+  { path: "/destinations/{destination_id}", methods: ["GET", "PATCH", "DELETE"] },
+  { path: "/locations/search", methods: ["GET"] },
+  { path: "/destinations/{destination_id}/photos", methods: ["POST"] },
+  { path: "/destinations/{destination_id}/photos/upload-url", methods: ["POST"] },
+  { path: "/destinations/{destination_id}/photos/{photo_id}", methods: ["DELETE"] },
 ];
 
 export interface ExcludedOperation {
@@ -69,6 +81,9 @@ export const NOT_PROXIED: readonly ExcludedOperation[] = [
  */
 export const PARAM_PATTERNS: Readonly<Record<string, RegExp>> = {
   item_id: /^[0-9]+$/,
+  trip_id: /^[0-9]+$/,
+  destination_id: /^[0-9]+$/,
+  photo_id: /^[0-9]+$/,
 };
 
 type SegmentMatcher = { readonly literal: string } | { readonly param: string; readonly pattern: RegExp };
