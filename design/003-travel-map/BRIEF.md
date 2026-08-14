@@ -172,4 +172,92 @@ exists.
 
 ## Audit findings
 
-*(Empty — filled in once an export exists and the audit above has been run against it.)*
+**2026-08-14 — export received, audit run, result: one finding, resolved without a spec amendment.**
+
+Export: `Victor-Tracker-Map.dc.html` (one Claude Design canvas, twelve panels `1a`–`1l`). Pulled with
+`DesignSync get_file` from project `21767df3-d53c-4a10-832c-714db1d2b2b0` ("Pin encoding for travel
+map"), a regular project — same pattern as `content-calendar`'s export, not the design-system type.
+`support.js` and `image-slot.js` are the canvas runtime, kept alongside so the file renders offline.
+Two screenshots (`screenshot-1a.png`, `screenshot-1b.png`) were rendered from the export with
+Playwright, matching `content-calendar`'s own acceptance-test process; a third
+(`screenshot-1d.png`) records the pin-encoding legend as designed.
+
+### Coverage — all seven surfaces present, at 375px
+
+`MapView` (live, `1a`; greyscale acceptance, `1b`; zero-places empty state, `1c`) ·
+`DestinationPin` encoding legend (`1d`) · `DestinationSheet` (Visited, `1e`; Planned/Wishlist, `1f`)
+· `QuickAdd` (`1g`) · `LocationSearch` empty-vs-failed states (`1h`) · `TripPanel` (list+create,
+`1i`; one Trip open, `1j`) · `StatusFilter` (`1k`) · delete confirmations, both variants (`1l`).
+Every surface `BRIEF.md` asked for is present; nothing from the DO-NOT-INVENT list appears anywhere
+in the export (no route line, no cost/budget field, no category/priority control, no Activity/
+Calendar surface, no live-tracking dot, no photo caption/reorder handle, no share/public-link
+control, no second coordinate pair on one Destination, no version/conflict indicator, no
+collaborator/avatar control) — checked by reading every panel, not by pattern-matching text.
+
+### The pin encoding — designed, and stated with its reasoning (per `BRIEF.md` §4's open question)
+
+A **shield silhouette**, not the calendar's circle, carrying the same outline → half-filled → solid
+progression `001`'s status pipeline already established, deliberately **not** copied verbatim onto a
+circle — panel `1d`'s own reasoning: "carried on a map-pin shield silhouette so a pin never reads as
+a calendar chip. Hue is redundant — fill level alone survives greyscale," confirmed by `1b`'s
+greyscale render, where all three states stay separable on shape and fill alone.
+
+| Status | Shield fill | Glyph | Colour (decorative only) |
+|---|---|---|---|
+| Visited | solid | check | `#7fb0a0` (lightest in greyscale) |
+| Planned | half-filled from the tip up | caret `▸` | `#8a7ba8` (mid) |
+| Wishlist | outline only, void interior | star `☆` | `#6c6f8f` (darkest) |
+
+**Currently Traveling** (FR-002, R-004) is a pulsing amber ring (`#ffb020`) plus a caret chevron
+layered on top of a Planned pin — an overlay, not a fifth shield state, matching data-model.md's
+"not a stored value" rule exactly. **Stacked/near-overlapping pins** (User Story 1 scenario 3) show
+as two shields offset with a count badge; tapping fans them apart on hairline stems — both remain
+individually reachable, never merged into one.
+
+**New tokens needed, none competing with existing ones**: `#7fb0a0`/`#8a7ba8`/`#6c6f8f` are a
+**second, independent status palette** for `DestinationStatus` — deliberately not reusing
+`--ch-status-idea/draft/posted` (`#5b6b8c`/`#d99a2b`/`#2f9e63`), which would make a Wishlist pin
+misread as a calendar `idea` chip. `#ffb020`/`#ffcb5c` for the Currently-Traveling overlay **are**
+already `--ch-danger`/`--ch-danger-hi` — reused, not duplicated. Add three new custom properties
+(e.g. `--ch-status-visited`/`--ch-status-planned`/`--ch-status-wishlist`) alongside the existing
+status tokens in `globals.css` at implementation time; this is additive, not competing, per
+`.claude/rules/design.md`.
+
+### One finding: TripStatus's display words don't match data-model.md's ratified enum, and invent a seventh
+
+The export's `TripPanel` (`1i`) shows `TripStatus` as **IDEA · PLANNING · BOOKED · IN PROGRESS ·
+COMPLETED · ABANDONED**. `data-model.md`'s ratified enum is **wishlist · planned · booked · upcoming
+· traveling · completed** — five of the six are the same *concept* under different words (idea≈
+wishlist, planning≈planned, in progress≈traveling), but **"Abandoned" has no ratified equivalent at
+all**: none of the six stored values means "this trip is not happening any more." Per constitution
+IV, this is exactly what a data-shape audit exists to catch — a design implying a value the spec
+does not have.
+
+**Resolution: implementation uses `data-model.md`'s six ratified words verbatim, as both the stored
+value and the displayed text** (matching `001`'s own pattern of showing `IDEA`/`DRAFT`/`POSTED`
+directly rather than translating them) — **not** the export's wording, and **"Abandoned" is not
+built.** Reasoning: `TripStatus` is explicitly "descriptive only; it does not drive any map pin" and
+"no requirement in this spec depends on its exact values beyond 'a status exists'" (research.md
+R-003) — the exact word is genuinely low-stakes, so there is no reason to prefer the export's
+invented vocabulary over the already-ratified one, and reusing "Idea" for a Trip would also collide
+with Content Calendar's own `idea` status on a completely different entity, which is worth avoiding
+on its own. If the owner later wants a real "this trip fell through" state, that is a `spec.md`
+amendment (a genuine seventh value), not a quiet addition made while adapting a design.
+
+### A technology note, not a finding
+
+The export renders its map with **Leaflet**, not MapLibre — a canvas-sandbox convenience, not a
+signal to reopen `plan.md`'s locked choice. Real implementation stays MapLibre GL JS against the same
+CARTO `dark_all`/dark-matter tile source the export also uses; the tile attribution string the export
+renders (`Leaflet | © OpenStreetMap contributors © CARTO`) is exactly the licence-term text
+`tech-defaults.md` requires, just via the design tool's own library. `AttributionControl` in the real
+MapLibre build discharges the same requirement automatically, as the `003` MapLibre spike already
+confirmed (`frontend/AGENTS.md`).
+
+### Consequences for `frontend/`
+
+The surfaces themselves are **not built by this audit** — each belongs to its own task from `T014`
+onward (`tasks.md`) and is built there, reading this export and `screenshot-1a.png`/`1b.png`/`1d.png`
+as the reference the way `content-calendar`'s own tasks read its export. `TripPanel`'s status control
+(T036, T039–T040) is the one place to double-check against this finding rather than the export's own
+copy when it is built.
