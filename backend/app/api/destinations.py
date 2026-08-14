@@ -5,13 +5,13 @@ first (User Story 1); `getDestination`/`updateDestination`/`deleteDestination` a
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 from sqlmodel import col, select
 
 from app.auth import CurrentCreator
 from app.db import SessionDep
 from app.models import Destination, DestinationStatus
-from app.schemas import DestinationRead, ErrorResponse
+from app.schemas import DestinationCreate, DestinationRead, ErrorResponse
 
 router = APIRouter(prefix="/destinations", tags=["destinations"])
 
@@ -51,3 +51,36 @@ def list_destinations(
     query = query.order_by(col(Destination.id))
 
     return list(session.exec(query).all())
+
+
+@router.post(
+    "",
+    response_model=DestinationRead,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        422: {"model": ErrorResponse, "description": "Request failed validation."},
+    },
+    summary="Create a Destination",
+)
+def create_destination(
+    body: DestinationCreate,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> Destination:
+    """FR-015, FR-020, FR-021. `trip_id` is optional (FR-020) — omit it for a place marked
+    independent of any Trip. `latitude`/`longitude` are required on this call: this operation is
+    reached **after** `GET /locations/search` has already resolved a name to coordinates
+    (FR-011); it does not itself geocode a free-text name.
+
+    **INV-1** (coordinates never null on a stored row) is enforced entirely by
+    `DestinationCreate` requiring both fields with no default — there is no code path here that
+    can construct a row without them, so there is nothing further to check before the insert
+    (data-model.md: unlike `001`'s INV-1, this one has no `CHECK` expressible from the columns
+    alone, since (0,0) is a real coordinate).
+    """
+    destination = Destination(**body.model_dump())
+    session.add(destination)
+    session.commit()
+    session.refresh(destination)
+    return destination

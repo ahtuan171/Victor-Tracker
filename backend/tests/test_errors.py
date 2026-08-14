@@ -251,6 +251,29 @@ REACHABLE_4XX = [
         401,
         id="update-preferences-no-credential",
     ),
+    # 003-travel-map, T012/T013: listDestinations/createDestination. INV-1 (coordinates never
+    # null on a stored row) is enforced entirely by DestinationCreate requiring both fields with
+    # no default, so a body missing them is a 422 rather than a 409 — there is no invariant to
+    # violate once the request model itself refuses the write.
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/destinations"),
+        401,
+        id="list-destinations-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.post(
+            "/destinations", json={"name": "Kyoto", "latitude": 35.0, "longitude": 135.0}
+        ),
+        401,
+        id="create-destination-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post(
+            "/destinations", json={"name": "Kyoto"}
+        ),
+        422,
+        id="create-destination-missing-coordinates",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.get("/no/such/path"),
         404,
