@@ -26,6 +26,11 @@
  *
  * `lib/session.ts` must never be imported from this module or anything that reaches it: it reads
  * non-`NEXT_PUBLIC_` variables and a client bundle would get silent fallbacks.
+ *
+ * **003-travel-map (T009) adds every `/trips`, `/destinations`, `/locations` and per-destination
+ * photograph operation from `specs/003-travel-map/contracts/openapi.yaml`** below the 001/002
+ * operations above — a new, standalone resource space, not a delta on `ContentItem`. Same rules:
+ * hand-written from the contract, same transport, same 401 handling.
  */
 
 /** Everything this client talks to. Same-origin by construction — see note 1 above. */
@@ -89,6 +94,165 @@ export interface Preferences {
 export interface PreferencesUpdate {
   readonly theme?: Theme;
   readonly sound_enabled?: boolean;
+}
+
+// --- 003-travel-map ---------------------------------------------------------------------------
+
+/**
+ * `DestinationStatus` in `specs/003-travel-map/contracts/openapi.yaml`. FR-002, FR-026 — drives a
+ * map pin's fill. Free-form in every direction (FR-028): no value is reachable only from another
+ * specific one.
+ */
+export const DESTINATION_STATUSES = ["visited", "planned", "wishlist"] as const;
+export type DestinationStatus = (typeof DESTINATION_STATUSES)[number];
+
+/**
+ * `TripStatus` in the same contract. FR-014 — descriptive only, drives no pin and nothing here
+ * branches on its exact value beyond "a status exists".
+ */
+export const TRIP_STATUSES = [
+  "wishlist",
+  "planned",
+  "booked",
+  "upcoming",
+  "traveling",
+  "completed",
+] as const;
+export type TripStatus = (typeof TRIP_STATUSES)[number];
+
+/** `Trip` in the contract. */
+export interface Trip {
+  readonly id: number;
+  readonly name: string;
+  /** `YYYY-MM-DD`. Never hand this to `new Date` — see `ContentItem.scheduled_date` above. */
+  readonly start_date: string;
+  readonly end_date: string;
+  readonly status: TripStatus;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** `TripCreate` in the contract. `name`/`start_date`/`end_date` are required (FR-014). */
+export interface TripCreate {
+  readonly name: string;
+  readonly start_date: string;
+  readonly end_date: string;
+  readonly status?: TripStatus;
+}
+
+/**
+ * `TripUpdate` in the contract: every field optional, and — unlike `DestinationUpdate` below —
+ * **none nullable**. `trip`'s columns are all `NOT NULL` (data-model.md), so there is no `| null`
+ * spelling here the way there is for `ContentItem`'s clearable fields; the backend refuses an
+ * explicit `null` on any of these with a 422.
+ */
+export interface TripUpdate {
+  readonly name?: string;
+  readonly start_date?: string;
+  readonly end_date?: string;
+  readonly status?: TripStatus;
+}
+
+/**
+ * `Destination` in the contract. `trip_id`/`start_date`/`end_date` are the contract's
+ * optional-but-nullable trio (parallel to `ContentItem`'s four) — typed present-and-nullable here,
+ * with `toDestination` making that true on the way in.
+ */
+export interface Destination {
+  readonly id: number;
+  readonly trip_id: number | null;
+  readonly name: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly start_date: string | null;
+  readonly end_date: string | null;
+  readonly status: DestinationStatus;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/**
+ * `DestinationDetail` in the contract: `Destination` plus `note` and `photographs`, always both
+ * present (FR-005) — `getDestination` is the only operation that returns this shape.
+ */
+export interface DestinationDetail extends Destination {
+  readonly note: string | null;
+  readonly photographs: readonly Photograph[];
+}
+
+/**
+ * `DestinationCreate` in the contract. `name`/`latitude`/`longitude` are required — this call is
+ * reached after `searchLocations` has already resolved a name to coordinates (FR-011); it does not
+ * itself geocode. `trip_id` is optional (FR-020).
+ */
+export interface DestinationCreate {
+  readonly trip_id?: number | null;
+  readonly name: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly start_date?: string | null;
+  readonly end_date?: string | null;
+  readonly status?: DestinationStatus;
+  readonly note?: string | null;
+}
+
+/**
+ * `DestinationUpdate` in the contract — a **mixed** null-spelling rule, the same shape
+ * `ContentItemUpdate` uses above. `trip_id` (FR-020's detach), `start_date`, `end_date` and `note`
+ * may be sent as explicit `null` to clear them; `name`, `latitude`, `longitude` and `status` back
+ * `NOT NULL` columns and have no null spelling — the backend refuses one with a 422.
+ */
+export interface DestinationUpdate {
+  readonly trip_id?: number | null;
+  readonly name?: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
+  readonly start_date?: string | null;
+  readonly end_date?: string | null;
+  readonly status?: DestinationStatus;
+  readonly note?: string | null;
+}
+
+/** Query parameters on `GET /destinations`. */
+export interface ListDestinationsParams {
+  /** Narrow to one Trip's Destinations (User Story 3). */
+  readonly trip_id?: number;
+  /** FR-010's map filter. */
+  readonly status?: DestinationStatus;
+}
+
+/** `Photograph` in the contract. `url` is a presigned GET, minted fresh on every response. */
+export interface Photograph {
+  readonly id: number;
+  readonly url: string;
+  readonly created_at: string;
+}
+
+/**
+ * `PhotographCreate` in the contract. Sent after the browser has already `PUT` the image bytes to
+ * the presigned URL from `createPhotoUploadUrl` — never image bytes here, only the key that upload
+ * already used (FR-023, FR-025).
+ */
+export interface PhotographCreate {
+  readonly object_key: string;
+}
+
+/**
+ * `PhotoUploadUrl` in the contract. `upload_url` is a presigned `PUT` the browser uploads directly
+ * to R2 — this product's own backend never receives the image bytes.
+ */
+export interface PhotoUploadUrl {
+  readonly upload_url: string;
+  readonly object_key: string;
+  readonly expires_at: string;
+}
+
+/** `LocationCandidate` in the contract — one geocoding match from `searchLocations`. */
+export interface LocationCandidate {
+  readonly name: string;
+  readonly address: string;
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 /**
@@ -339,6 +503,122 @@ export function updatePreferences(changes: PreferencesUpdate): Promise<Preferenc
   return request<Preferences>("PATCH", "/preferences", { body: changes });
 }
 
+// --- 003-travel-map ---------------------------------------------------------------------------
+
+/** List every Trip. No pagination — a personal number of trips is the only volume (FR-014). */
+export function listTrips(): Promise<Trip[]> {
+  return request<Trip[]>("GET", "/trips");
+}
+
+/** Create a Trip. `status` defaults to `wishlist` when omitted. */
+export function createTrip(trip: TripCreate): Promise<Trip> {
+  return request<Trip>("POST", "/trips", { body: trip });
+}
+
+/** Read one Trip. Throws `ApiError` with `status === 404` for an id that does not exist. */
+export function getTrip(id: number): Promise<Trip> {
+  return request<Trip>("GET", `/trips/${id}`);
+}
+
+/** Change one or more fields of a Trip (FR-016). */
+export function updateTrip(id: number, changes: TripUpdate): Promise<Trip> {
+  return request<Trip>("PATCH", `/trips/${id}`, { body: changes });
+}
+
+/**
+ * Delete a Trip and every Destination that belongs to it (FR-018, `ON DELETE CASCADE`). The
+ * confirmation naming what will be lost happens before this call — the API performs the delete
+ * unconditionally once called, the same division `deleteContentItem` draws.
+ */
+export async function deleteTrip(id: number): Promise<void> {
+  await request<void>("DELETE", `/trips/${id}`);
+}
+
+/**
+ * List Destinations, optionally narrowed by Trip or status. With no parameters, returns every
+ * Destination regardless of Trip membership — the map's own read (FR-001, FR-019).
+ */
+export async function listDestinations(
+  params: ListDestinationsParams = {},
+): Promise<Destination[]> {
+  const rows = await request<unknown[]>("GET", `/destinations${destinationsQueryString(params)}`);
+  return rows.map(toDestination);
+}
+
+/**
+ * Create a Destination. `latitude`/`longitude` must already be resolved (FR-011) — this call does
+ * not itself geocode a free-text name; see `searchLocations`.
+ */
+export async function createDestination(destination: DestinationCreate): Promise<Destination> {
+  return toDestination(await request<unknown>("POST", "/destinations", { body: destination }));
+}
+
+/**
+ * Read one Destination, with its note and photograph URLs. Always includes both regardless of
+ * `status` (FR-005) — each photograph's `url` is a presigned GET minted fresh on this call
+ * (FR-024), never a stored or cached link.
+ */
+export async function getDestination(id: number): Promise<DestinationDetail> {
+  return toDestinationDetail(await request<unknown>("GET", `/destinations/${id}`));
+}
+
+/**
+ * Change one or more fields of a Destination (FR-016, FR-006, FR-028). Changing `name` does not
+ * re-geocode — a location change is a new `searchLocations` call followed by sending the new
+ * `latitude`/`longitude` here explicitly.
+ */
+export async function updateDestination(
+  id: number,
+  changes: DestinationUpdate,
+): Promise<Destination> {
+  return toDestination(
+    await request<unknown>("PATCH", `/destinations/${id}`, { body: changes }),
+  );
+}
+
+/** Delete a Destination and its photographs (FR-016, cascades). Does not touch its Trip. */
+export async function deleteDestination(id: number): Promise<void> {
+  await request<void>("DELETE", `/destinations/${id}`);
+}
+
+/**
+ * Resolve a typed place name to zero or more candidate coordinates (FR-011, FR-012). Zero results
+ * is a resolved empty array, not a thrown error — "no matches" is an ordinary outcome. A `502`
+ * (Nominatim unreachable) still throws `ApiError`, which the caller renders as "search failed,
+ * retry", never as an empty result set.
+ */
+export function searchLocations(query: string): Promise<LocationCandidate[]> {
+  return request<LocationCandidate[]>(
+    "GET",
+    `/locations/search?q=${encodeURIComponent(query)}`,
+  );
+}
+
+/**
+ * Mint a short-lived presigned URL for uploading one photograph (FR-023). The caller `PUT`s image
+ * bytes to `upload_url` **directly against R2** — never through this product's own backend — then
+ * calls `createPhotograph` with the returned `object_key` to confirm.
+ */
+export function createPhotoUploadUrl(destinationId: number): Promise<PhotoUploadUrl> {
+  return request<PhotoUploadUrl>("POST", `/destinations/${destinationId}/photos/upload-url`);
+}
+
+/**
+ * Confirm a photograph upload and record it against a Destination (FR-023, FR-025). Called after
+ * the browser's own direct `PUT` to R2 has already finished — this never carries image bytes.
+ */
+export function createPhotograph(
+  destinationId: number,
+  photo: PhotographCreate,
+): Promise<Photograph> {
+  return request<Photograph>("POST", `/destinations/${destinationId}/photos`, { body: photo });
+}
+
+/** Remove one photograph from a Destination. Deletes the database row, not the R2 object. */
+export async function deletePhotograph(destinationId: number, photoId: number): Promise<void> {
+  await request<void>("DELETE", `/destinations/${destinationId}/photos/${photoId}`);
+}
+
 // --- Transport ------------------------------------------------------------------------------
 
 interface RequestOptions {
@@ -483,4 +763,41 @@ function queryString(params: ListContentItemsParams): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Fill `Destination`'s optional-but-nullable trio so the type is true as declared — the same
+ * reasoning and the same trust boundary as `toContentItem` above.
+ */
+function toDestination(value: unknown): Destination {
+  const row = value as Destination & Partial<Record<keyof Destination, unknown>>;
+
+  return {
+    ...row,
+    trip_id: row.trip_id ?? null,
+    start_date: row.start_date ?? null,
+    end_date: row.end_date ?? null,
+  };
+}
+
+/** `toDestination`, plus `DestinationDetail`'s own `note`/`photographs` pair. */
+function toDestinationDetail(value: unknown): DestinationDetail {
+  const detail = value as DestinationDetail & Partial<Record<keyof DestinationDetail, unknown>>;
+
+  return {
+    ...toDestination(detail),
+    note: detail.note ?? null,
+    photographs: detail.photographs ?? [],
+  };
+}
+
+/** `?trip_id=1&status=visited` for the parameters that are set, empty string when none are. */
+function destinationsQueryString(params: ListDestinationsParams): string {
+  const search = new URLSearchParams();
+
+  if (params.trip_id !== undefined) search.set("trip_id", String(params.trip_id));
+  if (params.status !== undefined) search.set("status", params.status);
+
+  const query = search.toString();
+  return query === "" ? "" : `?${query}`;
 }
