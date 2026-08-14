@@ -200,8 +200,14 @@ class TripUpdate(BaseModel):
         return self
 
 
-class Trip(BaseModel):
-    """The contract's `Trip` — the single response model for every route in `app/api/trips.py`."""
+class TripRead(BaseModel):
+    """The contract's `Trip` — the single response model for every route in `app/api/trips.py`.
+
+    Named `TripRead`, not `Trip`: `app/models.py` already has a SQLModel table class called
+    `Trip`, and a router needs to import both — the same `ContentItemRead` vs `ContentItem`
+    split `content_items.py` already uses, for the same reason (`Trip.id` there is `int | None`
+    until the insert; this model's `id` is the required `int` the contract promises).
+    """
 
     id: int
     name: str
@@ -268,10 +274,13 @@ class DestinationUpdate(BaseModel):
         return self
 
 
-class Destination(BaseModel):
+class DestinationRead(BaseModel):
     """The contract's `Destination`. Every nullable field is always emitted, matching
     `ContentItemRead`'s own precedent of being *stricter* than the contract's optional-but-
     nullable properties (`backend/AGENTS.md`) — no client written against the contract breaks.
+
+    Named `DestinationRead`, not `Destination` — see `TripRead`'s docstring; `app/models.py`'s
+    `Destination` is the SQLModel table class this reads from.
     """
 
     id: int
@@ -286,9 +295,12 @@ class Destination(BaseModel):
     updated_at: datetime
 
 
-class Photograph(BaseModel):
+class PhotographRead(BaseModel):
     """The contract's `Photograph`. `url` is a presigned GET, minted fresh on every response
     that includes it (FR-024) — never stored, so there is nothing to keep in sync with R2.
+
+    Named `PhotographRead`, not `Photograph` — see `TripRead`'s docstring; `app/models.py`'s
+    `Photograph` is the SQLModel table class this reads from.
     """
 
     id: int
@@ -296,7 +308,7 @@ class Photograph(BaseModel):
     created_at: datetime
 
 
-class DestinationDetail(Destination):
+class DestinationDetail(DestinationRead):
     """The contract's `DestinationDetail`: `Destination` plus `note` and `photographs`.
 
     Always includes both regardless of `status` — FR-009's "no gallery on a non-Visited pin" is
@@ -305,7 +317,7 @@ class DestinationDetail(Destination):
     """
 
     note: str | None
-    photographs: list[Photograph]
+    photographs: list[PhotographRead]
 
 
 class PhotographCreate(BaseModel):
