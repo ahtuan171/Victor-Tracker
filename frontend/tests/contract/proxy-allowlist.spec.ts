@@ -32,6 +32,7 @@ import {
 const CONTRACT_PATHS = [
   resolve(__dirname, "../../../specs/001-content-calendar/contracts/openapi.yaml"),
   resolve(__dirname, "../../../specs/002-pixel-arcade-skin/contracts/openapi.yaml"),
+  resolve(__dirname, "../../../specs/003-travel-map/contracts/openapi.yaml"),
 ];
 
 // OpenAPI 3.1 fixed fields of a Path Item that are operations. Everything else under a path —
@@ -138,6 +139,20 @@ test.describe("isAllowed", () => {
     expect(isAllowed("DELETE", ["content-items", "42"])).toBe(true);
     expect(isAllowed("GET", ["preferences"])).toBe(true);
     expect(isAllowed("PATCH", ["preferences"])).toBe(true);
+    expect(isAllowed("GET", ["trips"])).toBe(true);
+    expect(isAllowed("POST", ["trips"])).toBe(true);
+    expect(isAllowed("GET", ["trips", "5"])).toBe(true);
+    expect(isAllowed("PATCH", ["trips", "5"])).toBe(true);
+    expect(isAllowed("DELETE", ["trips", "5"])).toBe(true);
+    expect(isAllowed("GET", ["destinations"])).toBe(true);
+    expect(isAllowed("POST", ["destinations"])).toBe(true);
+    expect(isAllowed("GET", ["destinations", "9"])).toBe(true);
+    expect(isAllowed("PATCH", ["destinations", "9"])).toBe(true);
+    expect(isAllowed("DELETE", ["destinations", "9"])).toBe(true);
+    expect(isAllowed("GET", ["locations", "search"])).toBe(true);
+    expect(isAllowed("POST", ["destinations", "9", "photos"])).toBe(true);
+    expect(isAllowed("POST", ["destinations", "9", "photos", "upload-url"])).toBe(true);
+    expect(isAllowed("DELETE", ["destinations", "9", "photos", "3"])).toBe(true);
   });
 
   test("rejects a method the contract does not give that path", () => {
@@ -147,6 +162,10 @@ test.describe("isAllowed", () => {
     expect(isAllowed("POST", ["content-items", "42"])).toBe(false);
     expect(isAllowed("POST", ["preferences"])).toBe(false);
     expect(isAllowed("DELETE", ["preferences"])).toBe(false);
+    expect(isAllowed("DELETE", ["trips"])).toBe(false);
+    expect(isAllowed("DELETE", ["destinations"])).toBe(false);
+    expect(isAllowed("POST", ["locations", "search"])).toBe(false);
+    expect(isAllowed("PATCH", ["destinations", "9", "photos", "3"])).toBe(false);
   });
 
   test("rejects the excluded health probe", () => {
@@ -169,6 +188,10 @@ test.describe("isAllowed", () => {
     expect(isAllowed("GET", ["content-items", "42abc"])).toBe(false);
     expect(isAllowed("GET", ["content-items", "4 2"])).toBe(false);
     expect(isAllowed("GET", ["content-items", "42/43"])).toBe(false);
+    // trip_id, destination_id, photo_id — same integer-only rule, added at 003-travel-map T011.
+    expect(isAllowed("GET", ["trips", ".."])).toBe(false);
+    expect(isAllowed("PATCH", ["destinations", "9abc"])).toBe(false);
+    expect(isAllowed("DELETE", ["destinations", "9", "photos", ""])).toBe(false);
   });
 
   test("rejects a method that is not one of the four the proxy speaks", () => {
