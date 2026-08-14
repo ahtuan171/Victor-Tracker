@@ -13,13 +13,20 @@ despite it: `app/api/preferences.py` is their first caller, and `app/api/auth.py
 is their second (T012 — the amended login response optionally carries a `Preferences` body).
 Putting them in `preferences.py` would make `auth.py` import a sibling router module for a response
 model, the same shape of mistake `ErrorResponse` living in `main.py` would have been.
+
+**003-travel-map's Trip/Destination/Photograph/LocationCandidate models live here too, and that is a
+departure from `content_items.py`'s precedent** — `tasks.md`'s T005 places them in this shared
+module rather than with their own routers because `Photograph` and `DestinationDetail` are each read
+by more than one router file (`destinations.py` and `photographs.py`), the same multi-caller reason
+`ErrorResponse` and the Preferences pair are here.
 """
 
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models import Theme
+from app.models import DestinationStatus, Theme, TripStatus
 
 
 class ErrorResponse(BaseModel):
@@ -149,3 +156,184 @@ class PreferencesUpdate(BaseModel):
         if nulled:
             raise ValueError(f"{', '.join(sorted(nulled))} may not be set to null.")
         return self
+
+
+# --- 003-travel-map -------------------------------------------------------------------------
+
+
+class TripCreate(BaseModel):
+    """The contract's `TripCreate`. `name`/`start_date`/`end_date` are required (FR-014);
+    `status` defaults to `wishlist`, matching `trip.status`'s own column default.
+    """
+
+    name: str = Field(max_length=200)
+    start_date: date
+    end_date: date
+    status: TripStatus = TripStatus.WISHLIST
+
+
+class TripUpdate(BaseModel):
+    """The contract's `TripUpdate`: at least one key, no unknown ones, and — unlike
+    `DestinationUpdate` — **no field here may be sent as an explicit null**. None of `trip`'s
+    columns are nullable (data-model.md), so every field in this model has the same "no null
+    spelling" rule `PreferencesUpdate` states for both of its own fields.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=200)
+    start_date: date | None = None
+    end_date: date | None = None
+    status: TripStatus | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "TripUpdate":
+        """The contract's `minProperties: 1` plus its "no null spelling" rule, in one place —
+        the same shape as `PreferencesUpdate.at_least_one_field`, for the same reason: every
+        field on this model disallows `null`.
+        """
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change.")
+        nulled = [field for field in self.model_fields_set if getattr(self, field) is None]
+        if nulled:
+            raise ValueError(f"{', '.join(sorted(nulled))} may not be set to null.")
+        return self
+
+
+class Trip(BaseModel):
+    """The contract's `Trip` — the single response model for every route in `app/api/trips.py`."""
+
+    id: int
+    name: str
+    start_date: date
+    end_date: date
+    status: TripStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class DestinationCreate(BaseModel):
+    """The contract's `DestinationCreate`. `name`/`latitude`/`longitude` are required — this
+    operation is reached **after** `GET /locations/search` has already resolved a name to
+    coordinates (FR-011); it does not itself geocode. `trip_id` is optional (FR-020); `status`
+    defaults to `wishlist`, matching `destination.status`'s own column default.
+    """
+
+    trip_id: int | None = None
+    name: str = Field(max_length=200)
+    latitude: float
+    longitude: float
+    start_date: date | None = None
+    end_date: date | None = None
+    status: DestinationStatus = DestinationStatus.WISHLIST
+    note: str | None = None
+
+
+class DestinationUpdate(BaseModel):
+    """The contract's `DestinationUpdate`: at least one key, no unknown ones, and a **mixed**
+    null-spelling rule, the same shape `ContentItemUpdate` uses. `trip_id`, `start_date`,
+    `end_date` and `note` are nullable on `destination` (data-model.md), so an explicit `null`
+    on any of those four clears it — `trip_id: null` is FR-020's detach. `name`, `latitude`,
+    `longitude` and `status` back `NOT NULL` columns and may not be sent as `null`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    trip_id: int | None = None
+    name: str | None = Field(default=None, max_length=200)
+    latitude: float | None = None
+    longitude: float | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: DestinationStatus | None = None
+    note: str | None = None
+
+    _NEVER_NULL = ("name", "latitude", "longitude", "status")
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "DestinationUpdate":
+        """The contract's `minProperties: 1`, plus refusing `null` on the four fields that back
+        a `NOT NULL` column. `trip_id`/`start_date`/`end_date`/`note` are exempt — sending those
+        as `null` is a real clear, not a mistake.
+        """
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change.")
+        nulled = [
+            field
+            for field in self.model_fields_set
+            if field in self._NEVER_NULL and getattr(self, field) is None
+        ]
+        if nulled:
+            raise ValueError(f"{', '.join(sorted(nulled))} may not be set to null.")
+        return self
+
+
+class Destination(BaseModel):
+    """The contract's `Destination`. Every nullable field is always emitted, matching
+    `ContentItemRead`'s own precedent of being *stricter* than the contract's optional-but-
+    nullable properties (`backend/AGENTS.md`) — no client written against the contract breaks.
+    """
+
+    id: int
+    trip_id: int | None
+    name: str
+    latitude: float
+    longitude: float
+    start_date: date | None
+    end_date: date | None
+    status: DestinationStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class Photograph(BaseModel):
+    """The contract's `Photograph`. `url` is a presigned GET, minted fresh on every response
+    that includes it (FR-024) — never stored, so there is nothing to keep in sync with R2.
+    """
+
+    id: int
+    url: str
+    created_at: datetime
+
+
+class DestinationDetail(Destination):
+    """The contract's `DestinationDetail`: `Destination` plus `note` and `photographs`.
+
+    Always includes both regardless of `status` — FR-009's "no gallery on a non-Visited pin" is
+    a **frontend** display rule (INV-3, data-model.md), not a reason for the API to withhold
+    data that exists.
+    """
+
+    note: str | None
+    photographs: list[Photograph]
+
+
+class PhotographCreate(BaseModel):
+    """The contract's `PhotographCreate`. Sent **after** the browser has already `PUT` the image
+    bytes to the presigned URL from `POST .../photos/upload-url` — this carries only the
+    `object_key` that upload already used, never image bytes (FR-023, FR-025).
+    """
+
+    object_key: str = Field(max_length=512)
+
+
+class PhotoUploadUrl(BaseModel):
+    """The contract's `PhotoUploadUrl`. `upload_url` is a presigned `PUT` the browser uploads
+    directly to R2 — this backend never receives the image (`tech-defaults.md`'s Object Storage
+    section).
+    """
+
+    upload_url: str
+    object_key: str = Field(max_length=512)
+    expires_at: datetime
+
+
+class LocationCandidate(BaseModel):
+    """The contract's `LocationCandidate`. One geocoding match, as returned by
+    `GET /locations/search` (FR-011, FR-012) — `app/services/geocoding.py` is the only producer.
+    """
+
+    name: str
+    address: str
+    latitude: float
+    longitude: float
