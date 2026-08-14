@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  body { margin:0; background:#050506; font-family:'JetBrains Mono',ui-monospace,monospace; color:#f5f5f5; -webkit-font-smoothing:antialiased; }
+  a { color:#c41230; text-decoration:none; }
+  a:hover { color:#ffb020; }
+  @keyframes vtPulse { 0%{ transform:scale(.72); opacity:.95 } 70%{ transform:scale(1.25); opacity:0 } 100%{ transform:scale(1.25); opacity:0 } }
+  @keyframes vtTick { from{ transform:translateX(0) } to{ transform:translateX(-50%) } }
+  .leaflet-container { background:#0c0c0f !important; font-family:'JetBrains Mono',monospace !important; outline:none; }
+  .leaflet-control-attribution { background:rgba(9,9,11,.86) !important; color:#a7a3ad !important; font-size:9px !important; padding:2px 6px !important; border-radius:0 !important; border-top:1px solid #2a2a31; border-left:1px solid #2a2a31; }
+  .leaflet-control-attribution a { color:#f5f5f5 !important; text-decoration:underline; }
+  .leaflet-tile-pane { filter:saturate(.55) contrast(1.06) brightness(.86); }
+  .vt-pin:focus-visible { outline:2px solid #c41230; outline-offset:2px; }
+  input:focus-visible, button:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline:2px solid #c41230; outline-offset:2px; }
+</style>
+</helmet>
+
+<section style="padding:56px 48px 96px;display:flex;flex-direction:column;gap:40px">
+  <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;border-bottom:1px solid #2a2a31;padding-bottom:20px">
+    <div style="font-family:'Silkscreen',monospace;font-size:26px;letter-spacing:.06em;color:#f5f5f5">VICTOR TRACKER</div>
+    <div style="font-size:12px;color:#6f6b76;letter-spacing:.18em">TRAVEL MAP MODULE · 375px · v0.2</div>
+    <div style="margin-left:auto;font-size:11px;color:#a7a3ad;line-height:1.9;max-width:420px;text-wrap:pretty">Pin encoding: <span style="color:#7fb0a0">solid</span> / <span style="color:#8a7ba8">half-filled</span> / <span style="color:#6c6f8f">outline</span> shield — fill level, not hue, carries status. No ticker on map screens (thumb-reach belongs to Quick&nbsp;Add).</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start">
+
+    <!-- 1a MAPVIEW LIVE -->
+    <div id="1a" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1a</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">MAPVIEW · LIVE</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -3px 6px rgba(0,0,0,.65),0 20px 44px rgba(0,0,0,.6);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)">
+        <div style="position:absolute;top:15px;left:15px;width:5px;height:5px;background:#f5f5f5;opacity:.5"></div>
+        <div style="position:absolute;top:15px;right:15px;width:5px;height:5px;background:#f5f5f5;opacity:.5"></div>
+        <div style="position:absolute;bottom:15px;left:15px;width:5px;height:5px;background:#f5f5f5;opacity:.35"></div>
+        <div style="position:absolute;bottom:15px;right:15px;width:5px;height:5px;background:#f5f5f5;opacity:.35"></div>
+        <div style="position:relative;width:357px;height:794px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+
+          <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#0c0c0f;border-bottom:1px solid #2a2a31">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;letter-spacing:.04em;color:#f5f5f5">MAP</span>
+            <span style="font-size:11px;color:#6f6b76;letter-spacing:.1em">{{ countLine }}</span>
+          </div>
+
+          <div style="position:relative;flex:1;min-height:0">
+            <div id="vt-map-1" style="position:absolute;inset:0"></div>
+            <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:8px;z-index:500">
+              <button type="button" onClick="{{ zoomIn }}" aria-label="Zoom in" style="width:44px;height:44px;border:1px solid #2a2a31;background:rgba(23,23,28,.92);color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:20px;cursor:pointer;border-radius:3px" style-hover="background:#1f1f26;border-color:#a10826">+</button>
+              <button type="button" onClick="{{ zoomOut }}" aria-label="Zoom out" style="width:44px;height:44px;border:1px solid #2a2a31;background:rgba(23,23,28,.92);color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:20px;cursor:pointer;border-radius:3px" style-hover="background:#1f1f26;border-color:#a10826">–</button>
+            </div>
+            <div style="position:absolute;left:10px;top:12px;z-index:500;padding:5px 8px;background:rgba(9,9,11,.82);border:1px solid #2a2a31;font-size:9px;color:#6f6b76;letter-spacing:.12em">{{ filterLine }}</div>
+          </div>
+
+          <sc-if value="{{ ticker }}" hint-placeholder-val="{{ false }}">
+            <div style="height:26px;flex:none;overflow:hidden;background:#0c0c0f;border-top:1px solid #2a2a31;display:flex;align-items:center">
+              <div style="display:flex;white-space:nowrap;animation:vtTick 22s linear infinite">
+                <span style="font-size:10px;color:#6f6b76;letter-spacing:.24em;padding-right:40px">{{ tickerLine }}</span>
+                <span style="font-size:10px;color:#6f6b76;letter-spacing:.24em;padding-right:40px">{{ tickerLine }}</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="flex:none;background:#0c0c0f;border-top:1px solid #2a2a31;padding:10px 12px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:6px">
+              <button type="button" onClick="{{ setAll }}" style="{{ chipAll }}">ALL</button>
+              <button type="button" onClick="{{ setVisited }}" style="{{ chipVisited }}"><span style="width:12px;height:14px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);flex:none"></span>VISITED</button>
+              <button type="button" onClick="{{ setPlanned }}" style="{{ chipPlanned }}"><span style="width:12px;height:14px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);flex:none"></span>PLANNED</button>
+              <button type="button" onClick="{{ setWish }}" style="{{ chipWish }}"><span style="width:12px;height:14px;background:#6c6f8f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);flex:none;box-shadow:inset 0 0 0 3px #09090b"></span>WISH</button>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" onClick="{{ openQuick }}" style="flex:1;height:52px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'Silkscreen',monospace;font-size:16px;letter-spacing:.04em;cursor:pointer;border-radius:3px" style-hover="background:#c41230">+ ADD PLACE</button>
+              <button type="button" onClick="{{ openTrips }}" style="width:96px;height:52px;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826;color:#f5f5f5">TRIPS</button>
+            </div>
+          </div>
+
+          <sc-if value="{{ sel }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;background:rgba(5,5,6,.5);z-index:800;display:flex;flex-direction:column;justify-content:flex-end" onClick="{{ closeSheet }}">
+              <div onClick="{{ stop }}" style="background:#111114;border-top:1px solid #2a2a31;box-shadow:0 -18px 40px rgba(0,0,0,.7);clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;justify-content:center"><div style="width:44px;height:4px;background:#2a2a31"></div></div>
+                <div style="display:flex;align-items:flex-start;gap:12px">
+                  <div style="font-size:17px;font-weight:700;line-height:1.3;flex:1">{{ selName }}</div>
+                  <button type="button" onClick="{{ closeSheet }}" aria-label="Close" style="width:44px;height:44px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:15px;cursor:pointer;border-radius:3px" style-hover="color:#f5f5f5;border-color:#a10826">✕</button>
+                </div>
+                <div style="font-size:11px;color:#6f6b76;line-height:1.6">{{ selSub }}</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span style="{{ selBadge }}">{{ selStatus }}</span>
+                  <span style="font-size:11px;color:#a7a3ad">{{ selDates }}</span>
+                </div>
+                <div style="font-size:11px;color:#6f6b76;letter-spacing:.1em">TAP-THROUGH · SEE {{ selRef }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ quick }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;background:rgba(5,5,6,.6);z-index:900;display:flex;flex-direction:column;justify-content:flex-end" onClick="{{ closeQuick }}">
+              <div onClick="{{ stop }}" style="background:#111114;border-top:1px solid #a10826;padding:16px;display:flex;flex-direction:column;gap:12px;clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)">
+                <div style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">QUICK ADD</div>
+                <div style="font-size:11px;color:#6f6b76;line-height:1.6">Full flow in <a href="#1g">1g</a> — search a place, choose a status, done.</div>
+                <button type="button" onClick="{{ closeQuick }}" style="height:48px;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:12px;letter-spacing:.1em;cursor:pointer;border-radius:3px">CLOSE</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Tap a pin → camera flies to it and the sheet rises from the bottom edge. Pins closer together than a thumb (Kraków / Wieliczka) stack with a count and fan apart on tap, so both stay individually reachable at every zoom.</div>
+    </div>
+
+    <!-- 1b GREYSCALE ACCEPTANCE -->
+    <div id="1b" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1b</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">MAPVIEW · GREYSCALE ACCEPTANCE</span>
+      </div>
+      <div style="filter:grayscale(1);position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 20px 44px rgba(0,0,0,.6);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)">
+        <div style="position:relative;width:357px;height:640px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#0c0c0f;border-bottom:1px solid #2a2a31">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">MAP</span>
+            <span style="font-size:11px;color:#6f6b76;letter-spacing:.1em">GREYSCALE TEST</span>
+          </div>
+          <div id="vt-map-2" style="position:relative;flex:1;min-height:0"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Same four pin states with hue removed: solid shield (Visited), half-filled shield (Planned), 4px outline shield on void (Wishlist), and the amber double-ring + caret overlay (Currently Traveling) on a Planned pin.</div>
+    </div>
+
+    <!-- 1c EMPTY -->
+    <div id="1c" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1c</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">MAPVIEW · ZERO PLACES</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 20px 44px rgba(0,0,0,.6);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)">
+        <div style="position:relative;width:357px;height:640px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#0c0c0f;border-bottom:1px solid #2a2a31">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">MAP</span>
+            <span style="font-size:11px;color:#6f6b76;letter-spacing:.1em">0 PLACES</span>
+          </div>
+          <div style="position:relative;flex:1;min-height:0">
+            <div id="vt-map-3" style="position:absolute;inset:0"></div>
+            <div style="position:absolute;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:none">
+              <div style="background:rgba(12,12,15,.9);border:1px solid #2a2a31;padding:22px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;clip-path:polygon(0 10px,10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px))">
+                <div style="width:34px;height:40px;background:#6c6f8f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:#0c0c0f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></div></div>
+                <div style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5;text-align:center">NO PLACES YET</div>
+                <div style="font-size:11px;color:#a7a3ad;text-align:center;line-height:1.7;max-width:210px;text-wrap:pretty">Your map is empty. Search a place and mark it Visited, Planned, or Wishlist — it lands here.</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;background:#0c0c0f;border-top:1px solid #2a2a31;padding:12px;display:flex">
+            <div style="flex:1;height:52px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'Silkscreen',monospace;font-size:16px;display:flex;align-items:center;justify-content:center">+ ADD FIRST PLACE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1d PIN SPEC -->
+    <div id="1d" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1d</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">DESTINATIONPIN · ENCODING</span>
+      </div>
+      <div style="width:375px;background:#0c0c0f;border:1px solid #2a2a31;padding:18px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:40px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:15px;color:#0c0c0f;margin-top:5px;font-weight:700">✓</span></div></div>
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.08em">VISITED</div><div style="font-size:11px;color:#6f6b76;line-height:1.6">Solid fill, check glyph. #7fb0a0 — lightest of the three in greyscale.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:40px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:linear-gradient(180deg,#0c0c0f 0 50%,#8a7ba8 50% 100%);clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:11px;color:#f5f5f5;margin-top:1px">▸</span></div></div></div>
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.08em">PLANNED</div><div style="font-size:11px;color:#6f6b76;line-height:1.6">Half-filled from the tip up, caret glyph. #8a7ba8 — mid value.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:40px;background:#6c6f8f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:#0c0c0f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:11px;color:#6c6f8f;margin-top:1px">☆</span></div></div></div>
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.08em">WISHLIST</div><div style="font-size:11px;color:#6f6b76;line-height:1.6">Outline only, void interior, star glyph. #6c6f8f — darkest, mostly empty.</div></div>
+        </div>
+        <div style="height:1px;background:#2a2a31"></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;flex:none;position:relative;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;width:40px;height:40px;border:2px solid #ffb020;opacity:.55"></div>
+            <div style="width:34px;height:40px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:linear-gradient(180deg,#0c0c0f 0 50%,#8a7ba8 50% 100%);clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></div></div>
+            <div style="position:absolute;top:-4px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #ffb020"></div>
+          </div>
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#ffb020">CURRENTLY TRAVELING</div><div style="font-size:11px;color:#6f6b76;line-height:1.6">Overlay only, never a stored status: amber ring + caret layered on a Planned pin when today sits inside its dates.</div></div>
+        </div>
+        <div style="height:1px;background:#2a2a31"></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;flex:none;position:relative;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;left:2px;top:6px;width:26px;height:31px;background:#6c6f8f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);opacity:.7"></div>
+            <div style="position:absolute;right:2px;top:2px;width:30px;height:35px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></div>
+            <div style="position:absolute;right:-2px;bottom:0;background:#a10826;color:#f5f5f5;font-size:9px;padding:1px 4px">2</div>
+          </div>
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.08em">STACKED PAIR</div><div style="font-size:11px;color:#6f6b76;line-height:1.6">Two pins closer than a thumb: shown stacked with a count, tap fans them apart on hairline stems. Never merged away.</div></div>
+        </div>
+        <div style="font-size:11px;color:#a7a3ad;line-height:1.7;text-wrap:pretty;border-left:2px solid #a10826;padding-left:10px">Chosen over a literal echo of the calendar's outline→half→solid chip: the same three-step fill progression is kept for house consistency, but carried on a map-pin shield silhouette so a pin never reads as a calendar chip. Hue is redundant — fill level alone survives greyscale.</div>
+      </div>
+    </div>
+
+    <!-- 1e SHEET VISITED -->
+    <div id="1e" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1e</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">DESTINATIONSHEET · VISITED</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);box-shadow:0 20px 44px rgba(0,0,0,.6)">
+        <div style="position:relative;width:357px;height:760px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 34%,#17171c,#09090b 70%)"></div>
+          <div style="position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="width:34px;height:40px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:15px;color:#0c0c0f;margin-top:5px;font-weight:700">✓</span></div>
+            <div style="font-size:9px;color:#a7a3ad;background:rgba(9,9,11,.8);padding:1px 4px">LISBON</div>
+          </div>
+          <div style="position:absolute;left:50%;top:30%;width:1px;height:220px;background:linear-gradient(#2a2a31,transparent)"></div>
+          <div style="position:relative;background:#111114;border-top:1px solid #2a2a31;box-shadow:0 -18px 40px rgba(0,0,0,.75);clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:center"><div style="width:44px;height:4px;background:#2a2a31"></div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="flex:1">
+                <div style="font-size:19px;font-weight:700;line-height:1.25">Lisbon</div>
+                <div style="font-size:11px;color:#6f6b76;margin-top:4px">Lisboa, Portugal · 38.7223, -9.1393</div>
+              </div>
+              <div style="width:44px;height:44px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:3px">✕</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #7fb0a0;color:#7fb0a0;font-size:11px;letter-spacing:.1em;padding:5px 8px"><span style="width:10px;height:12px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>VISITED</span>
+              <span style="font-size:11px;color:#a7a3ad">4 Apr 2026 → 11 Apr 2026</span>
+              <span style="font-size:10px;color:#6f6b76;border-left:1px solid #2a2a31;padding-left:8px">TRIP · SOUTH SPRING</span>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">PHOTOS</span>
+                <span style="font-size:10px;color:#6f6b76">5</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+                <image-slot id="vt-lis-1" style="width:100%;height:88px" shape="rect" placeholder="photo"></image-slot>
+                <image-slot id="vt-lis-2" style="width:100%;height:88px" shape="rect" placeholder="photo"></image-slot>
+                <image-slot id="vt-lis-3" style="width:100%;height:88px" shape="rect" placeholder="photo"></image-slot>
+                <image-slot id="vt-lis-4" style="width:100%;height:88px" shape="rect" placeholder="photo"></image-slot>
+                <image-slot id="vt-lis-5" style="width:100%;height:88px" shape="rect" placeholder="photo"></image-slot>
+                <button type="button" style="height:88px;border:1px dashed #2a2a31;background:#0c0c0f;color:#a7a3ad;font-size:10px;letter-spacing:.06em;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="border-color:#a10826;color:#f5f5f5"><span style="font-size:18px">+</span>ATTACH</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5;margin-bottom:8px">NOTE</div>
+              <textarea style="width:100%;box-sizing:border-box;min-height:76px;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;padding:10px;resize:vertical;border-radius:2px">Tram 28 at 7am, empty. The pastéis place near the water was worth the queue — go back for the tiled staircase in Alfama.</textarea>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" style="flex:1;height:48px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="background:#c41230">SAVE NOTE</button>
+              <button type="button" style="width:104px;height:48px;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="border-color:#c41230;color:#f5f5f5">DELETE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Camera flies the pin to 30% height, the card rises under it and a hairline stem ties card to pin — the pin never hides behind the sheet.</div>
+    </div>
+
+    <!-- 1f SHEET PLANNED -->
+    <div id="1f" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1f</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">DESTINATIONSHEET · PLANNED / WISHLIST</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);box-shadow:0 20px 44px rgba(0,0,0,.6)">
+        <div style="position:relative;width:357px;height:640px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,#17171c,#09090b 70%)"></div>
+          <div style="position:absolute;left:50%;top:24%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="position:relative;display:flex;align-items:center;justify-content:center;width:44px;height:44px">
+              <div style="position:absolute;width:40px;height:40px;border:2px solid #ffb020;animation:vtPulse 2.4s ease-out infinite"></div>
+              <div style="width:34px;height:40px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:linear-gradient(180deg,#0c0c0f 0 50%,#8a7ba8 50% 100%);clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:11px;color:#f5f5f5">▸</span></div></div>
+              <div style="position:absolute;top:-2px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #ffb020"></div>
+            </div>
+            <div style="font-size:9px;color:#a7a3ad;background:rgba(9,9,11,.8);padding:1px 4px">COPENHAGEN</div>
+          </div>
+          <div style="position:relative;background:#111114;border-top:1px solid #2a2a31;box-shadow:0 -18px 40px rgba(0,0,0,.75);clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:center"><div style="width:44px;height:4px;background:#2a2a31"></div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="flex:1">
+                <input value="Copenhagen" style="width:100%;box-sizing:border-box;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;padding:11px 10px;border-radius:2px">
+                <div style="font-size:11px;color:#6f6b76;margin-top:6px">Capital Region, Denmark · resolved via search</div>
+              </div>
+              <div style="width:44px;height:44px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:3px">✕</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;border:1px solid #ffb020;background:rgba(255,176,32,.08);padding:9px 10px">
+              <span style="color:#ffb020;font-size:12px">◆</span>
+              <span style="font-size:10px;color:#ffcb5c;line-height:1.6">Today falls inside these dates — shown as Currently Traveling on the map.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:10px;color:#6f6b76;letter-spacing:.14em">DATES · CALENDAR DAYS</span>
+              <div style="display:flex;gap:8px">
+                <input type="date" value="2026-08-10" style="flex:1;min-width:0;height:48px;box-sizing:border-box;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:12px;padding:0 10px;border-radius:2px">
+                <input type="date" value="2026-08-19" style="flex:1;min-width:0;height:48px;box-sizing:border-box;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:12px;padding:0 10px;border-radius:2px">
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:10px;color:#6f6b76;letter-spacing:.14em">STATUS</span>
+              <div style="display:flex;gap:6px">
+                <div style="flex:1;height:48px;border:1px solid #2a2a31;background:#0c0c0f;color:#6f6b76;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px"><span style="width:10px;height:12px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>VISITED</div>
+                <div style="flex:1;height:48px;border:1px solid #8a7ba8;background:rgba(138,123,168,.16);color:#f5f5f5;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 0 1px #8a7ba8"><span style="width:10px;height:12px;background:linear-gradient(180deg,#0c0c0f 0 50%,#8a7ba8 50% 100%);box-shadow:inset 0 0 0 1px #8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>PLANNED</div>
+                <div style="flex:1;height:48px;border:1px solid #2a2a31;background:#0c0c0f;color:#6f6b76;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px"><span style="width:10px;height:12px;background:#6c6f8f;box-shadow:inset 0 0 0 3px #0c0c0f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>WISH</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #2a2a31;padding-top:12px">
+              <span style="font-size:11px;color:#a7a3ad">Trip · <span style="color:#f5f5f5">Baltic August</span></span>
+              <button type="button" style="height:44px;padding:0 12px;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:11px;cursor:pointer;border-radius:3px" style-hover="color:#f5f5f5;border-color:#a10826">CHANGE</button>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" style="flex:1;height:48px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-size:12px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="background:#c41230">SAVE</button>
+              <button type="button" style="width:104px;height:48px;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="border-color:#c41230;color:#f5f5f5">DELETE</button>
+            </div>
+            <div style="font-size:10px;color:#6f6b76;line-height:1.6">No gallery and no note field on Planned or Wishlist — neither exists yet to show.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1g QUICK ADD -->
+    <div id="1g" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1g</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">QUICKADD · 3 INTERACTIONS</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);box-shadow:0 20px 44px rgba(0,0,0,.6)">
+        <div style="position:relative;width:357px;height:700px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(42,42,49,.5) 0 1px,transparent 1px 34px),repeating-linear-gradient(65deg,rgba(42,42,49,.35) 0 1px,transparent 1px 34px),#0c0c0f"></div>
+          <div style="position:relative;background:#111114;border-top:1px solid #a10826;box-shadow:0 -18px 40px rgba(0,0,0,.8);clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">ADD PLACE</span>
+              <span style="font-size:10px;color:#6f6b76;letter-spacing:.12em">STEP 1 OF 2</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input value="wieliczka" placeholder="Search a place" style="flex:1;min-width:0;height:52px;box-sizing:border-box;background:#0c0c0f;border:1px solid #a10826;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:14px;padding:0 12px;border-radius:2px">
+              <button type="button" aria-label="Clear search" style="width:52px;height:52px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:14px;cursor:pointer;border-radius:3px">✕</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="border:1px solid #a10826;background:#17171c;padding:11px 12px;display:flex;flex-direction:column;gap:3px;min-height:44px;box-sizing:border-box">
+                <span style="font-size:13px;color:#f5f5f5">Wieliczka Salt Mine</span>
+                <span style="font-size:10px;color:#a7a3ad">Daniłowicza 10, 32-020 Wieliczka, Lesser Poland, Poland</span>
+              </div>
+              <div style="border:1px solid #2a2a31;background:#0c0c0f;padding:11px 12px;display:flex;flex-direction:column;gap:3px;min-height:44px;box-sizing:border-box">
+                <span style="font-size:13px;color:#f5f5f5">Wieliczka</span>
+                <span style="font-size:10px;color:#6f6b76">Town of 23,000 · Kraków County, Lesser Poland</span>
+              </div>
+              <div style="border:1px solid #2a2a31;background:#0c0c0f;padding:11px 12px;display:flex;flex-direction:column;gap:3px;min-height:44px;box-sizing:border-box">
+                <span style="font-size:13px;color:#f5f5f5">Wieliczka County</span>
+                <span style="font-size:10px;color:#6f6b76">Administrative county · Lesser Poland Voivodeship, Poland</span>
+              </div>
+            </div>
+            <div style="height:1px;background:#2a2a31"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:10px;color:#6f6b76;letter-spacing:.14em">STEP 2 · CHOOSE STATUS — PIN DROPS IMMEDIATELY</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button type="button" style="flex:1;height:64px;border:1px solid #7fb0a0;background:rgba(127,176,160,.1);color:#f5f5f5;font-size:11px;letter-spacing:.06em;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:3px" style-hover="background:rgba(127,176,160,.2)"><span style="width:16px;height:19px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>VISITED</button>
+              <button type="button" style="flex:1;height:64px;border:1px solid #8a7ba8;background:rgba(138,123,168,.1);color:#f5f5f5;font-size:11px;letter-spacing:.06em;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:3px" style-hover="background:rgba(138,123,168,.2)"><span style="width:16px;height:19px;background:linear-gradient(180deg,#0c0c0f 0 50%,#8a7ba8 50% 100%);box-shadow:inset 0 0 0 2px #8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>PLANNED</button>
+              <button type="button" style="flex:1;height:64px;border:1px solid #6c6f8f;background:rgba(108,111,143,.1);color:#f5f5f5;font-size:11px;letter-spacing:.06em;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:3px" style-hover="background:rgba(108,111,143,.2)"><span style="width:16px;height:19px;background:#6c6f8f;box-shadow:inset 0 0 0 4px #0c0c0f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>WISHLIST</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #2a2a31;padding-top:12px">
+              <span style="font-size:10px;color:#6f6b76;letter-spacing:.14em">TRIP — OPTIONAL, EITHER IS ONE TAP</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" style="height:44px;padding:0 12px;border:1px solid #a10826;background:#17171c;color:#f5f5f5;font-size:11px;cursor:pointer;border-radius:3px">LEAVE UNATTACHED</button>
+                <button type="button" style="height:44px;padding:0 12px;border:1px solid #2a2a31;background:#0c0c0f;color:#a7a3ad;font-size:11px;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826;color:#f5f5f5">BALTIC AUGUST</button>
+                <button type="button" style="height:44px;padding:0 12px;border:1px solid #2a2a31;background:#0c0c0f;color:#a7a3ad;font-size:11px;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826;color:#f5f5f5">SOUTH SPRING</button>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#6f6b76;line-height:1.6">Interaction count: tap result (1) · tap status (2) — the pin exists. Trip choice is the optional third tap; there is no confirmation screen.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1h SEARCH STATES -->
+    <div id="1h" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1h</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">LOCATIONSEARCH · NO MATCH vs FAILED</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="width:375px;background:#111114;border:1px solid #2a2a31;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:8px">
+            <input value="qqzzlandia" style="flex:1;min-width:0;height:52px;box-sizing:border-box;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:14px;padding:0 12px;border-radius:2px">
+            <button type="button" aria-label="Clear" style="width:52px;height:52px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:14px;cursor:pointer;border-radius:3px">✕</button>
+          </div>
+          <div style="border:1px solid #2a2a31;background:#0c0c0f;padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#a7a3ad">NOTHING FOUND</span>
+            <span style="font-size:11px;color:#6f6b76;line-height:1.7;max-width:230px;text-wrap:pretty">No place matches “qqzzlandia”. The search worked — there is simply nothing by that name.</span>
+            <button type="button" style="margin-top:4px;height:44px;padding:0 14px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">EDIT SEARCH</button>
+          </div>
+        </div>
+        <div style="width:375px;background:#111114;border:1px solid #2a2a31;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:8px">
+            <input value="krakow" style="flex:1;min-width:0;height:52px;box-sizing:border-box;background:#0c0c0f;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:14px;padding:0 12px;border-radius:2px">
+            <button type="button" aria-label="Clear" style="width:52px;height:52px;flex:none;border:1px solid #2a2a31;background:#17171c;color:#a7a3ad;font-size:14px;cursor:pointer;border-radius:3px">✕</button>
+          </div>
+          <div style="border:1px solid #ffb020;background:rgba(255,176,32,.07);padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#ffb020">SEARCH UNREACHABLE</span>
+            <span style="font-size:11px;color:#ffcb5c;line-height:1.7;max-width:240px;text-wrap:pretty">Couldn’t reach the place-lookup service. Your search may be fine — the connection isn’t.</span>
+            <button type="button" style="margin-top:4px;height:44px;padding:0 14px;border:1px solid #ffb020;background:rgba(255,176,32,.14);color:#ffcb5c;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="background:rgba(255,176,32,.24)">TRY AGAIN</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Different frames on purpose: an empty result is a neutral surface with the query quoted back; a failure is amber-flagged with a retry, never a “not found”.</div>
+      </div>
+    </div>
+
+    <!-- 1i TRIP PANEL -->
+    <div id="1i" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1i</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">TRIPPANEL · LIST + CREATE</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);box-shadow:0 20px 44px rgba(0,0,0,.6)">
+        <div style="position:relative;width:357px;height:790px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#0c0c0f;border-bottom:1px solid #2a2a31">
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">TRIPS</span>
+            <span style="font-size:11px;color:#6f6b76">3</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="background:#111114;border:1px solid #2a2a31;padding:13px;display:flex;flex-direction:column;gap:8px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="flex:1"><div style="font-size:15px;font-weight:700">Baltic August</div><div style="font-size:11px;color:#a7a3ad;margin-top:4px">10 Aug 2026 → 19 Aug 2026</div></div>
+                <span style="font-size:10px;letter-spacing:.1em;border:1px solid #ffb020;color:#ffb020;padding:4px 7px">IN PROGRESS</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:11px;height:13px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="width:11px;height:13px;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="width:11px;height:13px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="font-size:11px;color:#6f6b76">3 places</span>
+                <button type="button" style="margin-left:auto;height:44px;padding:0 12px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">OPEN</button>
+              </div>
+            </div>
+            <div style="background:#111114;border:1px solid #2a2a31;padding:13px;display:flex;flex-direction:column;gap:8px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="flex:1"><div style="font-size:15px;font-weight:700">South Spring</div><div style="font-size:11px;color:#a7a3ad;margin-top:4px">4 Apr 2026 → 18 Apr 2026</div></div>
+                <span style="font-size:10px;letter-spacing:.1em;border:1px solid #7fb0a0;color:#7fb0a0;padding:4px 7px">COMPLETED</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:11px;height:13px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="width:11px;height:13px;background:#7fb0a0;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="font-size:11px;color:#6f6b76">2 places</span>
+                <button type="button" style="margin-left:auto;height:44px;padding:0 12px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">OPEN</button>
+              </div>
+            </div>
+            <div style="background:#111114;border:1px solid #2a2a31;padding:13px;display:flex;flex-direction:column;gap:8px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="flex:1"><div style="font-size:15px;font-weight:700">Norway, someday</div><div style="font-size:11px;color:#6f6b76;margin-top:4px">No dates set</div></div>
+                <span style="font-size:10px;letter-spacing:.1em;border:1px solid #6c6f8f;color:#a7a3ad;padding:4px 7px">IDEA</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:11px;height:13px;background:#6c6f8f;box-shadow:inset 0 0 0 3px #111114;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>
+                <span style="font-size:11px;color:#6f6b76">1 place</span>
+                <button type="button" style="margin-left:auto;height:44px;padding:0 12px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">OPEN</button>
+              </div>
+            </div>
+            <div style="height:1px;background:#2a2a31;margin:4px 0"></div>
+            <div style="background:#0c0c0f;border:1px solid #2a2a31;padding:14px;display:flex;flex-direction:column;gap:12px">
+              <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">NEW TRIP</span>
+              <input placeholder="Trip name" style="height:48px;box-sizing:border-box;background:#111114;border:1px solid #2a2a31;color:#f5f5f5;font-family:'JetBrains Mono',monospace;font-size:13px;padding:0 10px;border-radius:2px">
+              <div style="display:flex;gap:8px">
+                <input type="date" style="flex:1;min-width:0;height:48px;box-sizing:border-box;background:#111114;border:1px solid #2a2a31;color:#a7a3ad;font-family:'JetBrains Mono',monospace;font-size:12px;padding:0 10px;border-radius:2px">
+                <input type="date" style="flex:1;min-width:0;height:48px;box-sizing:border-box;background:#111114;border:1px solid #2a2a31;color:#a7a3ad;font-family:'JetBrains Mono',monospace;font-size:12px;padding:0 10px;border-radius:2px">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:10px;color:#6f6b76;letter-spacing:.14em">STATUS</span>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #a10826;background:#17171c;color:#f5f5f5;font-size:11px">IDEA</span>
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #2a2a31;color:#a7a3ad;font-size:11px">PLANNING</span>
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #2a2a31;color:#a7a3ad;font-size:11px">BOOKED</span>
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #2a2a31;color:#a7a3ad;font-size:11px">IN PROGRESS</span>
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #2a2a31;color:#a7a3ad;font-size:11px">COMPLETED</span>
+                  <span style="height:44px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #2a2a31;color:#a7a3ad;font-size:11px">ABANDONED</span>
+                </div>
+              </div>
+              <button type="button" style="height:52px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'Silkscreen',monospace;font-size:16px;cursor:pointer;border-radius:3px" style-hover="background:#c41230">CREATE TRIP</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1j TRIP DETAIL -->
+    <div id="1j" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1j</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">TRIPPANEL · ONE TRIP</span>
+      </div>
+      <div style="position:relative;padding:9px;background:linear-gradient(158deg,#b00020 0%,#2a0a10 46%,#09090b 88%);clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);box-shadow:0 20px 44px rgba(0,0,0,.6)">
+        <div style="position:relative;width:357px;height:600px;background:#09090b;overflow:hidden;display:flex;flex-direction:column;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)">
+          <div style="height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 8px 0 4px;background:#0c0c0f;border-bottom:1px solid #2a2a31">
+            <button type="button" aria-label="Back to trips" style="width:44px;height:44px;flex:none;border:none;background:transparent;color:#a7a3ad;font-size:16px;cursor:pointer" style-hover="color:#f5f5f5">←</button>
+            <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5;flex:1">BALTIC AUG</span>
+            <span style="font-size:10px;letter-spacing:.1em;border:1px solid #ffb020;color:#ffb020;padding:4px 7px">IN PROGRESS</span>
+          </div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow:auto">
+            <div style="font-size:11px;color:#a7a3ad">10 Aug 2026 → 19 Aug 2026 · 3 places</div>
+            <div style="display:flex;align-items:center;gap:12px;background:#111114;border:1px solid #2a2a31;padding:12px;min-height:44px">
+              <div style="position:relative;width:34px;height:40px;flex:none;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:linear-gradient(180deg,#111114 0 50%,#8a7ba8 50% 100%);clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></div></div>
+              <div style="flex:1"><div style="font-size:14px">Copenhagen</div><div style="font-size:10px;color:#6f6b76">10 Aug → 19 Aug · PLANNED · traveling now</div></div>
+              <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #ffb020"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;background:#111114;border:1px solid #2a2a31;padding:12px;min-height:44px">
+              <div style="width:34px;height:40px;flex:none;background:#8a7ba8;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:linear-gradient(180deg,#111114 0 50%,#8a7ba8 50% 100%);clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></div></div>
+              <div style="flex:1"><div style="font-size:14px">Kraków</div><div style="font-size:10px;color:#6f6b76">12 Aug → 15 Aug · PLANNED</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;background:#111114;border:1px solid #ffb020;padding:12px;min-height:44px">
+              <div style="width:34px;height:40px;flex:none;background:#6c6f8f;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><div style="width:26px;height:30px;margin-top:4px;background:#111114;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%);display:flex;align-items:flex-start;justify-content:center"><span style="font-size:10px;color:#6c6f8f">☆</span></div></div>
+              <div style="flex:1"><div style="font-size:14px">Athens</div><div style="font-size:10px;color:#ffcb5c">2 Sep → 4 Sep · dates fall outside this trip</div></div>
+            </div>
+            <button type="button" style="height:48px;border:1px dashed #2a2a31;background:#0c0c0f;color:#a7a3ad;font-size:11px;letter-spacing:.08em;cursor:pointer" style-hover="border-color:#a10826;color:#f5f5f5">+ ATTACH A PLACE</button>
+            <div style="margin-top:auto;display:flex;gap:8px;padding-top:12px">
+              <button type="button" style="flex:1;height:48px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">EDIT TRIP</button>
+              <button type="button" style="width:110px;height:48px;border:1px solid #2a2a31;background:#0c0c0f;color:#a7a3ad;font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:3px" style-hover="border-color:#c41230;color:#f5f5f5">DELETE TRIP</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1k STATUS FILTER -->
+    <div id="1k" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1k</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">STATUSFILTER · ONE ACTIVE</span>
+      </div>
+      <div style="width:375px;background:#0c0c0f;border:1px solid #2a2a31;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6f6b76;letter-spacing:.12em">FILTER · WISHLIST — 3 OF 7 PINS SHOWN</div>
+        <div style="display:flex;gap:6px">
+          <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #2a2a31;background:#111114;color:#6f6b76;font-size:11px">ALL</span>
+          <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #2a2a31;background:#111114;color:#6f6b76;font-size:11px"><span style="width:11px;height:13px;background:#7fb0a0;opacity:.5;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>VIS</span>
+          <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #2a2a31;background:#111114;color:#6f6b76;font-size:11px"><span style="width:11px;height:13px;background:#8a7ba8;opacity:.5;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>PLAN</span>
+          <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #a10826;background:#1f1f26;color:#f5f5f5;font-size:11px;box-shadow:inset 0 0 0 1px #a10826"><span style="width:11px;height:13px;background:#6c6f8f;box-shadow:inset 0 0 0 3px #1f1f26;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)"></span>WISH</span>
+        </div>
+        <button type="button" style="height:44px;border:1px solid #2a2a31;background:#17171c;color:#f5f5f5;font-size:11px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="border-color:#a10826">✕ CLEAR FILTER — SHOW ALL 7</button>
+        <div style="font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Single-select, sits in the bottom bar above Add Place (see <a href="#1a">1a</a>). Active chip is red-ringed and raised; clearing is its own full-width control, never a second tap on the active chip.</div>
+      </div>
+    </div>
+
+    <!-- 1l DELETE CONFIRMS -->
+    <div id="1l" style="flex:none;width:375px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Silkscreen',monospace;font-size:16px;color:#c41230">1l</span>
+        <span style="font-size:11px;letter-spacing:.16em;color:#a7a3ad">DELETE CONFIRMATION · 2 VARIANTS</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="width:375px;background:#111114;border:1px solid #2a2a31;padding:16px;display:flex;flex-direction:column;gap:14px;clip-path:polygon(0 12px,12px 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+          <div style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">DELETE TRIP?</div>
+          <div style="font-size:12px;color:#a7a3ad;line-height:1.8;text-wrap:pretty">“Baltic August” and its <strong style="color:#f5f5f5">3 destinations</strong> go with it — including <strong style="color:#f5f5f5">14 photographs</strong>. This cannot be undone.</div>
+          <button type="button" style="height:52px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'Silkscreen',monospace;font-size:16px;cursor:pointer;border-radius:3px" style-hover="background:#c41230">KEEP THIS TRIP</button>
+          <button type="button" style="height:44px;border:1px solid #2a2a31;background:transparent;color:#6f6b76;font-size:11px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="color:#f5f5f5;border-color:#c41230">Delete trip and everything in it</button>
+        </div>
+        <div style="width:375px;background:#111114;border:1px solid #2a2a31;padding:16px;display:flex;flex-direction:column;gap:14px;clip-path:polygon(0 12px,12px 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)">
+          <div style="font-family:'Silkscreen',monospace;font-size:16px;color:#f5f5f5">DELETE PLACE?</div>
+          <div style="font-size:12px;color:#a7a3ad;line-height:1.8;text-wrap:pretty">“Lisbon” leaves the map, and its <strong style="color:#f5f5f5">5 photographs</strong> are deleted with it. The trip it belongs to stays.</div>
+          <button type="button" style="height:52px;border:1px solid #c41230;background:#a10826;color:#f5f5f5;font-family:'Silkscreen',monospace;font-size:16px;cursor:pointer;border-radius:3px" style-hover="background:#c41230">KEEP THIS PLACE</button>
+          <button type="button" style="height:44px;border:1px solid #2a2a31;background:transparent;color:#6f6b76;font-size:11px;letter-spacing:.1em;cursor:pointer;border-radius:3px" style-hover="color:#f5f5f5;border-color:#c41230">Delete place and its photographs</button>
+        </div>
+        <div style="font-size:11px;color:#6f6b76;line-height:1.7;text-wrap:pretty">Keep is the focused, heavy, one-tap escape; the destructive action is quiet, lower, and named in full so the second tap is deliberate.</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showTicker&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Map chrome&quot;},&quot;pinScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.8,&quot;max&quot;:1.4,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Map chrome&quot;}}">
+class Component extends DCLogic {
+  state = { filter: 'All', fanned: false, sel: null, quick: false };
+
+  places = [
+    { id: 'lis', name: 'Lisbon', sub: 'Lisboa, Portugal', status: 'Visited', lat: 38.7223, lng: -9.1393, dates: '4 Apr → 11 Apr 2026', ref: '1e' },
+    { id: 'rom', name: 'Rome', sub: 'Lazio, Italy', status: 'Visited', lat: 41.9028, lng: 12.4964, dates: '2 May → 9 May 2026', ref: '1e' },
+    { id: 'cph', name: 'Copenhagen', sub: 'Capital Region, Denmark', status: 'Planned', lat: 55.6761, lng: 12.5683, dates: '10 Aug → 19 Aug 2026', traveling: true, labelUp: true, ref: '1f' },
+    { id: 'kra', name: 'Kraków', sub: 'Lesser Poland, Poland', status: 'Planned', lat: 50.0647, lng: 19.945, dates: '12 Aug → 15 Aug 2026', ref: '1f' },
+    { id: 'wie', name: 'Wieliczka', sub: 'Salt mine · Lesser Poland, Poland', status: 'Wishlist', lat: 49.9845, lng: 20.0546, dates: 'No dates set', ref: '1f' },
+    { id: 'tal', name: 'Tallinn', sub: 'Harju County, Estonia', status: 'Wishlist', lat: 59.437, lng: 24.7536, dates: 'No dates set', ref: '1f' },
+    { id: 'ath', name: 'Athens', sub: 'Attica, Greece', status: 'Wishlist', lat: 37.9838, lng: 23.7275, dates: 'No dates set', ref: '1f' }
+  ];
+
+  C = { Visited: '#7fb0a0', Planned: '#8a7ba8', Wishlist: '#6c6f8f' };
+
+  componentDidMount() { this.waitForL(); }
+  componentDidUpdate(pp, ps) {
+    if (ps.filter !== this.state.filter || ps.fanned !== this.state.fanned) this.drawPins();
+    if (pp && (pp.pinScale !== this.props.pinScale)) this.drawPins();
+  }
+
+  waitForL() {
+    if (window.L && document.getElementById('vt-map-1')) { this.initMaps(); return; }
+    setTimeout(() => this.waitForL(), 150);
+  }
+
+  mkMap(id, center, zoom) {
+    const el = document.getElementById(id);
+    if (!el || el._vt) return null;
+    el._vt = true;
+    const m = L.map(el, { zoomControl: false, attributionControl: true, worldCopyJump: true, preferCanvas: true });
+    m.setView(center, zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      subdomains: 'abcd', maxZoom: 19
+    }).addTo(m);
+    m.attributionControl.setPosition('bottomright');
+    return m;
+  }
+
+  initMaps() {
+    this.m1 = this.mkMap('vt-map-1', [48.5, 8], 3);
+    this.m2 = this.mkMap('vt-map-2', [35.5, 93], 3);
+    this.m3 = this.mkMap('vt-map-3', [20, 8], 2);
+    if (this.m2) this.m2.getContainer().style.paddingBottom = '0px';
+    if (this.m1) this.m1.on('zoomend', () => this.drawPins());
+    this.drawPins();
+    this.drawDemo();
+    setTimeout(() => {
+      [this.m1, this.m2, this.m3].forEach(m => m && m.invalidateSize());
+      this.drawPins();
+      if (this.m2 && this.m2.getPane('markerPane').children.length === 0) this.drawDemo();
+    }, 400);
+  }
+
+  drawDemo() {
+    if (!this.m2) return;
+    (this.demoLayers || []).forEach(l => this.m2.removeLayer(l));
+    this.demoLayers = [];
+    const demo = ['lis', 'cph', 'kra', 'wie'].map(id => this.places.find(p => p.id === id));
+    const spots = [[44, 78], [41, 108], [30, 78], [27, 108]];
+    demo.forEach((p, i) => {
+      const q = Object.assign({}, p, { lat: spots[i][0], lng: spots[i][1], labelUp: false });
+      const icon = L.divIcon({ html: this.pinHtml(q, 1.15), className: '', iconSize: [44, 66], iconAnchor: [22, q.labelUp ? 55 : 44] });
+      const mk = L.marker([q.lat, q.lng], { icon: icon }).addTo(this.m2);
+      this.demoLayers.push(mk);
+    });
+  }
+
+  shield(w, h, fill, inner, glyph, glyphColor, ring) {
+    const clip = 'polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)';
+    const iw = Math.round(w * 0.76), ih = Math.round(h * 0.75);
+    const innerHtml = inner
+      ? '<div style="width:' + iw + 'px;height:' + ih + 'px;margin-top:' + Math.round(h * 0.1) + 'px;background:' + inner + ';clip-path:' + clip + ';display:flex;align-items:flex-start;justify-content:center"><span style="font-size:' + Math.round(h * 0.3) + 'px;line-height:1.1;color:' + glyphColor + '">' + glyph + '</span></div>'
+      : '<span style="font-size:' + Math.round(h * 0.38) + 'px;margin-top:' + Math.round(h * 0.12) + 'px;font-weight:700;color:' + glyphColor + '">' + glyph + '</span>';
+    const pin = '<div style="width:' + w + 'px;height:' + h + 'px;background:' + fill + ';clip-path:' + clip + ';display:flex;align-items:flex-start;justify-content:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.8))">' + innerHtml + '</div>';
+    if (!ring) return pin;
+    return '<div style="position:relative;display:flex;align-items:center;justify-content:center">'
+      + '<div style="position:absolute;width:' + (w + 8) + 'px;height:' + (w + 8) + 'px;border:2px solid #ffb020;animation:vtPulse 2.4s ease-out infinite"></div>'
+      + '<div style="position:absolute;width:' + (w + 8) + 'px;height:' + (w + 8) + 'px;border:2px solid #ffb020;opacity:.45"></div>'
+      + '<div style="position:absolute;top:-6px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #ffb020;z-index:2"></div>'
+      + pin + '</div>';
+  }
+
+  pinBody(p, scale) {
+    const w = Math.round(30 * scale), h = Math.round(36 * scale);
+    if (p.status === 'Visited') return this.shield(w, h, this.C.Visited, null, '✓', '#0c0c0f', false);
+    if (p.status === 'Planned') return this.shield(w, h, this.C.Planned, 'linear-gradient(180deg,#0c0c0f 0 50%,' + this.C.Planned + ' 50% 100%)', '▸', '#f5f5f5', !!p.traveling);
+    return this.shield(w, h, this.C.Wishlist, '#0c0c0f', '☆', this.C.Wishlist, false);
+  }
+
+  pinHtml(p, scale) {
+    const lbl = '<span style="' + (p.labelUp ? 'order:-1;margin-bottom:3px;' : 'margin-top:2px;') + 'font:400 9px \'JetBrains Mono\',monospace;color:#e6e3ea;background:rgba(9,9,11,.86);padding:1px 4px;white-space:nowrap">' + p.name + '</span>';
+    return '<div tabindex="0" class="vt-pin" role="button" aria-label="' + p.name + ' — ' + p.status + '" style="width:44px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer">'
+      + this.pinBody(p, scale) + lbl + '</div>';
+  }
+
+  stackHtml(group, scale) {
+    const a = group[0], b = group[1];
+    return '<div tabindex="0" class="vt-pin" role="button" aria-label="' + group.length + ' places here — tap to fan apart" style="position:relative;width:56px;height:52px;cursor:pointer">'
+      + '<div style="position:absolute;left:0;top:9px;opacity:.75">' + this.pinBody(b, scale * 0.9) + '</div>'
+      + '<div style="position:absolute;right:4px;top:0">' + this.pinBody(a, scale) + '</div>'
+      + '<div style="position:absolute;right:-2px;bottom:2px;background:#a10826;color:#f5f5f5;font:700 9px \'JetBrains Mono\',monospace;padding:1px 4px">' + group.length + '</div></div>';
+  }
+
+  addMarker(map, p, html, size, anchor, onClick) {
+    const icon = L.divIcon({ html: html, className: '', iconSize: size, iconAnchor: anchor });
+    const mk = L.marker([p.lat, p.lng], { icon: icon, keyboard: true, riseOnHover: true }).addTo(map);
+    if (onClick) mk.on('click', onClick);
+    this.layers.push([map, mk]);
+    return mk;
+  }
+
+  shownPlaces() {
+    const f = this.state.filter;
+    return this.places.filter(p => f === 'All' || p.status === f);
+  }
+
+  drawPins() {
+    if (!this.m1) return;
+    const shown = this.shownPlaces();
+    const scale = this.props.pinScale ?? 1;
+    (this.layers || []).forEach(([m, l]) => m.removeLayer(l));
+    this.layers = [];
+    // cluster in screen space: anything closer than a thumb stacks, tap fans it out
+    const groups = [];
+    shown.forEach(p => {
+      const pt = this.m1.latLngToContainerPoint([p.lat, p.lng]);
+      const g = groups.find(gr => Math.abs(gr.x - pt.x) < 46 && Math.abs(gr.y - pt.y) < 46);
+      if (g) { g.members.push(p); g.x = (g.x * (g.members.length - 1) + pt.x) / g.members.length; g.y = (g.y * (g.members.length - 1) + pt.y) / g.members.length; }
+      else groups.push({ x: pt.x, y: pt.y, members: [p] });
+    });
+    groups.forEach(g => {
+      const key = g.members.map(p => p.id).join('+');
+      if (g.members.length === 1) {
+        const p = g.members[0];
+        this.addMarker(this.m1, p, this.pinHtml(p, scale), [44, 66], [22, p.labelUp ? 53 : 40], () => this.select(p));
+      } else if (this.state.fanned !== key) {
+        const c = this.m1.containerPointToLatLng([g.x, g.y]);
+        this.addMarker(this.m1, { lat: c.lat, lng: c.lng }, this.stackHtml(g.members, scale), [56, 52], [28, 46],
+          () => this.setState({ fanned: key }, () => this.drawPins()));
+      } else {
+        const n = g.members.length;
+        g.members.forEach((p, i) => {
+          const dx = Math.round((i - (n - 1) / 2) * 58);
+          const html = '<div style="position:relative;display:flex;flex-direction:column;align-items:center">'
+            + '<div style="position:absolute;bottom:0;left:50%;width:' + Math.abs(dx) + 'px;height:1px;background:#6f6b76;transform:translateX(' + (dx < 0 ? '-100%' : '0') + ')"></div>'
+            + '<div style="transform:translateX(' + dx + 'px)">' + this.pinHtml(p, scale) + '</div></div>';
+          this.addMarker(this.m1, p, html, [140, 70], [70, p.labelUp ? 53 : 40], () => this.select(p));
+        });
+      }
+    });
+  }
+
+  select(p) {
+    this.setState({ sel: p, quick: false });
+    if (this.m1) this.m1.flyTo([p.lat, p.lng], Math.max(this.m1.getZoom(), 5), { duration: 0.9 });
+  }
+
+  setFilter(f) {
+    this.setState({ filter: f, fanned: null, sel: null }, () => {
+      if (this.m1) this.m1.setView([48.5, 8], 3, { animate: false });
+      this.drawPins();
+    });
+  }
+
+  chip(active, color, outline) {
+    const base = 'flex:1;min-width:0;height:44px;display:flex;align-items:center;justify-content:center;gap:5px;font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.04em;cursor:pointer;border-radius:3px;';
+    return base + (active
+      ? 'border:1px solid #a10826;background:#1f1f26;color:#f5f5f5;box-shadow:inset 0 0 0 1px #a10826;'
+      : 'border:1px solid #2a2a31;background:#111114;color:#6f6b76;');
+  }
+
+  renderVals() {
+    const f = this.state.filter;
+    const sel = this.state.sel;
+    const n = this.places.length;
+    const badge = sel ? 'display:inline-flex;align-items:center;gap:6px;border:1px solid ' + this.C[sel.status] + ';color:' + this.C[sel.status] + ';font-size:11px;letter-spacing:.1em;padding:5px 8px' : '';
+    return {
+      countLine: n + ' PLACES',
+      tickerLine: n + ' PLACES · 2 VISITED · 2 PLANNED · 3 WISHLIST · TRAVELING NOW: COPENHAGEN',
+      ticker: !!this.props.showTicker,
+      filterLine: f === 'All' ? 'ALL STATUSES' : f.toUpperCase() + ' ONLY',
+      chipAll: this.chip(f === 'All'),
+      chipVisited: this.chip(f === 'Visited'),
+      chipPlanned: this.chip(f === 'Planned'),
+      chipWish: this.chip(f === 'Wishlist'),
+      setAll: () => this.setFilter('All'),
+      setVisited: () => this.setFilter('Visited'),
+      setPlanned: () => this.setFilter('Planned'),
+      setWish: () => this.setFilter('Wishlist'),
+      zoomIn: () => this.m1 && this.m1.zoomIn(),
+      zoomOut: () => this.m1 && this.m1.zoomOut(),
+      openQuick: () => this.setState({ quick: true, sel: null }),
+      closeQuick: () => this.setState({ quick: false }),
+      openTrips: () => { const el = document.getElementById('1i'); if (el) el.scrollIntoView ? window.scrollTo({ top: el.offsetTop - 40, behavior: 'smooth' }) : null; },
+      closeSheet: () => this.setState({ sel: null }),
+      stop: (e) => e.stopPropagation(),
+      sel: !!sel,
+      quick: this.state.quick,
+      selName: sel ? sel.name : '',
+      selSub: sel ? sel.sub : '',
+      selStatus: sel ? sel.status.toUpperCase() : '',
+      selDates: sel ? sel.dates : '',
+      selBadge: badge,
+      selRef: sel ? sel.ref : ''
+    };
+  }
+}
+</script>
+</body>
+</html>
