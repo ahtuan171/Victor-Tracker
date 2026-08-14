@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MapLibre headless spike</title>
+    <link rel="stylesheet" href="/node_modules/maplibre-gl/dist/maplibre-gl.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+      }
+      #map {
+        width: 375px;
+        height: 667px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script type="module">
+      import { Map as MaplibreMap } from "/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+
+      window.__spike = { events: [] };
+      // CARTO's free dark basemap, no API key -- tech-defaults.md's "The map" section.
+      // preserveDrawingBuffer:true only for this spike's pixel readback; the real app has no
+      // reason to keep it on.
+      const map = new MaplibreMap({
+        container: "map",
+        style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        center: [105.8342, 21.0278], // Hanoi -- arbitrary, just needs real tiles under it
+        zoom: 11,
+        preserveDrawingBuffer: true,
+        attributionControl: true,
+      });
+      map.on("load", () => window.__spike.events.push("load"));
+      map.on("idle", () => window.__spike.events.push("idle"));
+      map.on("error", (e) => {
+        window.__spike.events.push("error:" + (e && e.error && e.error.message));
+      });
+      window.__mapInstance = map;
+    </script>
+  </body>
+</html>

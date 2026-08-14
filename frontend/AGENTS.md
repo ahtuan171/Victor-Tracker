@@ -149,6 +149,40 @@ Two things came out of it that will bite later, and neither is about whether the
   connect to the map. Assert the map through the DOM and through pure functions in `lib/`, never
   through its canvas.
 
+**MapLibre itself genuinely renders real tiles under headless Chromium — measured 2026-08-14, before
+iteration 003 has a spec.** The entry above answered whether a bare `getContext("webgl2")` paints;
+it deliberately did not touch MapLibre, which is a much larger claim — style JSON parsing, tile
+fetch, sprite/glyph loading, and compositing all have to work, not just the context. This spike
+(`scripts/spike-maplibre-headless.mjs`, disposable investigation tooling in the same pattern as
+`scripts/t043-greyscale.mjs` and `scripts/t072-walk.mjs`) loads a real `maplibre-gl` map against
+CARTO's free `dark-matter` basemap (no API key — `tech-defaults.md`'s "The map") at the product's
+375×667 floor, in both headless and headed Chromium. Both fired `load` then `idle`; both made the
+same 16 style/tile/sprite/glyph requests to `cartocdn.com`; and — the part that actually answers the
+question — `page.screenshot()` in headless mode shows a genuine rendered map of Hanoi: streets,
+water, place labels, and the `MapLibre | © CARTO, © OpenStreetMap contributors` string
+`AttributionControl` renders automatically, which is what discharges the licence term
+`tech-defaults.md` names. Headed and headless screenshots are visually identical
+(`scripts/spike-maplibre-headless.png`, `scripts/spike-maplibre-headed.png`).
+
+One finding sharpens the rule directly above rather than adding a new one: **`canvas.getImageData()`
+(via a `drawImage` copy onto a 2D canvas) reads back `[0,0,0,0]` at every sampled point despite the
+map being genuinely rendered**, even with `preserveDrawingBuffer: true` on the map's WebGL context.
+A canvas that has painted real cross-origin tile textures is **tainted for 2D readback** whether or
+not the pixels are actually there, and the read fails silently — no thrown `SecurityError`, just
+zeros — rather than a visible error a probe would notice. So "assert the map through the DOM and
+through pure functions in `lib/`, never through its canvas" was already the rule; this spike found
+*why* a canvas assertion is not just unstable across renderers but can read back nothing at all.
+`page.screenshot()` is a compositor-level capture, not a canvas API call, and is unaffected — it is
+what actually verified this spike, and it is the only reliable way iteration 003's own tests will
+have to confirm the map drew something.
+
+**Conclusion for iteration 003's test strategy: MapLibre needs no special-casing in CI.** Headless
+Playwright, `pnpm start`, the same `mobile-375` project every other e2e test already uses — this
+just works, with no flag, extension, or software-renderer workaround required on this machine or
+presumed for the GitLab runner. Screenshot comparison (or a human/agent looking at a captured PNG)
+verifies the map painted something; DOM assertions (marker elements, popup content, control state)
+cover everything else, exactly as the rule above already said.
+
 **A focus ring that a computed style calls perfect can be painted and then thrown away, and only
 pixels can tell you.** Found twice in T067, after the class was applied and the whole style sweep was
 green. **`.notch-card` is a `clip-path`, and a clip-path clips the element's outline** — so
