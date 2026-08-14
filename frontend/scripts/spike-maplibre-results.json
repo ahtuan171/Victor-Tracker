@@ -1,0 +1,82 @@
+{
+  "headless": {
+    "mode": "headless",
+    "events": [
+      "load",
+      "idle"
+    ],
+    "timedOut": false,
+    "canvasSize": {
+      "width": 375,
+      "height": 667
+    },
+    "pixels": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "pixelsVary": false,
+    "tileRequestCount": 16,
+    "sampleTileRequest": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    "attributionPresent": true,
+    "attributionText": "MapLibre | © CARTO, © OpenStreetMap contributors",
+    "consoleErrors": [],
+    "screenshotPath": "D:\\AhTuan\\Software\\creator-hub\\frontend\\scripts\\spike-maplibre-headless.png"
+  },
+  "headed": {
+    "mode": "headed",
+    "events": [
+      "load",
+      "idle"
+    ],
+    "timedOut": false,
+    "canvasSize": {
+      "width": 375,
+      "height": 667
+    },
+    "pixels": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "pixelsVary": false,
+    "tileRequestCount": 16,
+    "sampleTileRequest": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    "attributionPresent": true,
+    "attributionText": "MapLibre | © CARTO, © OpenStreetMap contributors",
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "screenshotPath": "D:\\AhTuan\\Software\\creator-hub\\frontend\\scripts\\spike-maplibre-headed.png"
+  }
+}
