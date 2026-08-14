@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import { logout, updatePreferences, type Theme } from "@/lib/api";
 import { isSoundEnabled, isSoundEnabledOnServer, setSoundEnabled, subscribeSoundEnabled } from "@/lib/sound";
 import { applyTheme, readThemeCookie, writeThemeCookie } from "@/lib/theme";
@@ -19,12 +22,14 @@ import { cn } from "@/lib/utils";
  *
  * ## What lives here, and when
  *
- * FR-015 requires one place that lists every screen the product has. Today that is the single screen
- * this iteration restyles — Content Calendar — so the list below has one entry; it grows the day a
- * second screen exists, not before (`design/002-pixel-arcade-skin/BRIEF.md`'s DO-NOT-INVENT table is
- * explicit that this iteration adds no new destination). FR-016 also puts the presentation choice and
- * the sound choice here — **not yet**: the theme control lands at T034, the sound control at T040,
- * each its own task so this drawer is never wired to a control that does not work yet.
+ * FR-015 requires one place that lists every screen the product has. It grew a second entry at
+ * 003-travel-map T018: both `Content Calendar` and `Travel Map` are now real links, each marked
+ * `aria-current="page"` on the surface it points to, via Next's own `usePathname()` — unlike this
+ * file's cookie and sound-flag reads below, that hook needs no `useSyncExternalStore` wrapper: the
+ * server render already knows the actual requested URL, so there is no hydration mismatch for it
+ * to prevent. FR-016 also puts the presentation choice and the sound choice here — **not yet**:
+ * the theme control lands at T034, the sound control at T040, each its own task so this drawer is
+ * never wired to a control that does not work yet.
  *
  * **Sign-out moved in at T030**, self-contained here rather than threaded down as a prop from
  * `CalendarShell` — the same reason this component takes no props at all: every screen that will ever
@@ -87,6 +92,7 @@ import { cn } from "@/lib/utils";
 export function NavDrawer() {
   const panelId = useId();
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   /**
    * The cookie's own value, read once per mount via the R-006-addendum pattern (`getServerSnapshot`
@@ -238,20 +244,34 @@ export function NavDrawer() {
             </header>
 
             {/*
-             * FR-015's screen list. One entry today, marked current rather than a link — there is
-             * nowhere else for it to go yet, and a button that goes nowhere is a wasted tap target
-             * (the same rule `Frame.tsx`'s corner rivets follow).
+             * FR-015's screen list. Real links as of 003-travel-map T018 — the first time this
+             * product has had somewhere else to go, so a link now has somewhere to go and a
+             * button that went nowhere (`Frame.tsx`'s own rule) is no longer the right shape.
+             * Both entries share one style; only `aria-current` (and, visually, the surface
+             * token) distinguishes the one matching `pathname`.
              */}
-            <ul className="flex-1 overflow-y-auto p-4" data-testid="nav-drawer-screens">
-              <li>
-                <span
-                  aria-current="page"
-                  className="border-hairline bg-surface-2 text-ink flex h-11 items-center rounded-sm border px-3 text-sm font-semibold"
-                  data-testid="nav-drawer-screen-calendar"
-                >
-                  Content Calendar
-                </span>
-              </li>
+            <ul className="flex-1 space-y-2 overflow-y-auto p-4" data-testid="nav-drawer-screens">
+              {SCREENS.map((screen) => {
+                const current = pathname === screen.href;
+                return (
+                  <li key={screen.href}>
+                    <Link
+                      href={screen.href}
+                      aria-current={current ? "page" : undefined}
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "focus-ring flex h-11 items-center rounded-sm border px-3 text-sm font-semibold",
+                        current
+                          ? "border-hairline bg-surface-2 text-ink"
+                          : "border-hairline bg-surface-1 text-ink-mid",
+                      )}
+                      data-testid={`nav-drawer-screen-${screen.slug}`}
+                    >
+                      {screen.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
 
             {/*
@@ -352,6 +372,15 @@ export function NavDrawer() {
     </>
   );
 }
+
+/**
+ * FR-015's screen list, in the order they were built. Content Calendar first — it is this
+ * product's original surface and the one a returning creator expects at the top.
+ */
+const SCREENS: ReadonlyArray<{ readonly href: string; readonly slug: string; readonly label: string }> = [
+  { href: "/calendar", slug: "calendar", label: "Content Calendar" },
+  { href: "/map", slug: "map", label: "Travel Map" },
+];
 
 /** The two options, in the order the toggle group draws them. Dark first — it is FR-012's default. */
 const THEME_OPTIONS: ReadonlyArray<{ readonly value: Theme; readonly label: string }> = [

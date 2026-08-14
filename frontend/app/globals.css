@@ -110,6 +110,15 @@
   --ch-status-draft: #8f611c;
   --ch-status-posted: #1c7248;
 
+  /* 003-travel-map: DestinationStatus's own ramp, distinct from Content Calendar's above — a
+     Wishlist pin must never read as an `idea` chip (design/003-travel-map/BRIEF.md's audit
+     findings). Dark values are the ones the design export was reviewed against (its own dark-
+     only screenshots); these light values are an implementation-time judgement call, darkened
+     for contrast on a light ground the same way the ramp above is, not a second design pass. */
+  --ch-status-visited: #4f8a76;
+  --ch-status-planned: #61537e;
+  --ch-status-wishlist: #454761;
+
   /* Overdue — a dashed left border, orthogonal to status, never a fourth state */
   --ch-overdue: #7d6329;
 
@@ -196,6 +205,14 @@
   --ch-status-idea: #5b6b8c;
   --ch-status-draft: #d99a2b;
   --ch-status-posted: #2f9e63;
+
+  /* 003-travel-map: DestinationStatus's own ramp — design/003-travel-map/BRIEF.md's audit
+     findings, panel 1d. Deliberately not reusing the three above: a Wishlist pin must never
+     read as an `idea` chip. Fill level (outline/half/solid) carries the encoding; these are
+     decoration only, confirmed separable in 1b's greyscale render. */
+  --ch-status-visited: #7fb0a0;
+  --ch-status-planned: #8a7ba8;
+  --ch-status-wishlist: #6c6f8f;
 
   /* Warm khaki, dashed — separable from the red brand, the amber danger, and the steel accent alike,
      in colour and in greyscale (SC-004). */
@@ -290,6 +307,12 @@
   --color-status-draft: var(--ch-status-draft);
   --color-status-posted: var(--ch-status-posted);
   --color-overdue: var(--ch-overdue);
+
+  /* 003-travel-map: DestinationStatus's own ramp — a second, independent status palette, never
+     the three above (design/003-travel-map/BRIEF.md's audit findings). */
+  --color-status-visited: var(--ch-status-visited);
+  --color-status-planned: var(--ch-status-planned);
+  --color-status-wishlist: var(--ch-status-wishlist);
 
   --shadow-e1: var(--ch-e1);
   --shadow-e2: var(--ch-e2);
