@@ -17,9 +17,16 @@
  * components (frame, rivets, day cells, action band) rather than swatches alone; the owner picked
  * **Candidate B, "Night Suit"**: black and red now carry the product, the former cyan chrome survives
  * only as a *second*, deliberately quieter accent — `--ch-steel` below — reserved for the purely
- * decorative details (the frame's bevel, the rivets, the ticker's scan-line), never for anything a
- * person acts on. `--ch-brand` inherits every one of cyan's old jobs (focus, primary action, identity)
- * unchanged; only its hue moved. No component file changed for this — same reason as ever, see below.
+ * decorative details, never for anything a person acts on. `--ch-brand` inherits every one of cyan's
+ * old jobs (focus, primary action, identity) unchanged; only its hue moved. No component file changed
+ * for this — same reason as ever, see below.
+ *
+ * **2026-08-14 — deepened, and steel's decorative role narrowed to the ticker alone.** Two further
+ * owner-directed changes, reviewed against the running app rather than a written brief: `--ch-brand`
+ * itself moved darker (see its own comment below — "mạnh mẽ, bí ẩn" over the brighter 08-11b reds),
+ * and the frame/rivets moved from `--ch-steel` onto the new darker brand red, because a blue bevel
+ * read as a third, competing hue once brand and void were both this dark. `--ch-steel` still exists
+ * and still governs the ticker's scan-line — it is not removed, only no longer the frame's colour.
  *
  * Three rules travel with these values:
  *
@@ -28,10 +35,10 @@
  *      a second red) precisely so a primary button and a refusal never read as the same signal — the
  *      one new hazard this re-harmonisation had to design around, since red-as-brand and red-as-error
  *      is exactly the collision the outgoing cyan palette never had to avoid.
- *   2. **`--ch-steel` is decoration on the machine, never a control colour.** It exists so the
- *      product's original chrome hue survives as texture rather than disappearing outright — the
- *      frame, the rivets, the ticker's moving highlight. Nothing interactive may be styled with it: an
- *      accent a person cannot act on reading as actionable is the inverse of `--ch-brand`'s rule.
+ *   2. **`--ch-steel` is decoration on the machine, never a control colour.** As of 2026-08-14 this
+ *      means the ticker's moving highlight specifically, not the frame or rivets (see above). Nothing
+ *      interactive may be styled with it: an accent a person cannot act on reading as actionable is
+ *      the inverse of `--ch-brand`'s rule.
  *   3. **Colour is decoration on the status cue, not the cue itself.** R-005 (001) encodes status as
  *      shape and fill (outline → half → solid+check) so SC-004 holds in greyscale. Changing any colour
  *      here cannot break FR-017 (001) / SC-004 (002), and no component may start depending on hue to
@@ -155,14 +162,19 @@
   --ch-ink-mid: #a7a3ad;
   --ch-ink-lo: #6f6b76;
 
-  /* Brand red — chrome, focus, primary action, identity. The reference is Spider-Man-themed
-     (`spidey-tracker.mp4`); this is what makes the product actually read that way rather than as its
-     cyan-HUD cousin. Never meaning — status is still never carried by colour alone. Re-tuned
-     2026-08-11b to the brief's exact suggested reds: Primary Red #FF1744 is `--ch-brand` itself,
-     Deep Red #B00020 is `--ch-brand-deep` (below) rather than `--ch-brand-hi` — the brief uses it as a
-     shadow layer, not a brighter emphasis state, and dark mode's emphasis direction is *brighter*. */
-  --ch-brand: #ff1744;
-  --ch-brand-hi: #ff5c7a;
+  /* Brand red — chrome, focus, primary action, identity. Never meaning — status is still never
+     carried by colour alone. Deepened 2026-08-14 from the 2026-08-11b brief reds (#FF1744/#FF5C7A,
+     "Primary Red"/its brighter hover) at the owner's direction: the brief's reds read bright/neon
+     rather than "mạnh mẽ, bí ẩn" (strong, mysterious), the intended feel for the whole dark palette.
+     `--ch-brand-deep` (#B00020, unchanged) and `--ch-brand-sunk` (#2A0A10, unchanged) already sat in
+     this darker register, so this brings the interactive base colour down to meet them rather than
+     introducing a fourth red. Owner-approved by direct review of the running app, not a written
+     BRIEF.md pass — a lighter-weight version of the sign-off `002`'s comic-tech brief used, recorded
+     here rather than left silent. Light mode's `--ch-brand` (`:root`, above) is intentionally
+     untouched — this direction was reviewed in dark only, which is the product's default and the only
+     mode rendered during review. */
+  --ch-brand: #a10826;
+  --ch-brand-hi: #c41230;
   --ch-brand-sunk: #2a0a10;
 
   /* The offset-shadow red behind a comic panel's double border (`.comic-panel` below) — the brief's
@@ -348,13 +360,19 @@
  * and the corrected action-band arithmetic (~18px of spare width, not ~26px). Thicker at `sm`/`lg`,
  * where the frame has width to spend without touching the 44px targets or the action band.
  *
- * **`--ch-steel`, not `--ch-brand`, since the 2026-08-11 re-harmonisation.** The housing is pure
- * chrome — nothing about it is tappable — so it is exactly the decorative role `--ch-steel` exists
- * for, and it is what keeps the machine's original blue visibly present once the brand accent itself
- * turned red.
+ * **`--ch-brand-deep`/`--ch-brand-sunk`, not `--ch-steel`, since 2026-08-14.** The 2026-08-11
+ * re-harmonisation put `--ch-steel` here on the reasoning that the housing is pure chrome — nothing
+ * about it is tappable — so a decorative-only accent belonged on it rather than the brand hue.
+ * **Superseded, not layered on top of, by the owner's 2026-08-14 direction**: the blue-steel bevel
+ * read as an unrelated third colour competing with the now-red/black "Night Suit" palette rather than
+ * as chrome, and the request was specifically to deepen the housing toward the same red the rest of
+ * the product carries — "mạnh mẽ, bí ẩn" (strong, mysterious), not the brighter `--ch-brand` itself,
+ * which is why the gradient reaches for `--ch-brand-deep`/`--ch-brand-sunk` rather than `--ch-brand`.
+ * `--ch-steel` remains defined and still governs anything that genuinely wants the blue accent (none
+ * of this iteration's surfaces do); it is simply no longer the frame's own colour.
  */
 .arcade-frame {
-  background: linear-gradient(155deg, var(--ch-steel) 0%, var(--ch-hairline) 55%, var(--ch-surface-2) 100%);
+  background: linear-gradient(155deg, var(--ch-brand-deep) 0%, var(--ch-brand-sunk) 45%, var(--ch-void) 100%);
   padding: 10px;
 }
 
@@ -381,8 +399,10 @@
   height: 6px;
   border-radius: 9999px;
   background: var(--ch-void);
-  /* `--ch-steel`, same reason as `.arcade-frame` above — decorative machine chrome, not a control. */
-  box-shadow: inset 0 0 0 1px var(--ch-steel);
+  /* --ch-brand-deep, not --ch-steel, since 2026-08-14 — matches .arcade-frame's own reasoning above:
+     the rivets are the frame's own detail, and the frame no longer carries steel. Deep rather than
+     the brighter --ch-brand itself, for the same "deepened, not neon" direction. */
+  box-shadow: inset 0 0 0 1px var(--ch-brand-deep);
 }
 
 /*
