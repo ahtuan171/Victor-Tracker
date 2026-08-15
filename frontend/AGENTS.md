@@ -151,13 +151,27 @@ confirming exactly one test went red while the other seven stayed green.
 
 The fix has three parts and all three are load-bearing: `scripts/copy-maplibre-worker.mjs` copies
 the worker **and** the shared chunk into `public/maplibre/` under their **original, unhashed**
-names (so the relative import resolves); `package.json`'s `predev`/`prebuild` regenerate them so
-they cannot drift from the installed version; and `MapView` calls
+names (so the relative import resolves); `package.json`'s `predev`/`prebuild`/`prestart` regenerate
+them so they cannot drift from the installed version; and `MapView` calls
 `module.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs")` before constructing the map.
 `public/maplibre/` is gitignored and eslint-ignored — it is third-party dist code, not source.
 
 **The general form, which outlives MapLibre**: when a library splits work across a worker, a green
 main thread is not evidence about the worker. Assert something only the worker can produce.
+
+**`prebuild` alone was not enough, and the gap was specific to how CI splits `build` from `test:e2e`
+into separate jobs.** Found 2026-08-15, the same day as the bug above, when the just-added regression
+test (`vector tiles actually load...`) failed in CI while passing locally. `test:e2e` runs `pnpm start`
+against the `frontend/.next/` artifact `build:frontend` uploads — but that artifact is `.next/` only,
+not `public/`, and `next start` triggers no `prebuild` hook. `test:e2e`'s container is also a fresh
+checkout with no `public/maplibre/` of its own (gitignored). Locally this never surfaces: `pnpm build`
+runs `prebuild` and writes the files once, and `pnpm start` afterwards just serves what is already on
+disk in the same working tree. **Fixed by adding a matching `prestart` hook** — `next start` now
+regenerates the same two files on its own, so it no longer depends on a `build` step having run first
+in the same filesystem. The reusable lesson: **a `predev`/`prebuild` pair covers a workflow that
+`build`-then-`start` in one directory, and stops covering it the moment CI (or any deploy pipeline)
+splits build and start across separate machines or artifacts.** Any generated-but-gitignored asset
+needs regenerating before *every* command that serves the app, not just the one that compiles it.
 
 **Headless Chromium here has WebGL 2 and it genuinely draws — measured 2026-08-05, before any map
 code existed.** The spike ran the probe in both modes at 375×667 and read a cleared pixel back:
