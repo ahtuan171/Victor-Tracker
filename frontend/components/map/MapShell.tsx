@@ -8,6 +8,7 @@ import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
 
 import { DestinationSheet } from "./DestinationSheet";
+import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
 import { TripPanel } from "./TripPanel";
 
@@ -76,9 +77,24 @@ export function MapShell() {
         </p>
       ) : null}
 
-      <main className="min-h-0 flex-1" aria-busy={status === "loading"}>
-        <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
+      {/*
+       * The map is **inset, not full-bleed** — the owner's 2026-08-15 direction, taken from the
+       * reference product: a bordered viewport with a band of real controls underneath, rather
+       * than a map filling the screen edge to edge. `min-h-0` is what lets it shrink against the
+       * strip below instead of pushing it off a 375x667 screen (`frontend/AGENTS.md`'s `h-dvh`
+       * rule, one level down).
+       */}
+      <main className="min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
+        <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
+          <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
+        </div>
       </main>
+
+      <DestinationStrip
+        destinations={destinations}
+        today={today}
+        onOpenDestination={openDestination}
+      />
 
       {/*
        * T029-T032, User Story 2: tapping a pin opens this sheet. `reload()` on both an update and
