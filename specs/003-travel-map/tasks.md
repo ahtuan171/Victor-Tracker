@@ -84,19 +84,19 @@ distinguishable without tapping it.
 **Independent Test**: mark a place Visited, attach a note and a photograph, confirm both reachable in
 one tap from its pin.
 
-- [ ] T023 [US2] Implement `GET /destinations/{destination_id}` returning `DestinationDetail` (note + photographs, each with a freshly minted presigned GET URL — FR-024) in `backend/app/api/destinations.py`
-- [ ] T024 [US2] Implement `PATCH /destinations/{destination_id}` (note, name, dates, status, `trip_id`) in `backend/app/api/destinations.py`
-- [ ] T025 [US2] Implement `DELETE /destinations/{destination_id}` in `backend/app/api/destinations.py` — cascades to its photographs (`ON DELETE CASCADE`), does not touch its Trip (FR-016)
-- [ ] T026 [US2] Implement `POST /destinations/{destination_id}/photos/upload-url` in `backend/app/api/photographs.py` (depends on T007)
-- [ ] T027 [US2] Implement `POST /destinations/{destination_id}/photos` (confirm) in `backend/app/api/photographs.py`
-- [ ] T028 [US2] Implement `DELETE /destinations/{destination_id}/photos/{photo_id}` in `backend/app/api/photographs.py`
-- [ ] T029 [P] [US2] Add `frontend/components/map/DestinationSheet.tsx` — opens on pin tap; shows note + photo gallery when `status === "visited"`, offers neither on Planned/Wishlist (FR-009, INV-3)
-- [ ] T030 [US2] Wire photo attach inside `DestinationSheet`: request the upload URL, `PUT` the file **directly to R2** from the browser, then confirm via `POST .../photos` (FR-023 — never through this backend)
-- [ ] T031 [US2] Wire note editing inside `DestinationSheet` to `PATCH /destinations/{destination_id}` (depends on T024)
-- [ ] T032 [US2] Add a delete control to `frontend/components/map/DestinationSheet.tsx`, wired to `DELETE /destinations/{destination_id}`, matching `DeleteConfirm`'s three-tap confirmation pattern from `001` (FR-016, `.claude/rules/design.md`)
-- [ ] T033 [P] [US2] Extend `backend/tests/test_destinations.py` — `GET` detail returns a freshly minted presigned photo URL (FR-024); `PATCH` update, asserting FR-028's free-direction status transitions (each of the three values reachable from either other, at any time, no forced order); `DELETE` cascades to photographs and does not touch the parent Trip (FR-016)
-- [ ] T034 [P] [US2] `backend/tests/test_photographs.py` — upload-url shape, confirm, delete, all against a stubbed R2 client (never real R2 in tests)
-- [ ] T035 [P] [US2] `frontend/tests/e2e/photo-upload.spec.ts` — V2 (gallery gated on Visited), V6 (network inspector confirms the `PUT` never reaches this product's own backend origin)
+- [x] T023 [US2] Implement `GET /destinations/{destination_id}` returning `DestinationDetail` (note + photographs, each with a freshly minted presigned GET URL — FR-024) in `backend/app/api/destinations.py`
+- [x] T024 [US2] Implement `PATCH /destinations/{destination_id}` (note, name, dates, status, `trip_id`) in `backend/app/api/destinations.py`
+- [x] T025 [US2] Implement `DELETE /destinations/{destination_id}` in `backend/app/api/destinations.py` — cascades to its photographs (`ON DELETE CASCADE`), does not touch its Trip (FR-016)
+- [x] T026 [US2] Implement `POST /destinations/{destination_id}/photos/upload-url` in `backend/app/api/photographs.py` (depends on T007)
+- [x] T027 [US2] Implement `POST /destinations/{destination_id}/photos` (confirm) in `backend/app/api/photographs.py`
+- [x] T028 [US2] Implement `DELETE /destinations/{destination_id}/photos/{photo_id}` in `backend/app/api/photographs.py`
+- [x] T029 [P] [US2] Add `frontend/components/map/DestinationSheet.tsx` — opens on pin tap; shows note + photo gallery when `status === "visited"`, offers neither on Planned/Wishlist (FR-009, INV-3)
+- [x] T030 [US2] Wire photo attach inside `DestinationSheet`: request the upload URL, `PUT` the file **directly to R2** from the browser, then confirm via `POST .../photos` (FR-023 — never through this backend)
+- [x] T031 [US2] Wire note editing inside `DestinationSheet` to `PATCH /destinations/{destination_id}` (depends on T024)
+- [x] T032 [US2] Add a delete control to `frontend/components/map/DestinationSheet.tsx`, wired to `DELETE /destinations/{destination_id}`, matching `DeleteConfirm`'s three-tap confirmation pattern from `001` (FR-016, `.claude/rules/design.md`)
+- [x] T033 [P] [US2] Extend `backend/tests/test_destinations.py` — `GET` detail returns a freshly minted presigned photo URL (FR-024); `PATCH` update, asserting FR-028's free-direction status transitions (each of the three values reachable from either other, at any time, no forced order); `DELETE` cascades to photographs and does not touch the parent Trip (FR-016)
+- [x] T034 [P] [US2] `backend/tests/test_photographs.py` — upload-url shape, confirm, delete, all against a stubbed R2 client (never real R2 in tests)
+- [x] T035 [P] [US2] `frontend/tests/e2e/photo-upload.spec.ts` — V2 (gallery gated on Visited), V6 (network inspector confirms the `PUT` never reaches this product's own backend origin)
 
 **Checkpoint**: US1 + US2 — the map plus the photo/note gallery that makes a Visited pin worth tapping.
 
