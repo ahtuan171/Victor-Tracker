@@ -274,6 +274,47 @@ REACHABLE_4XX = [
         422,
         id="create-destination-missing-coordinates",
     ),
+    # T023-T025, User Story 2: getDestination/updateDestination/deleteDestination. Every one of
+    # these is id-addressed, so each carries both a no-credential 401 and a missing-id 404 — the
+    # shared `get_or_404` in `destinations.py` is what makes "no such destination" identical
+    # across all three.
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/destinations/1"),
+        401,
+        id="get-destination-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get("/destinations/999999"),
+        404,
+        id="get-destination-missing-id",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.patch("/destinations/1", json={"note": "x"}),
+        401,
+        id="update-destination-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch(
+            "/destinations/999999", json={"note": "x"}
+        ),
+        404,
+        id="update-destination-missing-id",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch("/destinations/1", json={}),
+        422,
+        id="update-destination-empty-body",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.delete("/destinations/1"),
+        401,
+        id="delete-destination-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.delete("/destinations/999999"),
+        404,
+        id="delete-destination-missing-id",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.get("/no/such/path"),
         404,

@@ -10,16 +10,32 @@ which is a `CHECK` constraint reachable over HTTP, this one is enforced entirely
 that can construct a row without them, so the only reachable failure is `pydantic`'s own 422 for
 a missing field. `test_errors.py`'s `REACHABLE_4XX` carries that case; this file's own INV-1
 coverage is instead the positive assertion — every created row has real, non-null coordinates.
+
+**`read_url` is monkeypatched, never real R2.** `GET /destinations/{id}` mints a presigned URL
+per photograph, and no R2 bucket is provisioned in this environment (or in CI) — the same reason
+`test_photographs.py` stubs `object_storage` entirely. Patching `app.api.destinations.read_url`
+(the name bound *into that module*, not the defining module) is what actually intercepts the
+call — `from ... import read_url` binds a local reference the source module's own patch target
+does not reach.
 """
 
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.models import Destination, Trip
+from app.models import Destination, Photograph, Trip
 
 DESTINATIONS_PATH = "/destinations"
+
+
+@pytest.fixture(autouse=True)
+def _stub_read_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.api.destinations.read_url", lambda object_key: f"https://stub.example/{object_key}"
+    )
+
 
 CONTRACTED_DESTINATION_KEYS = {
     "id",
@@ -202,3 +218,197 @@ def test_every_created_row_has_real_non_null_coordinates(
     assert len(rows) == 1
     assert rows[0].latitude is not None
     assert rows[0].longitude is not None
+
+
+# --- Get one (T023, User Story 2) -----------------------------------------------------------
+
+
+def test_get_destination_returns_note_and_photographs(
+    auth_client: TestClient, session: Session
+) -> None:
+    """FR-005, FR-024. `note` and `photographs` are always present regardless of `status`
+    (INV-3) — the frontend's gate on `status` is a display rule, not something the API enforces.
+    Each photograph's `url` is a freshly minted presigned GET (stubbed here — see the module
+    docstring).
+    """
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "status": "visited",
+            "note": "The temple in the rain.",
+        },
+    ).json()
+    photograph = Photograph(destination_id=created["id"], object_key="destinations/1/abc")
+    session.add(photograph)
+    session.commit()
+
+    response = auth_client.get(f"{DESTINATIONS_PATH}/{created['id']}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["note"] == "The temple in the rain."
+    assert len(body["photographs"]) == 1
+    assert body["photographs"][0]["url"] == "https://stub.example/destinations/1/abc"
+
+
+def test_get_destination_requires_a_credential(auth_client: TestClient, client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    assert client.get(f"{DESTINATIONS_PATH}/{created['id']}").status_code == 401
+
+
+def test_get_destination_404s_on_a_missing_id(auth_client: TestClient) -> None:
+    assert auth_client.get(f"{DESTINATIONS_PATH}/999999").status_code == 404
+
+
+# --- Update (T024, User Story 2) ------------------------------------------------------------
+
+
+def test_update_destination_changes_only_the_sent_fields(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "status": "wishlist"},
+    ).json()
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"note": "Finally went."}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Kyoto"
+    assert body["status"] == "wishlist"
+
+
+@pytest.mark.parametrize(
+    "start,end",
+    [
+        ("wishlist", "planned"),
+        ("planned", "visited"),
+        ("visited", "wishlist"),
+        ("visited", "planned"),
+    ],
+)
+def test_update_destination_status_moves_freely_in_either_direction(
+    auth_client: TestClient, start: str, end: str
+) -> None:
+    """FR-028: any of the three values is a valid target from any of the other two, at any time —
+    no forced order, unlike Content Calendar's status pipeline.
+    """
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "status": start},
+    ).json()
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"status": end})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == end
+
+
+def test_update_destination_null_detaches_trip_id(
+    auth_client: TestClient, session: Session
+) -> None:
+    trip = Trip(name="Japan 2026", start_date=date(2026, 9, 1), end_date=date(2026, 9, 15))
+    session.add(trip)
+    session.commit()
+    session.refresh(trip)
+
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "trip_id": trip.id},
+    ).json()
+    assert created["trip_id"] == trip.id
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"trip_id": None})
+
+    assert response.status_code == 200
+    assert response.json()["trip_id"] is None
+
+
+def test_update_destination_requires_a_credential(
+    auth_client: TestClient, client: TestClient
+) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    response = client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"note": "x"})
+    assert response.status_code == 401
+
+
+def test_update_destination_404s_on_a_missing_id(auth_client: TestClient) -> None:
+    assert auth_client.patch(f"{DESTINATIONS_PATH}/999999", json={"note": "x"}).status_code == 404
+
+
+def test_update_destination_422s_on_an_empty_body(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    assert auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={}).status_code == 422
+
+
+# --- Delete (T025, User Story 2) ------------------------------------------------------------
+
+
+def test_delete_destination_removes_the_row(auth_client: TestClient, session: Session) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+
+    response = auth_client.delete(f"{DESTINATIONS_PATH}/{created['id']}")
+
+    assert response.status_code == 204
+    assert session.get(Destination, created["id"]) is None
+
+
+def test_delete_destination_cascades_to_its_photographs(
+    auth_client: TestClient, session: Session
+) -> None:
+    """FR-016. `ON DELETE CASCADE` (data-model.md) does the work; this proves it end to end."""
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    photograph = Photograph(destination_id=created["id"], object_key="destinations/1/abc")
+    session.add(photograph)
+    session.commit()
+    session.refresh(photograph)
+    photograph_id = photograph.id
+
+    auth_client.delete(f"{DESTINATIONS_PATH}/{created['id']}")
+
+    assert session.get(Photograph, photograph_id) is None
+
+
+def test_delete_destination_does_not_touch_its_trip(
+    auth_client: TestClient, session: Session
+) -> None:
+    trip = Trip(name="Japan 2026", start_date=date(2026, 9, 1), end_date=date(2026, 9, 15))
+    session.add(trip)
+    session.commit()
+    session.refresh(trip)
+
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "trip_id": trip.id},
+    ).json()
+
+    auth_client.delete(f"{DESTINATIONS_PATH}/{created['id']}")
+
+    assert session.get(Trip, trip.id) is not None
+
+
+def test_delete_destination_requires_a_credential(
+    auth_client: TestClient, client: TestClient
+) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    assert client.delete(f"{DESTINATIONS_PATH}/{created['id']}").status_code == 401
+
+
+def test_delete_destination_404s_on_a_missing_id(auth_client: TestClient) -> None:
+    assert auth_client.delete(f"{DESTINATIONS_PATH}/999999").status_code == 404
