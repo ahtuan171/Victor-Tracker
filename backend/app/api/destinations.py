@@ -15,6 +15,7 @@ from app.schemas import (
     DestinationCreate,
     DestinationDetail,
     DestinationRead,
+    DestinationUpdate,
     ErrorResponse,
     PhotographRead,
 )
@@ -156,3 +157,64 @@ def create_destination(
     session.commit()
     session.refresh(destination)
     return destination
+
+
+@router.patch(
+    "/{destination_id}",
+    response_model=DestinationRead,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        404: {"model": ErrorResponse, "description": "No such destination."},
+        422: {"model": ErrorResponse, "description": "Request failed validation."},
+    },
+    summary="Change one or more fields of a Destination",
+)
+def update_destination(
+    destination_id: int,
+    body: DestinationUpdate,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> Destination:
+    """Partial update, `001`'s semantics — `exclude_unset=True` yields exactly the fields the
+    caller sent, including an explicit `null` on `trip_id`/`start_date`/`end_date`/`note`
+    (FR-020's detach path among them), and touches nothing else.
+
+    Covers FR-016 (edit), FR-006 (note) and FR-028 (status, any direction — no validation beyond
+    `DestinationUpdate` already requiring one of the three enum values). Changing `name` does
+    **not** re-geocode; a coordinate only changes when the caller sends new `latitude`/`longitude`
+    explicitly, matching the contract's own note that a label edit must never move a pin.
+    """
+    destination = get_or_404(session, destination_id)
+    updates = body.model_dump(exclude_unset=True)
+
+    for field, value in updates.items():
+        setattr(destination, field, value)
+
+    session.add(destination)
+    session.commit()
+    session.refresh(destination)
+    return destination
+
+
+@router.delete(
+    "/{destination_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": ErrorResponse, "description": "No valid token."},
+        404: {"model": ErrorResponse, "description": "No such destination."},
+    },
+    summary="Delete a Destination and its photographs",
+)
+def delete_destination(
+    destination_id: int,
+    session: SessionDep,
+    _creator: CurrentCreator,
+) -> None:
+    """FR-016. Cascades to `photograph` rows via `ON DELETE CASCADE` (data-model.md) — nothing
+    here has to delete them explicitly. Does **not** touch the parent Trip, if any.
+
+    No return annotation of `Response` and no `response_model`, matching `001`'s
+    `delete_content_item` precedent: a 204 must carry no body.
+    """
+    session.delete(get_or_404(session, destination_id))
+    session.commit()
