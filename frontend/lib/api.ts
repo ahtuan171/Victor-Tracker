@@ -169,6 +169,12 @@ export interface Destination {
   readonly status: DestinationStatus;
   readonly created_at: string;
   readonly updated_at: string;
+  /**
+   * FR-017. True when this Destination's own dates fall outside its Trip's — computed by the
+   * backend on every response, never stored. Always `false` with no `trip_id` or with either of
+   * this Destination's own dates null.
+   */
+  readonly outside_trip_range: boolean;
 }
 
 /**

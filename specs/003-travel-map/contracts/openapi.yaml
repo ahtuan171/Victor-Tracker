@@ -515,7 +515,8 @@ components:
 
     Destination:
       type: object
-      required: [id, name, latitude, longitude, status, created_at, updated_at]
+      required:
+        [id, name, latitude, longitude, status, created_at, updated_at, outside_trip_range]
       properties:
         id:
           type: integer
@@ -549,6 +550,14 @@ components:
         updated_at:
           type: string
           format: date-time
+        outside_trip_range:
+          type: boolean
+          description: |
+            FR-017. True when this Destination's own `start_date`/`end_date` fall outside its
+            Trip's own range. Computed fresh on every response, never stored — flagged, not
+            rejected, so a write carrying it is still a 200/201, not a 409/422. Always `false`
+            when `trip_id` is absent or either of this Destination's own dates is null, since
+            there is then nothing to compare (a Trip's own dates are always present).
 
     DestinationDetail:
       description: FR-005 — `Destination` plus its note and its photographs, each with a freshly minted read URL.

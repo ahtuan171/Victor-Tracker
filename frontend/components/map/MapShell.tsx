@@ -9,6 +9,7 @@ import { useDestinations } from "@/lib/destinations";
 
 import { DestinationSheet } from "./DestinationSheet";
 import { MapView } from "./MapView";
+import { TripPanel } from "./TripPanel";
 
 /**
  * The map surface's shell (T017, FR-001, FR-019) — the same role `CalendarShell` plays for
@@ -28,6 +29,7 @@ export function MapShell() {
   const { destinations, status, error, reload } = useDestinations();
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
+  const [tripsOpen, setTripsOpen] = useState(false);
 
   function openDestination(destination: Destination): void {
     setOpenDestinationId(destination.id);
@@ -51,7 +53,17 @@ export function MapShell() {
           </h1>
         </div>
 
-        <NavDrawer />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTripsOpen(true)}
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-3 text-xs font-semibold tracking-[0.1em] uppercase"
+            data-testid="open-trips"
+          >
+            Trips
+          </button>
+          <NavDrawer />
+        </div>
       </header>
 
       {status === "error" ? (
@@ -86,6 +98,15 @@ export function MapShell() {
           setOpenDestinationId(null);
           reload();
         }}
+      />
+
+      {/* T036-T037, T040, T042-T043, User Story 3: create/organise Trips, add Destinations to
+          one by search. Reloads the map's own destinations whenever a Trip write could change
+          what pins exist (adding a Destination, or a cascade delete). */}
+      <TripPanel
+        open={tripsOpen}
+        onOpenChange={setTripsOpen}
+        onDestinationsChanged={() => reload()}
       />
     </div>
   );

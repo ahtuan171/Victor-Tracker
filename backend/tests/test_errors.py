@@ -364,6 +364,75 @@ REACHABLE_4XX = [
         404,
         id="delete-photograph-missing-photograph",
     ),
+    # 003-travel-map, T036/T037, User Story 3: the Trip routes. Same shape as the Destination
+    # 4xx cases above — a shared `get_or_404` in `trips.py` makes "no such trip" identical
+    # whichever verb asked.
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/trips"),
+        401,
+        id="list-trips-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.post(
+            "/trips", json={"name": "x", "start_date": "2026-09-01", "end_date": "2026-09-15"}
+        ),
+        401,
+        id="create-trip-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post("/trips", json={"name": "x"}),
+        422,
+        id="create-trip-missing-fields",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/trips/1"),
+        401,
+        id="get-trip-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get("/trips/999999"),
+        404,
+        id="get-trip-missing-id",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.patch("/trips/1", json={"status": "booked"}),
+        401,
+        id="update-trip-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch(
+            "/trips/999999", json={"status": "booked"}
+        ),
+        404,
+        id="update-trip-missing-id",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.patch("/trips/1", json={}),
+        422,
+        id="update-trip-empty-body",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.delete("/trips/1"),
+        401,
+        id="delete-trip-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.delete("/trips/999999"),
+        404,
+        id="delete-trip-missing-id",
+    ),
+    # T038, User Story 3: searchLocations. The 502 (Nominatim unreachable) is not a 4xx, so it
+    # has no entry here — `test_locations.py` covers it on its own.
+    pytest.param(
+        lambda client, auth_client, creator: client.get("/locations/search", params={"q": "x"}),
+        401,
+        id="search-locations-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.get("/locations/search", params={"q": ""}),
+        422,
+        id="search-locations-empty-query",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.get("/no/such/path"),
         404,

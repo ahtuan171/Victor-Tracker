@@ -188,7 +188,7 @@ data-model.md, State transitions).
 | FR-014 | `trip` table |
 | FR-015, FR-020 | `destination` table; nullable `trip_id`, `start_date`, `end_date` |
 | FR-016 | `PATCH`/`DELETE` on `trip` and `destination` |
-| FR-017 | API-layer check comparing a Destination's dates against its Trip's, when both are present |
+| FR-017 | API-layer check comparing a Destination's dates against its Trip's, when both are present; surfaced as `Destination.outside_trip_range` (contracts/openapi.yaml), computed on every response, never a stored column |
 | FR-018 | `ON DELETE CASCADE` from `trip` to `destination` to `photograph`, gated behind a frontend confirmation naming what cascades |
 | FR-021, FR-022 | `POST /destinations` accepts an optional `trip_id`; returns immediately, no separate confirmation step |
 | FR-023, FR-024, FR-025 | `photograph.object_key`; presigned PUT/GET endpoints (contracts/openapi.yaml) |

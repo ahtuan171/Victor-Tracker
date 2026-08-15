@@ -293,6 +293,12 @@ class DestinationRead(BaseModel):
     status: DestinationStatus
     created_at: datetime
     updated_at: datetime
+    outside_trip_range: bool
+    """FR-017. True when this Destination's own dates fall outside its Trip's — computed fresh on
+    every response by `app/api/destinations.py`, never a stored column (data-model.md: the check
+    needs both rows loaded, which a single-table `CHECK` cannot express). Always `False` when
+    `trip_id` is null or either of this Destination's own dates is null — there is nothing to
+    compare (Trip's own dates are `NOT NULL`, data-model.md)."""
 
 
 class PhotographRead(BaseModel):
