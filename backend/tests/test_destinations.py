@@ -48,6 +48,7 @@ CONTRACTED_DESTINATION_KEYS = {
     "status",
     "created_at",
     "updated_at",
+    "outside_trip_range",
 }
 """Every property of the contract's `Destination`, asserted as an exact set — the same "neither
 missing nor uninvited" check `test_content_items.py` runs for `ContentItem`."""
@@ -412,3 +413,201 @@ def test_delete_destination_requires_a_credential(
 
 def test_delete_destination_404s_on_a_missing_id(auth_client: TestClient) -> None:
     assert auth_client.delete(f"{DESTINATIONS_PATH}/999999").status_code == 404
+
+
+# --- FR-017's containment flag (T045, User Story 3) ------------------------------------------
+
+
+@pytest.fixture
+def trip(session: Session) -> Trip:
+    trip = Trip(name="Japan 2026", start_date=date(2026, 9, 1), end_date=date(2026, 9, 15))
+    session.add(trip)
+    session.commit()
+    session.refresh(trip)
+    return trip
+
+
+def test_create_destination_within_trip_range_is_not_flagged(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-09-03",
+            "end_date": "2026-09-05",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["outside_trip_range"] is False
+
+
+def test_create_destination_starting_before_its_trip_is_flagged_not_rejected(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    """FR-017: flagged, never a rejected write — still a 201, not a 422/409."""
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-08-25",
+            "end_date": "2026-09-05",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["outside_trip_range"] is True
+
+
+def test_create_destination_ending_after_its_trip_is_flagged(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-09-10",
+            "end_date": "2026-09-20",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["outside_trip_range"] is True
+
+
+def test_create_destination_with_no_trip_is_never_flagged(auth_client: TestClient) -> None:
+    """Nothing to compare against — FR-017 only applies once both ranges exist."""
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Somewhere",
+            "latitude": 1.0,
+            "longitude": 1.0,
+            "start_date": "2020-01-01",
+            "end_date": "2020-01-02",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["outside_trip_range"] is False
+
+
+def test_create_destination_in_a_trip_with_no_dates_of_its_own_is_not_flagged(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    """FR-017 applies only when both ranges are present (data-model.md's note on nullable
+    dates) — a Destination with no dates of its own has nothing to compare.
+    """
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0, "longitude": 135.0, "trip_id": trip.id},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["outside_trip_range"] is False
+
+
+def test_update_destination_dates_flips_the_flag(auth_client: TestClient, trip: Trip) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-09-03",
+            "end_date": "2026-09-05",
+        },
+    ).json()
+    assert created["outside_trip_range"] is False
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"end_date": "2026-10-01"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["outside_trip_range"] is True
+
+
+def test_update_destination_detaching_its_trip_clears_the_flag(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-08-25",
+            "end_date": "2026-09-05",
+        },
+    ).json()
+    assert created["outside_trip_range"] is True
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"trip_id": None})
+
+    assert response.status_code == 200
+    assert response.json()["outside_trip_range"] is False
+
+
+def test_get_destination_includes_the_containment_flag(auth_client: TestClient, trip: Trip) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "trip_id": trip.id,
+            "start_date": "2026-08-25",
+            "end_date": "2026-09-05",
+        },
+    ).json()
+
+    response = auth_client.get(f"{DESTINATIONS_PATH}/{created['id']}")
+
+    assert response.status_code == 200
+    assert response.json()["outside_trip_range"] is True
+
+
+def test_list_destinations_computes_the_flag_for_every_row(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "In range",
+            "latitude": 1.0,
+            "longitude": 1.0,
+            "trip_id": trip.id,
+            "start_date": "2026-09-03",
+            "end_date": "2026-09-05",
+        },
+    )
+    auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Out of range",
+            "latitude": 2.0,
+            "longitude": 2.0,
+            "trip_id": trip.id,
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-02",
+        },
+    )
+
+    response = auth_client.get(DESTINATIONS_PATH, params={"trip_id": trip.id})
+
+    assert response.status_code == 200
+    by_name = {row["name"]: row["outside_trip_range"] for row in response.json()}
+    assert by_name == {"In range": False, "Out of range": True}

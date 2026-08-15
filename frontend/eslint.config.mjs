@@ -23,6 +23,10 @@ const eslintConfig = defineConfig([
     // Playwright output.
     "playwright-report/**",
     "test-results/**",
+    // Generated on every dev/build by scripts/copy-maplibre-worker.mjs — MapLibre's own
+    // prebuilt worker bundle, vendored under its original filenames so the worker's relative
+    // import resolves. Third-party dist code, not this project's source.
+    "public/maplibre/**",
   ]),
 
   {

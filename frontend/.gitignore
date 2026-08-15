@@ -47,3 +47,9 @@ scripts/t072-shots/
 
 # T044's local hand-walk, same reasoning.
 scripts/t044-shots/
+
+# Generated on every dev/build by scripts/copy-maplibre-worker.mjs — MapLibre's worker plus the
+# shared chunk it imports, copied under their original (unhashed) names so the worker's own
+# relative import resolves. Regenerated rather than committed so it cannot drift from the
+# installed maplibre-gl version.
+public/maplibre/

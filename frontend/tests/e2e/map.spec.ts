@@ -138,6 +138,40 @@ test("a genuine map renders — real tiles, real attribution (FR-003, FR-004, te
   await expect(attribution).toContainText("OpenStreetMap");
 });
 
+test("vector tiles actually load, so the basemap is drawn rather than a black canvas (FR-003)", async ({
+  page,
+  baseURL,
+}) => {
+  // **The regression test for a bug that shipped green**, diagnosed 2026-08-15. MapLibre fetches
+  // the style, `tiles.json`, sprite JSON and sprite PNG on the **main thread**, but vector tiles
+  // only from its **worker**. Turbopack emits that worker and the shared chunk it imports under
+  // hashed names without rewriting the worker's own `from "./maplibre-gl-shared.mjs"`, so the
+  // worker 404s on its own import and dies at creation — and every main-thread fetch still
+  // succeeds. The result is a fully-wired map with real markers over a **completely black
+  // canvas**, no console error anywhere.
+  //
+  // Every other test in this file passed against that: the attribution assertion below is
+  // satisfied by the style load alone, and `page.screenshot()` returns a non-empty buffer for a
+  // black canvas. This is the project's own "the half that works is the half every test happens
+  // to use" trap (`CLAUDE.md`), so the assertion is deliberately the one thing no main-thread
+  // fetch can satisfy: a real `.mvt` request. `MapView` calls `setWorkerUrl` at
+  // `public/maplibre/`; `scripts/copy-maplibre-worker.mjs` is what puts the files there.
+  const tileRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes(".mvt")) tileRequests.push(request.url());
+  });
+
+  await openMap(page, baseURL, [destination()]);
+
+  await expect
+    .poll(() => tileRequests.length, {
+      timeout: 30000,
+      message:
+        "no vector tile (.mvt) request was ever made — MapLibre's worker is dead, so the basemap is black. See scripts/copy-maplibre-worker.mjs.",
+    })
+    .toBeGreaterThan(0);
+});
+
 test("with zero Destinations, the map still renders and invites the first place (scenario 2)", async ({
   page,
   baseURL,

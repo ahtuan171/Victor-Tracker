@@ -109,19 +109,19 @@ one tap from its pin.
 **Independent Test**: create a Trip, add a Destination by searching a real place name, confirm it
 appears on the map at the resolved coordinates.
 
-- [ ] T036 [US3] Implement `POST /trips`, `GET /trips`, `GET /trips/{trip_id}` in `backend/app/api/trips.py`
-- [ ] T037 [US3] Implement `PATCH /trips/{trip_id}`, `DELETE /trips/{trip_id}` (cascades to its Destinations and their Photographs — FR-018) in `backend/app/api/trips.py`
-- [ ] T038 [US3] Implement `GET /locations/search` in `backend/app/api/locations.py`, calling `geocoding.py` (T006); empty match is a `200` with `[]`, an unreachable Nominatim is a `502` — the two must stay distinguishable (FR-012)
-- [ ] T039 [US3] Implement FR-017's containment check (a Destination's dates outside its Trip's) in `backend/app/api/destinations.py`, as a flag returned from the create/update path, not a rejected write — applies only when both ranges are present (data-model.md's note on nullable dates)
-- [ ] T040 [P] [US3] Add `frontend/components/map/TripPanel.tsx` — create, list, and open a Trip
-- [ ] T041 [P] [US3] Add `frontend/components/map/LocationSearch.tsx` — a search input calling `GET /locations/search`, presenting `LocationCandidate` results for the owner to pick one (FR-011, FR-012, User Story 3 scenario 2)
-- [ ] T042 [US3] Wire "add a Destination to this Trip": `LocationSearch` → pick a candidate → `POST /destinations` with the resolved coordinates and this Trip's `trip_id` (depends on T013, T041)
-- [ ] T043 [US3] Add the delete-Trip confirmation naming what cascades (FR-018), matching `DeleteConfirm`'s three-tap pattern from `001` (`.claude/rules/design.md`)
-- [ ] T044 [P] [US3] `backend/tests/test_trips.py` — CRUD, cascade delete (FR-018)
-- [ ] T045 [P] [US3] Extend `backend/tests/test_destinations.py` — FR-017's containment flag (a Destination's dates outside its parent Trip's are flagged on create and update, not rejected; the flag is silent when either range is absent), matching plan.md's Project Structure section, which places this test alongside the check itself rather than in `test_trips.py`
-- [ ] T046 [P] [US3] `backend/tests/test_locations.py` — search against a stubbed Nominatim; asserts the empty-result/unreachable distinction (FR-012)
-- [ ] T047 [P] [US3] `frontend/tests/e2e/trip-organise.spec.ts` — V3 (search → real coordinates), V4 (Trip CRUD, containment flag, cascade delete)
-- [ ] T048 [P] [US3] `frontend/tests/e2e/network-disclosure.spec.ts` — V9: intercept the outgoing tile requests and the Nominatim search request, assert each carries only viewport/zoom or the owner-typed search text, never a place name, note, or record id (SC-006, constitution principle II)
+- [x] T036 [US3] Implement `POST /trips`, `GET /trips`, `GET /trips/{trip_id}` in `backend/app/api/trips.py`
+- [x] T037 [US3] Implement `PATCH /trips/{trip_id}`, `DELETE /trips/{trip_id}` (cascades to its Destinations and their Photographs — FR-018) in `backend/app/api/trips.py`
+- [x] T038 [US3] Implement `GET /locations/search` in `backend/app/api/locations.py`, calling `geocoding.py` (T006); empty match is a `200` with `[]`, an unreachable Nominatim is a `502` — the two must stay distinguishable (FR-012)
+- [x] T039 [US3] Implement FR-017's containment check (a Destination's dates outside its Trip's) in `backend/app/api/destinations.py`, as a flag returned from the create/update path, not a rejected write — applies only when both ranges are present (data-model.md's note on nullable dates). **Amendment**: the contract did not declare a field for the flag — `Destination.outside_trip_range` (boolean, always present, computed fresh on every response) was added to `contracts/openapi.yaml`, `data-model.md`'s FR-017 traceability row, `schemas.py`, and `frontend/lib/api.ts` in the same change, matching the project's own recurring "an amendment applied to one artifact is not applied" lesson (`.claude/memory.md`).
+- [x] T040 [P] [US3] Add `frontend/components/map/TripPanel.tsx` — create, list, and open a Trip
+- [x] T041 [P] [US3] Add `frontend/components/map/LocationSearch.tsx` — a search input calling `GET /locations/search`, presenting `LocationCandidate` results for the owner to pick one (FR-011, FR-012, User Story 3 scenario 2)
+- [x] T042 [US3] Wire "add a Destination to this Trip": `LocationSearch` → pick a candidate → `POST /destinations` with the resolved coordinates and this Trip's `trip_id` (depends on T013, T041)
+- [x] T043 [US3] Add the delete-Trip confirmation naming what cascades (FR-018), matching `DeleteConfirm`'s three-tap pattern from `001` (`.claude/rules/design.md`)
+- [x] T044 [P] [US3] `backend/tests/test_trips.py` — CRUD, cascade delete (FR-018)
+- [x] T045 [P] [US3] Extend `backend/tests/test_destinations.py` — FR-017's containment flag (a Destination's dates outside its parent Trip's are flagged on create and update, not rejected; the flag is silent when either range is absent), matching plan.md's Project Structure section, which places this test alongside the check itself rather than in `test_trips.py`
+- [x] T046 [P] [US3] `backend/tests/test_locations.py` — search against a stubbed Nominatim; asserts the empty-result/unreachable distinction (FR-012)
+- [x] T047 [P] [US3] `frontend/tests/e2e/trip-organise.spec.ts` — V3 (search → real coordinates), V4 (Trip CRUD, containment flag, cascade delete)
+- [x] T048 [P] [US3] `frontend/tests/e2e/network-disclosure.spec.ts` — V9: intercept the outgoing tile requests and the Nominatim search request, assert each carries only viewport/zoom or the owner-typed search text, never a place name, note, or record id (SC-006, constitution principle II)
 
 **Checkpoint**: US1 + US2 + US3 — the full P1 slice. A real map, real photos/notes, and real trip
 organisation backed by real geocoding. This is the smallest shippable version of this iteration.

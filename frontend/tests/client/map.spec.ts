@@ -32,6 +32,7 @@ function destination(overrides: Partial<Destination> = {}): Destination {
     status: "wishlist",
     created_at: "2026-08-14T00:00:00Z",
     updated_at: "2026-08-14T00:00:00Z",
+    outside_trip_range: false,
     ...overrides,
   };
 }

@@ -8,7 +8,9 @@ import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
 
 import { DestinationSheet } from "./DestinationSheet";
+import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
+import { TripPanel } from "./TripPanel";
 
 /**
  * The map surface's shell (T017, FR-001, FR-019) — the same role `CalendarShell` plays for
@@ -28,6 +30,7 @@ export function MapShell() {
   const { destinations, status, error, reload } = useDestinations();
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
+  const [tripsOpen, setTripsOpen] = useState(false);
 
   function openDestination(destination: Destination): void {
     setOpenDestinationId(destination.id);
@@ -51,7 +54,17 @@ export function MapShell() {
           </h1>
         </div>
 
-        <NavDrawer />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTripsOpen(true)}
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-3 text-xs font-semibold tracking-[0.1em] uppercase"
+            data-testid="open-trips"
+          >
+            Trips
+          </button>
+          <NavDrawer />
+        </div>
       </header>
 
       {status === "error" ? (
@@ -64,9 +77,24 @@ export function MapShell() {
         </p>
       ) : null}
 
-      <main className="min-h-0 flex-1" aria-busy={status === "loading"}>
-        <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
+      {/*
+       * The map is **inset, not full-bleed** — the owner's 2026-08-15 direction, taken from the
+       * reference product: a bordered viewport with a band of real controls underneath, rather
+       * than a map filling the screen edge to edge. `min-h-0` is what lets it shrink against the
+       * strip below instead of pushing it off a 375x667 screen (`frontend/AGENTS.md`'s `h-dvh`
+       * rule, one level down).
+       */}
+      <main className="min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
+        <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
+          <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
+        </div>
       </main>
+
+      <DestinationStrip
+        destinations={destinations}
+        today={today}
+        onOpenDestination={openDestination}
+      />
 
       {/*
        * T029-T032, User Story 2: tapping a pin opens this sheet. `reload()` on both an update and
@@ -86,6 +114,15 @@ export function MapShell() {
           setOpenDestinationId(null);
           reload();
         }}
+      />
+
+      {/* T036-T037, T040, T042-T043, User Story 3: create/organise Trips, add Destinations to
+          one by search. Reloads the map's own destinations whenever a Trip write could change
+          what pins exist (adding a Destination, or a cascade delete). */}
+      <TripPanel
+        open={tripsOpen}
+        onOpenChange={setTripsOpen}
+        onDestinationsChanged={() => reload()}
       />
     </div>
   );

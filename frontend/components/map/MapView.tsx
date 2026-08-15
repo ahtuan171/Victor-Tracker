@@ -131,6 +131,16 @@ export function MapView({
 
       maplibreRef.current = module;
 
+      // **Required, and its absence is close to invisible** — see
+      // `scripts/copy-maplibre-worker.mjs` for the full diagnosis. Turbopack emits MapLibre's
+      // worker and the shared chunk it imports under *hashed* names without rewriting the
+      // worker's own `from "./maplibre-gl-shared.mjs"`, so the worker 404s on its own import and
+      // dies at creation. Everything fetched on the main thread (style, sprite, tiles.json) still
+      // loads, so the map reports healthy and renders markers over a **totally black canvas** —
+      // vector tiles are the only thing the worker fetches. Pointing this at the copies in
+      // `public/maplibre/`, whose names are unhashed, is what makes the relative import resolve.
+      module.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+
       const map = new module.Map({
         container: containerRef.current,
         style: CARTO_DARK_MATTER_STYLE,

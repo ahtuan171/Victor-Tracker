@@ -296,6 +296,55 @@ where the backend file does not load.
 
 ## Deferred
 
+**2026-08-15 — the reference product's remaining surfaces, triaged against this spec.** The owner
+shared four screenshots of the real Spidey Tracker and asked which of its features are worth
+building here. The triage below is the answer, and the point of writing it down is that **three of
+its most attractive ideas are things this product's constitution forbids outright** — so the list
+exists as much to record the rejections as the acceptances.
+
+**Rejected outright, no trigger, do not revisit as "just a small version":**
+
+- **"Report sightings" / "Share on X" / the social feed side panel.** Three separate surfaces in the
+  reference, one answer here: a public or shared view of this map is named in the constitution's
+  Scope Constraints as forbidden, and social-platform APIs are already Deferred with their own
+  entry. This product's whole premise is a *private* archive — principle II calls a location history
+  plus photographs "a pattern of life, not recoverable once disclosed". A share button is the single
+  fastest way to undo that, and it would look like a small feature.
+- **The "you are here" live-tracking dot** (the pulsing marker following the device). Automatic
+  location capture, forbidden unconditionally and named *first* among the exclusions precisely
+  because it is the most attractive one.
+- **"Videos" / "Events" / marketing chrome.** No entity in `data-model.md` backs either, and neither
+  is a travel-memory concept — they are film-promotion surfaces.
+
+**Already planned — not new work, just confirmation the plan matches the reference:**
+
+- **The status-filter chips down the left edge** are `T050`'s `StatusFilter` (Phase 7, US5). The
+  reference putting them on a rail rather than a row is a layout note for that task, nothing more.
+- **The radar/compass** is already sanctioned by `design/003-travel-map/BRIEF.md` as **pure chrome,
+  decorative only, no binding to real map data** — optional, owner's call, and explicitly *not*
+  allowed to become live tracking.
+
+**Worth building, in a later iteration with its own `spec.md` — the two that genuinely fit:**
+
+- **A Travel Log** (the reference's "Activity Log"): the same Destinations the map draws, as a
+  reverse-chronological list — status badge, name, date. Its whole appeal is that it needs **no new
+  column at all**: `destination.name`, `.status`, `.start_date` already exist, so it is a second
+  presentation of loaded state, the same relationship `BacklogDrawer` has to the calendar. It
+  answers a question the map genuinely cannot ("what did I do, in what order"), because a map is
+  organised by *place* and a trip is remembered by *time*. **Trigger**: the owner has enough visited
+  places that scanning pins stops being how they find one. Not a side effect of a map task — it is a
+  surface, so it needs its own spec and its own place in a story.
+- **A full-screen photo viewer** for a visited Destination. `DestinationSheet` currently draws a
+  3-column grid of presigned thumbnails, and a photograph of a place you went is the one thing in
+  this product worth looking at large — FR-007/FR-008 are satisfied by the grid, but only barely.
+  The reference's card carousel is the shape. Small, self-contained, and the highest ratio of value
+  to risk on this list. **Trigger**: the first time the owner actually wants to look at a photo
+  rather than confirm one is attached.
+
+**The layout lesson, already applied rather than deferred**: the reference's map is *inset*, with a
+band of real content beneath it, and that shape is why it reads as an instrument. Applied on
+2026-08-15 (`MapShell` + `DestinationStrip`), so it is recorded here as done, not as an idea.
+
 **2026-08-05, superseded 2026-08-08 — renaming the project away from "CreatorHub".** The name
 stopped describing the product at the 2.0.0 amendment and was deliberately left alone for the
 reasons below, until the owner asked for the rename explicitly on 2026-08-08.

@@ -10,7 +10,7 @@ from sqlmodel import col, select
 
 from app.auth import CurrentCreator
 from app.db import SessionDep
-from app.models import Destination, DestinationStatus, Photograph
+from app.models import Destination, DestinationStatus, Photograph, Trip
 from app.schemas import (
     DestinationCreate,
     DestinationDetail,
@@ -35,6 +35,49 @@ def get_or_404(session: SessionDep, destination_id: int) -> Destination:
     return destination
 
 
+def _outside_trip_range(destination: Destination, trip: Trip | None) -> bool:
+    """FR-017: flagged, never rejected. Applies only when both ranges are present —
+    `trip.start_date`/`end_date` are `NOT NULL` (data-model.md), so the only nullable side is
+    the Destination's own dates, and a Destination with no Trip has nothing to compare against.
+    """
+    if trip is None or destination.start_date is None or destination.end_date is None:
+        return False
+    return destination.start_date < trip.start_date or destination.end_date > trip.end_date
+
+
+def _to_destination_read(destination: Destination, trip: Trip | None) -> DestinationRead:
+    """Build the contract's `Destination`, computing `outside_trip_range` fresh — it is never
+    stored (research.md R-001-adjacent reasoning: an API-layer check, not a column), so every
+    response that includes a Destination has to compute it at read time.
+    """
+    assert destination.id is not None, "a row loaded from the database always has an id"
+    return DestinationRead(
+        id=destination.id,
+        trip_id=destination.trip_id,
+        name=destination.name,
+        latitude=destination.latitude,
+        longitude=destination.longitude,
+        start_date=destination.start_date,
+        end_date=destination.end_date,
+        status=destination.status,
+        created_at=destination.created_at,
+        updated_at=destination.updated_at,
+        outside_trip_range=_outside_trip_range(destination, trip),
+    )
+
+
+def _trips_by_id(session: SessionDep, destinations: list[Destination]) -> dict[int, Trip]:
+    """One bulk lookup for every distinct `trip_id` a page of Destinations references, rather
+    than a query per row — the same "load once" instinct `research.md` R-007 states for the
+    frontend, applied here to avoid an N+1 on `listDestinations`.
+    """
+    trip_ids = {d.trip_id for d in destinations if d.trip_id is not None}
+    if not trip_ids:
+        return {}
+    trips = session.exec(select(Trip).where(col(Trip.id).in_(trip_ids))).all()
+    return {trip.id: trip for trip in trips if trip.id is not None}
+
+
 @router.get(
     "",
     response_model=list[DestinationRead],
@@ -49,7 +92,7 @@ def list_destinations(
         Query(description="Narrow to one Trip's Destinations (the organising view, User Story 3)."),
     ] = None,
     status: Annotated[DestinationStatus | None, Query(description="FR-010's map filter.")] = None,
-) -> list[Destination]:
+) -> list[DestinationRead]:
     """FR-001, FR-010, FR-019. With no query parameters, returns every Destination regardless of
     Trip membership — this is the map's own read, and every Destination renders on it whether or
     not it has a Trip.
@@ -69,7 +112,15 @@ def list_destinations(
 
     query = query.order_by(col(Destination.id))
 
-    return list(session.exec(query).all())
+    destinations = list(session.exec(query).all())
+    trips = _trips_by_id(session, destinations)
+    return [
+        _to_destination_read(
+            destination,
+            None if destination.trip_id is None else trips.get(destination.trip_id),
+        )
+        for destination in destinations
+    ]
 
 
 @router.get(
@@ -109,18 +160,10 @@ def get_destination(
             )
         )
 
-    assert destination.id is not None, "a row loaded from the database always has an id"
+    trip = None if destination.trip_id is None else session.get(Trip, destination.trip_id)
+    read = _to_destination_read(destination, trip)
     return DestinationDetail(
-        id=destination.id,
-        trip_id=destination.trip_id,
-        name=destination.name,
-        latitude=destination.latitude,
-        longitude=destination.longitude,
-        start_date=destination.start_date,
-        end_date=destination.end_date,
-        status=destination.status,
-        created_at=destination.created_at,
-        updated_at=destination.updated_at,
+        **read.model_dump(),
         note=destination.note,
         photographs=photograph_reads,
     )
@@ -140,7 +183,7 @@ def create_destination(
     body: DestinationCreate,
     session: SessionDep,
     _creator: CurrentCreator,
-) -> Destination:
+) -> DestinationRead:
     """FR-015, FR-020, FR-021. `trip_id` is optional (FR-020) — omit it for a place marked
     independent of any Trip. `latitude`/`longitude` are required on this call: this operation is
     reached **after** `GET /locations/search` has already resolved a name to coordinates
@@ -151,12 +194,16 @@ def create_destination(
     can construct a row without them, so there is nothing further to check before the insert
     (data-model.md: unlike `001`'s INV-1, this one has no `CHECK` expressible from the columns
     alone, since (0,0) is a real coordinate).
+
+    **FR-017**'s containment flag is computed here too: a `trip_id` that survived the insert's
+    foreign key names a real Trip, so fetching it after `commit()` is guaranteed to find one.
     """
     destination = Destination(**body.model_dump())
     session.add(destination)
     session.commit()
     session.refresh(destination)
-    return destination
+    trip = None if destination.trip_id is None else session.get(Trip, destination.trip_id)
+    return _to_destination_read(destination, trip)
 
 
 @router.patch(
@@ -174,7 +221,7 @@ def update_destination(
     body: DestinationUpdate,
     session: SessionDep,
     _creator: CurrentCreator,
-) -> Destination:
+) -> DestinationRead:
     """Partial update, `001`'s semantics — `exclude_unset=True` yields exactly the fields the
     caller sent, including an explicit `null` on `trip_id`/`start_date`/`end_date`/`note`
     (FR-020's detach path among them), and touches nothing else.
@@ -183,6 +230,10 @@ def update_destination(
     `DestinationUpdate` already requiring one of the three enum values). Changing `name` does
     **not** re-geocode; a coordinate only changes when the caller sends new `latitude`/`longitude`
     explicitly, matching the contract's own note that a label edit must never move a pin.
+
+    **FR-017**'s containment flag is recomputed on every update — a date edit, a `trip_id`
+    re-attach, or a `trip_id` detach can each flip it, and it is never stored, so there is no
+    stale value to invalidate.
     """
     destination = get_or_404(session, destination_id)
     updates = body.model_dump(exclude_unset=True)
@@ -193,7 +244,8 @@ def update_destination(
     session.add(destination)
     session.commit()
     session.refresh(destination)
-    return destination
+    trip = None if destination.trip_id is None else session.get(Trip, destination.trip_id)
+    return _to_destination_read(destination, trip)
 
 
 @router.delete(
