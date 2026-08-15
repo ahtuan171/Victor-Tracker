@@ -128,6 +128,37 @@ No Jest/RTL at v0.1 — the UI moves faster than component tests would survive.
 
 ## Traps
 
+**MapLibre's worker dies under Turbopack, and the map still looks alive — a black basemap with
+real markers on it, and no error anywhere.** Diagnosed 2026-08-15, after Phase 5 had already
+shipped Phase 3's map "green". MapLibre 6 is ESM-only and its worker
+(`dist/maplibre-gl-worker.mjs`) imports a sibling as `from "./maplibre-gl-shared.mjs"`. Turbopack
+emits **both** files into `.next/static/media/` under **hashed** names **without rewriting that
+import**, so the worker requests `maplibre-gl-shared.mjs`, gets a 404, fails to evaluate, and the
+worker dies at creation.
+
+**What makes it survive review is the split between threads.** The style JSON, `tiles.json`,
+sprite JSON and sprite PNG are all fetched on the **main thread** and succeed — so
+`AttributionControl` renders its licence text, `map.on("idle")` fires, markers mount, and
+`page.screenshot()` returns a perfectly valid non-empty buffer. **Vector tiles are the only thing
+fetched from the worker.** The result is a fully-wired map drawing a completely black canvas.
+
+Every pre-existing test in `tests/e2e/map.spec.ts` passed against that, including the one named
+"a genuine map renders — real tiles, real attribution": its attribution assertion is satisfied by
+the *style* load alone. This is the project's own **"the half that works is the half every test
+happens to use"** trap (`CLAUDE.md`), and the fix for the test is the only assertion no
+main-thread fetch can satisfy — **a real `.mvt` request**. Verified by breaking `setWorkerUrl` and
+confirming exactly one test went red while the other seven stayed green.
+
+The fix has three parts and all three are load-bearing: `scripts/copy-maplibre-worker.mjs` copies
+the worker **and** the shared chunk into `public/maplibre/` under their **original, unhashed**
+names (so the relative import resolves); `package.json`'s `predev`/`prebuild` regenerate them so
+they cannot drift from the installed version; and `MapView` calls
+`module.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs")` before constructing the map.
+`public/maplibre/` is gitignored and eslint-ignored — it is third-party dist code, not source.
+
+**The general form, which outlives MapLibre**: when a library splits work across a worker, a green
+main thread is not evidence about the worker. Assert something only the worker can produce.
+
 **Headless Chromium here has WebGL 2 and it genuinely draws — measured 2026-08-05, before any map
 code existed.** The spike ran the probe in both modes at 375×667 and read a cleared pixel back:
 `[51,102,153,255]` in each, exactly the colour written. That second half is the evidence that
