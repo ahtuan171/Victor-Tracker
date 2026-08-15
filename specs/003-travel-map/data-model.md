@@ -178,7 +178,7 @@ data-model.md, State transitions).
 | FR-001, FR-019 | `destination` has no required `trip_id`; every row renders regardless |
 | FR-002, FR-026 | `destination.status` enum; client-computed Currently-Traveling overlay |
 | FR-003, FR-004 | Frontend map component; no schema involvement |
-| FR-005 | `GET` on a Destination returns `note` and its `photograph` rows when `status = 'visited'` |
+| FR-005 | `GET` on a Destination always returns `note` and its `photograph` rows, regardless of `status` — INV-3; the `status === "visited"` gate is frontend display only (FR-009) |
 | FR-006 | `destination.note` |
 | FR-007, FR-008 | `photograph.object_key`, resolved to a presigned GET URL per read (FR-024) |
 | FR-009 | Frontend gate on `status`; INV-3 |
