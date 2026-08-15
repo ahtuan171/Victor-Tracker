@@ -1,11 +1,13 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { NavDrawer } from "@/components/arcade/NavDrawer";
+import type { Destination } from "@/lib/api";
 import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
 
+import { DestinationSheet } from "./DestinationSheet";
 import { MapView } from "./MapView";
 
 /**
@@ -23,8 +25,13 @@ import { MapView } from "./MapView";
  * hydration; the creator's own day afterwards.
  */
 export function MapShell() {
-  const { destinations, status, error } = useDestinations();
+  const { destinations, status, error, reload } = useDestinations();
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
+  const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
+
+  function openDestination(destination: Destination): void {
+    setOpenDestinationId(destination.id);
+  }
 
   return (
     <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
@@ -58,8 +65,28 @@ export function MapShell() {
       ) : null}
 
       <main className="min-h-0 flex-1" aria-busy={status === "loading"}>
-        <MapView destinations={destinations} today={today} />
+        <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
       </main>
+
+      {/*
+       * T029-T032, User Story 2: tapping a pin opens this sheet. `reload()` on both an update and
+       * a delete rather than threading an optimistic patch through `useDestinations` — this list
+       * is small (constitution VII, a personal number of destinations) and a full reload keeps
+       * the pin's own status/position/traveling-overlay derivation in exactly one place, `MapView`
+       * itself, rather than a second copy here.
+       */}
+      <DestinationSheet
+        destinationId={openDestinationId}
+        today={today}
+        onOpenChange={(open) => {
+          if (!open) setOpenDestinationId(null);
+        }}
+        onUpdated={() => reload()}
+        onDeleted={() => {
+          setOpenDestinationId(null);
+          reload();
+        }}
+      />
     </div>
   );
 }
