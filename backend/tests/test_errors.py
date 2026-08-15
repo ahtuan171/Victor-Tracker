@@ -315,6 +315,55 @@ REACHABLE_4XX = [
         404,
         id="delete-destination-missing-id",
     ),
+    # T026-T028, User Story 2: the photograph routes. Every 4xx here is reachable *before* the
+    # stubbed object-storage boundary — a no-credential or missing-destination request never
+    # reaches `create_upload_url`/`read_url`, so this file needs no R2 stub of its own.
+    pytest.param(
+        lambda client, auth_client, creator: client.post("/destinations/1/photos/upload-url"),
+        401,
+        id="create-photo-upload-url-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post(
+            "/destinations/999999/photos/upload-url"
+        ),
+        404,
+        id="create-photo-upload-url-missing-destination",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.post(
+            "/destinations/1/photos", json={"object_key": "x"}
+        ),
+        401,
+        id="create-photograph-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post(
+            "/destinations/999999/photos", json={"object_key": "x"}
+        ),
+        404,
+        id="create-photograph-missing-destination",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.post("/destinations/1/photos", json={}),
+        422,
+        id="create-photograph-missing-object-key",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: client.delete("/destinations/1/photos/1"),
+        401,
+        id="delete-photograph-no-credential",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.delete("/destinations/999999/photos/1"),
+        404,
+        id="delete-photograph-missing-destination",
+    ),
+    pytest.param(
+        lambda client, auth_client, creator: auth_client.delete("/destinations/1/photos/999999"),
+        404,
+        id="delete-photograph-missing-photograph",
+    ),
     pytest.param(
         lambda client, auth_client, creator: client.get("/no/such/path"),
         404,
