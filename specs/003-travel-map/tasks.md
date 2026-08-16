@@ -136,9 +136,9 @@ interactions, with or without attaching it to a Trip.
 **Independent Test**: from the map, mark a new place Wishlist in at most three interactions (SC-003);
 confirm it appears immediately with no separate save step.
 
-- [ ] T049 [US4] Add `frontend/components/map/QuickAdd.tsx` — search or tap a location, then choose a status; offers "attach to an existing Trip" as one choice among leaving it unattached (FR-020, FR-021)
-- [ ] T050 [US4] Wire `QuickAdd` to `POST /destinations` with `trip_id` omitted or set per the owner's choice; the new pin renders without a page transition (FR-022)
-- [ ] T051 [US4] `frontend/tests/e2e/quick-add.spec.ts` — V5, counts interactions and asserts the three-interaction ceiling (SC-003)
+- [x] T049 [US4] Add `frontend/components/map/QuickAdd.tsx` — search or tap a location, then choose a status; offers "attach to an existing Trip" as one choice among leaving it unattached (FR-020, FR-021)
+- [x] T050 [US4] Wire `QuickAdd` to `POST /destinations` with `trip_id` omitted or set per the owner's choice; the new pin renders without a page transition (FR-022)
+- [x] T051 [US4] `frontend/tests/e2e/quick-add.spec.ts` — V5, counts interactions and asserts the three-interaction ceiling (SC-003)
 
 **Checkpoint**: US1–US4 — the map is now fast to add to, not just something that displays what a Trip
 flow already created.

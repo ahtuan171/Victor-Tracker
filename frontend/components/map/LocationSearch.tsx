@@ -20,10 +20,18 @@ import { ApiError, searchLocations, type LocationCandidate } from "@/lib/api";
  */
 export function LocationSearch({
   onSelect,
+  testIdPrefix = "location-search",
 }: {
   /** Called with the candidate the owner picked. Does not itself create a Destination — the
    * caller decides what a selection means (T042: `POST /destinations` with a Trip attached). */
   readonly onSelect: (candidate: LocationCandidate) => void;
+  /**
+   * Namespaces this instance's `data-testid`s. Added at T049, when `QuickAdd` became the second
+   * caller and both it and `TripPanel` could be mounted at once — two instances sharing one set
+   * of testids is a Playwright strict-mode failure, and the surfaces are genuinely different
+   * places to a person. The default keeps `TripPanel`'s own selectors as they were.
+   */
+  readonly testIdPrefix?: string;
 }) {
   const inputId = useId();
   const [query, setQuery] = useState("");
@@ -69,32 +77,32 @@ export function LocationSearch({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search a place…"
           className="border-hairline bg-surface-3 text-ink focus-ring h-11 flex-1 rounded-sm border px-3 text-base"
-          data-testid="location-search-input"
+          data-testid={`${testIdPrefix}-input`}
         />
         <button
           type="submit"
           disabled={query.trim() === "" || status === "searching"}
           className="bg-brand focus-ring-inset h-11 shrink-0 rounded-sm px-4 text-xs font-semibold tracking-[0.1em] text-white uppercase disabled:opacity-50"
-          data-testid="location-search-submit"
+          data-testid={`${testIdPrefix}-submit`}
         >
           {status === "searching" ? "Searching…" : "Search"}
         </button>
       </form>
 
       {status === "empty" ? (
-        <p className="text-ink-mid text-xs" data-testid="location-search-empty">
+        <p className="text-ink-mid text-xs" data-testid={`${testIdPrefix}-empty`}>
           No places matched &ldquo;{query.trim()}&rdquo;. Try a different search.
         </p>
       ) : null}
 
       {status === "error" ? (
-        <p role="alert" className="text-danger-hi text-xs" data-testid="location-search-error">
+        <p role="alert" className="text-danger-hi text-xs" data-testid={`${testIdPrefix}-error`}>
           {error}
         </p>
       ) : null}
 
       {status === "results" ? (
-        <ul className="flex flex-col gap-1.5" data-testid="location-search-results">
+        <ul className="flex flex-col gap-1.5" data-testid={`${testIdPrefix}-results`}>
           {results.map((candidate, index) => (
             // Nominatim returns no stable id — `name`+`address`+coordinates together are what
             // this list has to key on, and two candidates sharing all four would be the same
@@ -102,7 +110,7 @@ export function LocationSearch({
             <li
               key={`${candidate.name}-${candidate.address}-${candidate.latitude}-${candidate.longitude}-${index}`}
               className="border-hairline bg-surface-3 flex items-center gap-2 rounded-sm border px-3 py-2"
-              data-testid="location-search-result"
+              data-testid={`${testIdPrefix}-result`}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-ink truncate text-sm font-semibold">{candidate.name}</p>
@@ -112,7 +120,7 @@ export function LocationSearch({
                 type="button"
                 onClick={() => onSelect(candidate)}
                 className="border-hairline text-ink focus-ring h-9 shrink-0 rounded-sm border px-3 text-[11px] font-semibold tracking-[0.08em] uppercase"
-                data-testid="location-search-add"
+                data-testid={`${testIdPrefix}-add`}
               >
                 Add
               </button>
