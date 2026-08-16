@@ -7,6 +7,7 @@ import {
   disambiguateCoincidentPins,
   isCurrentlyTraveling,
   pinTreatment,
+  selectByStatus,
 } from "@/lib/map";
 
 /**
@@ -189,5 +190,57 @@ test.describe("boundsForDestinations", () => {
       139.7671, // east: tokyo's longitude
       35.6812, // north: tokyo's latitude
     ]);
+  });
+});
+
+test.describe("selectByStatus", () => {
+  const visited = destination({ id: 1, name: "Da Nang", status: "visited" });
+  const planned = destination({ id: 2, name: "Kyoto", status: "planned" });
+  const wishlist = destination({ id: 3, name: "Patagonia", status: "wishlist" });
+  const alsoVisited = destination({ id: 4, name: "Ha Long Bay", status: "visited" });
+  const all = [visited, planned, wishlist, alsoVisited];
+
+  test("null is every status, not none of them", () => {
+    // The whole reason the filter's `ALL` is a real radio option rather than the state of having
+    // deselected everything (`StatusFilter`'s docstring).
+    expect(selectByStatus(all, null)).toEqual(all);
+  });
+
+  test("narrows to exactly one status", () => {
+    expect(selectByStatus(all, "visited")).toEqual([visited, alsoVisited]);
+    expect(selectByStatus(all, "planned")).toEqual([planned]);
+    expect(selectByStatus(all, "wishlist")).toEqual([wishlist]);
+  });
+
+  test("every status the contract defines can be selected", () => {
+    for (const status of DESTINATION_STATUSES) {
+      const narrowed = selectByStatus(all, status);
+      for (const row of narrowed) expect(row.status).toBe(status);
+    }
+  });
+
+  test("a status with nothing in it narrows to empty rather than falling back to everything", () => {
+    // The failure that would make the filter look broken in the least obvious way: an empty result
+    // silently treated as "no filter" would show the owner every pin while the control says
+    // otherwise.
+    expect(selectByStatus([planned, wishlist], "visited")).toEqual([]);
+  });
+
+  test("preserves the server's ordering rather than sorting", () => {
+    // `filter` keeps order, and the list arrives already in the server's total order — the same
+    // reason `selectBacklog` needs no sort of its own (`lib/items.ts`).
+    const reversed = [alsoVisited, visited];
+    expect(selectByStatus(reversed, "visited")).toEqual([alsoVisited, visited]);
+  });
+
+  test("does not mutate the list it was given", () => {
+    const input = [...all];
+    selectByStatus(input, "visited");
+    expect(input).toEqual(all);
+  });
+
+  test("an empty list stays empty for every selection", () => {
+    expect(selectByStatus([], null)).toEqual([]);
+    expect(selectByStatus([], "visited")).toEqual([]);
   });
 });
