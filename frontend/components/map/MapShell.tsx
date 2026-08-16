@@ -11,6 +11,7 @@ import { selectByStatus } from "@/lib/map";
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
+import { QuickAdd } from "./QuickAdd";
 import { StatusFilter } from "./StatusFilter";
 import { TripPanel } from "./TripPanel";
 
@@ -98,10 +99,16 @@ export function MapShell() {
        * strip below instead of pushing it off a 375x667 screen (`frontend/AGENTS.md`'s `h-dvh`
        * rule, one level down).
        */}
-      <main className="min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
+      <main className="relative min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
         <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
           <MapView destinations={visible} today={today} onOpenDestination={openDestination} />
         </div>
+
+        {/* T049-T050, User Story 4. Anchored over the map's lower edge rather than placed beneath
+            it: `MapView` installs no `ResizeObserver`, so a container whose height changed would
+            leave MapLibre's canvas at its old size. Floating keeps the map's own box constant
+            whatever the quick-add flow expands to, and puts the flow in thumb reach. */}
+        <QuickAdd onCreated={reload} />
       </main>
 
       {/* T052: below the map and above the strip — the bottom portion of a 375x667 screen, which
