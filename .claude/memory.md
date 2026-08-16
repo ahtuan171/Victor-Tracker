@@ -454,3 +454,130 @@ route/budget permission with its reasoning), then the `new-feature` skill / `/sp
 the draft file — which has **not** been through `/speckit-clarify` and has open questions the draft
 file's own closing section lists (a geocoding provider for turning a typed search into lat/long is
 the one most likely to block T001 of that iteration).
+
+**2026-08-15 — Route and trip budgeting: constitutionally permitted, deliberately not built in 003,
+and this is the entry `spec.md` said would exist.** `specs/003-travel-map/spec.md`'s Assumptions
+section defers both "despite being constitutionally permitted since the 2.1.0 amendment — **Recorded
+as a deferred item once this spec is committed**". The spec was committed and merged (MR !68) and no
+such entry was ever written. That is the **seventh** instance of this project's own recurring trap,
+with `.claude/memory.md` as the artifact left behind this time rather than `contracts/openapi.yaml` —
+and it is worth noticing that the promise itself named the file it was owed to. Discharged here.
+
+**Route (draft §8).** The distinction that matters, because the draft draws them as one feature:
+**a line between Destination coordinates in trip order is nearly free** — a MapLibre line layer over
+data the map has already loaded, one ordering column on `destination`, and no request leaves the
+browser that was not leaving it already. **Real routing** — road or rail geometry, distance,
+duration — needs a routing provider, and that is a third-party request carrying *the sequence of
+places the owner is going to*, which is a materially larger disclosure than the tile viewport
+`tech-defaults.md` accepted. Principle II governs the second and has nothing to say about the first.
+**Do not price them as the same feature.** **Trigger**: a Trip with three or more Destinations where
+the order starts mattering — the same moment `destination` needs its ordering column, so the
+migration and the line layer arrive together.
+
+**Budget (draft §1, §9, §10, §13).** Not a field, an iteration: currency, per-Destination versus
+per-Trip totals, and what a total means when a Trip is half-planned. The reason "budget", "cost" and
+"expenses" appear in four separate places in the draft is that they are one feature seen from four
+screens. **Trigger**: the owner actually tracks money against a trip. Transportation and
+Accommodation (see the V2/V3 entry below) arrive with it, not separately.
+
+**2026-08-15 — Destination category and priority, and the second filter dimension they smuggle in.**
+`spec.md`'s Assumptions defers both, stating "the map's filter for this iteration is by status only".
+They are the cheapest items on this whole list — two nullable columns and two controls — which is
+exactly why they are the most likely to be slipped into a task scoped for something else.
+
+**The specific warning**: draft §7 puts a category filter directly beside the status filter, and
+`StatusFilter` must not grow a second axis on its own initiative. A second axis is not a component
+change; it changes what the empty state says, what the clear control clears, and what SC-001's "tell
+them apart without tapping any of them" is promising. That is a spec question.
+
+**And category must not compete for the pin's encoding channel.** `design/003-travel-map/BRIEF.md`
+locks the pin as a shield silhouette with an outline→half→solid progression, and what it encodes is
+**status**. Draft §4's eleven emoji-led values are a filter and a label, never a second pin shape.
+
+**Trigger**: filtering by status stops being how the owner finds a place — in practice, when
+`visited` alone is a few dozen pins.
+
+**2026-08-15 — Activity and an itinerary Calendar: the largest deferred thing, and the one with a
+question that must be settled before any of it is estimated.** FR-027 states 003 does not build it
+and that any future iteration starts from its own `spec.md`. Draft §5/§6/§16 describe it fully: an
+Activity has a title, a date, a start time and a location, and the Calendar draws Trip, Destination
+and Activity together.
+
+**The question, which belongs to `/speckit-clarify` and must not be answered by assumption**: is
+`Activity` a new table, or is it the `content_item` retarget the 2026-08-05 entry above already
+describes? Those two entries are one decision seen from opposite ends — that one asks "what happens
+to Content Calendar", this one asks "where do itinerary items live" — and answering either silently
+answers the other. The draft's own closing section flags this too.
+
+**A second inheritance, easy to miss**: an Activity carries a **start time**, and the whole of 001
+was built on "calendar day only, no time of day" (FR-012a) specifically to keep timezones and DST out
+of the data. An itinerary with 09:00 in it reopens exactly that, and "Time-of-day scheduling" is
+already its own Deferred entry above. Whoever picks this up inherits three linked entries, not one.
+
+**Trigger**: the owner plans a real multi-day trip and wants a day-by-day timeline rather than a set
+of pins.
+
+**2026-08-15 — The rest of the input draft's V2 and V3 lists, triaged rather than left as a wish
+list.** `drafts/travel-tracker.spec.draft.md` §9, §10, §13 and §14 hold everything 003 did not take.
+Kept as one entry because none of them is individually a spec, and splitting them into eleven entries
+would make a wish list look like a backlog.
+
+- **Arrive with Budget, not separately** — Transportation (§9), Accommodation (§10), Reservations.
+  All the same shape: an entity beside a Destination carrying a cost, a time and a booking reference.
+  Building any of them before Budget produces a cost field with nowhere to total.
+- **Cheap metadata, no new machinery** — Trip cover image, description, tags (§1, §13). Cover image
+  reuses the presigned R2 path 003 already built end to end, so it is genuinely small. **Travel
+  companions is a text field, not an account** — worth stating, because it looks like it brushes the
+  multi-user entry above and does not: principle VII forbids speculative `user_id` columns, not
+  recording who you went with.
+- **Needs a principle II reading before anyone estimates it** — Google Maps integration, route
+  optimization, weather (§14). All three send coordinates or trip data to a third party; the draft's
+  closing section already flags the first. **Weather looks innocuous and is not** — a forecast request
+  keyed to a place and a future date discloses where the owner will be and when.
+- **No opinion yet, and none needed** — AI itinerary, statistics, photo timeline, packing list,
+  checklists, reviews (§13, §14). Photo timeline is the likeliest of these to become worth doing,
+  because it is a third presentation of data already stored — the same class as the Travel Log.
+
+**Trigger for the group: none.** This is input for a future `/speckit-specify`, not scheduled work.
+Pick an item out of the list when a real need names it, and give it its own `spec.md`.
+
+**2026-08-15 — Reading a photograph's EXIF geotag to place its pin: not a feature session's call.**
+Not in the draft. Recorded because it is the obvious next idea once photographs and coordinates are
+both in the product, and because it is the nearest miss on the exclusion the constitution names
+first.
+
+Both directions, stated honestly. It is **not** automatic location capture in the sense the
+constitution forbids: the owner picks a file, deliberately, after the trip; there is no background
+collection and no device permission. But it **is** location data entering the product without anyone
+typing it, extracted from an artifact the owner may not know carries coordinates at all.
+
+**The rule this entry exists to set: that is a constitution question, not a judgement available to a
+session building a feature.** Route and budget needed the 2.1.0 amendment to become permissible and
+they sit further from the line than this does. **Trigger**: nothing is built until
+`/speckit-constitution` has stated a reading explicitly — permitting it with a reason, or refusing it
+with one. "It seemed fine" is not that reading.
+
+**2026-08-15 — Caching geocoding results.** `GET /locations/search` proxies Nominatim, whose usage
+policy is roughly one request per second and requires an identifying User-Agent. Nothing caches
+today: every completed search is a fresh upstream call, in a product whose owner searches the same
+few places repeatedly. Deferred because one owner does not reach that limit, and a cache is a table
+plus an invalidation question for a problem that has not appeared. **Trigger**: search feels slow, or
+the provider rate-limits. The fix then is caching the query→coordinates pair — not switching
+provider, which costs an API key and a new disclosure to solve a caching problem.
+
+**2026-08-15 — If 004 needs a subject, this is the shortlist in order.** Ranked by value against
+cost, so that whoever opens the next iteration does not re-derive the ordering:
+
+1. **Travel Log** and the **full-screen photo viewer** — the reference-product triage entry. Neither
+   needs a new column; both re-present data the surfaces already load.
+2. **Destination category and priority** — two columns, one filter dimension, one spec question.
+3. **Route, straight-line only** — one ordering column and a line layer. Explicitly *not* a routing
+   provider; see the Route entry for why that distinction is load-bearing.
+4. **Activity and the itinerary Calendar** — the largest, and blocked on the `content_item` question.
+   `/speckit-clarify` comes first for this one, not last.
+5. **Budget**, with Transportation and Accommodation attached to it.
+6. Everything else in the V2/V3 entry, on demand.
+
+**This is a ranking, not a plan.** Nothing here is scheduled and nothing here gets built until it has
+its own `spec.md` — the third non-negotiable is unchanged. Items 1–3 are each small enough that a
+single iteration could reasonably carry two of them; items 4 and 5 are each a full iteration alone.
