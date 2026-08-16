@@ -260,3 +260,130 @@ test("the header's nav trigger is reachable, matching every other screen's heade
   await page.getByTestId("nav-drawer-trigger").click();
   await expect(page.getByTestId("nav-drawer-panel")).toBeVisible();
 });
+
+/**
+ * T055, User Story 5, quickstart V8 — filtering the map by status (FR-010).
+ *
+ * The narrowing itself is proved without a browser in `tests/client/map.spec.ts`; what these
+ * assert is the part only a page can answer — that both surfaces drawing Destinations follow the
+ * filter, that clearing it restores everything, and that a toggle costs no round trip.
+ */
+test.describe("filtering by status (V8, FR-010)", () => {
+  const mixed = [
+    destination({ id: 1, name: "Da Nang", status: "visited" }),
+    destination({ id: 2, name: "Kyoto", latitude: 35.6812, longitude: 139.7671, status: "planned" }),
+    destination({ id: 3, name: "Patagonia", latitude: -50.9423, longitude: -73.4068, status: "wishlist" }),
+  ];
+
+  test("filtering to one status leaves only that status's pins, and clearing restores every one", async ({
+    page,
+    baseURL,
+  }) => {
+    await openMap(page, baseURL, mixed);
+    await expect(page.getByTestId("destination-pin")).toHaveCount(3);
+
+    await page.getByTestId("status-filter-visited").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+    await expect(
+      page.locator('[data-testid="destination-pin"][data-status="visited"]'),
+    ).toHaveCount(1);
+
+    // Every other status is gone, not merely de-emphasised — the pins are absent from the DOM.
+    await expect(
+      page.locator('[data-testid="destination-pin"][data-status="planned"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="destination-pin"][data-status="wishlist"]'),
+    ).toHaveCount(0);
+
+    await page.getByTestId("status-filter-all").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(3);
+  });
+
+  test("the strip beneath the map narrows with the pins, never disagreeing with them", async ({
+    page,
+    baseURL,
+  }) => {
+    // Both surfaces read the same narrowed list (`MapShell`'s `visible`). A strip still listing a
+    // place whose pin the filter removed is the failure this pins down — the owner would tap a
+    // card and open a Destination that is not on the map they are looking at.
+    await openMap(page, baseURL, mixed);
+    await expect(page.getByTestId("destination-strip-count")).toHaveText("3");
+    await expect(page.getByTestId("destination-card-2")).toBeVisible();
+
+    await page.getByTestId("status-filter-planned").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+    await expect(page.getByTestId("destination-strip-count")).toHaveText("1");
+    // Kyoto is the Planned one, so it survives; the other two cards are gone from the DOM.
+    await expect(page.getByTestId("destination-card-2")).toBeVisible();
+    await expect(page.getByTestId("destination-card-1")).toHaveCount(0);
+    await expect(page.getByTestId("destination-card-3")).toHaveCount(0);
+  });
+
+  test("changing the filter issues no request — it narrows what is already loaded (R-007)", async ({
+    page,
+    baseURL,
+  }) => {
+    // The guard `platform-filter.spec.ts` keeps for Content Calendar, for the same reason: a round
+    // trip behind every toggle is tens of seconds on this stack's cold path (T072's measurement).
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/destinations")) requests.push(request.url());
+    });
+
+    await openMap(page, baseURL, mixed);
+    await expect(page.getByTestId("destination-pin")).toHaveCount(3);
+    const afterLoad = requests.length;
+
+    await page.getByTestId("status-filter-visited").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+    await page.getByTestId("status-filter-wishlist").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+    await page.getByTestId("status-filter-all").click();
+    await expect(page.getByTestId("destination-pin")).toHaveCount(3);
+
+    expect(requests.length).toBe(afterLoad);
+  });
+
+  test("exactly one option is selected at a time, and All is a real option rather than the absence of one", async ({
+    page,
+    baseURL,
+  }) => {
+    await openMap(page, baseURL, mixed);
+
+    // `StatusFilter`'s whole argument for being a radio group: an unfiltered map is announced as a
+    // chosen state, not inferred from three unselected buttons.
+    await expect(page.getByTestId("status-filter-all")).toHaveAttribute("aria-checked", "true");
+
+    await page.getByTestId("status-filter-planned").click();
+    await expect(page.getByTestId("status-filter-planned")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("status-filter-all")).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByTestId("status-filter-visited")).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("the filter sits in thumb reach and inside the 375px viewport", async ({ page, baseURL }) => {
+    // `.claude/rules/design.md` makes thumb reach a hard constraint, and `frontend/AGENTS.md`'s
+    // `scrollWidth` trap is why the width check is per-control rather than on the document.
+    await openMap(page, baseURL, mixed);
+
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+
+    const row = await page.getByTestId("status-filter").boundingBox();
+    expect(row).not.toBeNull();
+    expect(row!.y).toBeGreaterThan(viewport!.height / 2);
+
+    for (const testId of [
+      "status-filter-all",
+      "status-filter-visited",
+      "status-filter-planned",
+      "status-filter-wishlist",
+    ]) {
+      const box = await page.getByTestId(testId).boundingBox();
+      expect(box, `${testId} has no box`).not.toBeNull();
+      expect(box!.height, `${testId} is under the 44px floor`).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width);
+    }
+  });
+});

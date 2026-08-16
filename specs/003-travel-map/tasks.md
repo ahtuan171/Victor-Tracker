@@ -152,10 +152,10 @@ flow already created.
 **Independent Test**: with places in more than one status, select one status filter and confirm only
 that status's pins remain, with a control to return to "all."
 
-- [ ] T052 [US5] Add `frontend/components/map/StatusFilter.tsx` — a single-status selector plus a clear control
-- [ ] T053 [US5] Wire `StatusFilter` to narrow the **already-loaded** Destination list client-side, never re-issuing `GET /destinations` per filter change — the same "load once, narrow client-side" rule `001`'s `research.md` R-007 established for the calendar's own list, applied here for the same reason: a filter toggle should not cost a round trip on a stack whose cold path is measured in tens of seconds (`.claude/memory.md`'s Deferred section)
-- [ ] T054 [P] [US5] `frontend/tests/client/map.spec.ts` — pure-function test of the status-narrowing logic in `lib/map.ts`
-- [ ] T055 [US5] Extend `frontend/tests/e2e/map.spec.ts` — V8 (filter narrows visible pins, clearing restores them)
+- [x] T052 [US5] Add `frontend/components/map/StatusFilter.tsx` — a single-status selector plus a clear control
+- [x] T053 [US5] Wire `StatusFilter` to narrow the **already-loaded** Destination list client-side, never re-issuing `GET /destinations` per filter change — the same "load once, narrow client-side" rule `001`'s `research.md` R-007 established for the calendar's own list, applied here for the same reason: a filter toggle should not cost a round trip on a stack whose cold path is measured in tens of seconds (`.claude/memory.md`'s Deferred section)
+- [x] T054 [P] [US5] `frontend/tests/client/map.spec.ts` — pure-function test of the status-narrowing logic in `lib/map.ts`
+- [x] T055 [US5] Extend `frontend/tests/e2e/map.spec.ts` — V8 (filter narrows visible pins, clearing restores them)
 
 **Checkpoint**: All five user stories independently functional. Every acceptance scenario in spec.md
 has a task that realises it.

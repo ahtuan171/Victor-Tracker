@@ -111,6 +111,38 @@ export function isCurrentlyTraveling(destination: Destination, today: DateOnly |
   return !isBeforeDateOnly(today, destination.start_date) && !isBeforeDateOnly(destination.end_date, today);
 }
 
+// --- Filtering by status (T053, User Story 5, FR-010) -------------------------------------------
+
+/**
+ * Narrow a loaded list of Destinations to a single status, or return it whole for `null` (T053,
+ * FR-010).
+ *
+ * The direct sibling of `lib/items.ts`'s `selectByPlatform`, deliberately down to its shape: a
+ * pure function over an already-loaded array, `null` meaning "every status" rather than "no
+ * status". Both surfaces this feeds — `MapView`'s pins and `DestinationStrip`'s cards — read the
+ * same narrowed list, so they can never disagree about what is on the map.
+ *
+ * ## This narrows loaded state; it never becomes a request
+ *
+ * `useDestinations()` issues one unparameterised read (FR-001, FR-019 — the map draws every
+ * Destination whatever its Trip membership), and this is what a filter change costs: one array
+ * pass, no round trip. Sending a status to `GET /destinations` instead would put a request behind
+ * every toggle on a stack whose cold path T072 measured in tens of seconds, which is the exact
+ * cost R-007 rejected for the calendar's own filter (`.claude/memory.md`'s Deferred section holds
+ * the numbers). `tests/e2e/map.spec.ts` asserts the request count does not move when the filter
+ * does, the same guard `platform-filter.spec.ts` keeps for Content Calendar.
+ *
+ * Ordering needs no sort: the array arrives in the server's own total order and `filter`
+ * preserves it.
+ */
+export function selectByStatus(
+  destinations: readonly Destination[],
+  status: DestinationStatus | null,
+): readonly Destination[] {
+  if (status === null) return destinations;
+  return destinations.filter((destination) => destination.status === status);
+}
+
 // --- Near-overlapping pins (T020, User Story 1 scenario 3) --------------------------------------
 
 /**

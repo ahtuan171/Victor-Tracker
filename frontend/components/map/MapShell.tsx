@@ -3,13 +3,15 @@
 import { useState, useSyncExternalStore } from "react";
 
 import { NavDrawer } from "@/components/arcade/NavDrawer";
-import type { Destination } from "@/lib/api";
+import type { Destination, DestinationStatus } from "@/lib/api";
 import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
+import { selectByStatus } from "@/lib/map";
 
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
+import { StatusFilter } from "./StatusFilter";
 import { TripPanel } from "./TripPanel";
 
 /**
@@ -31,6 +33,18 @@ export function MapShell() {
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
   const [tripsOpen, setTripsOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<DestinationStatus | null>(null);
+
+  /*
+   * T053, User Story 5: the filter narrows the **loaded** list, and both surfaces that draw
+   * Destinations read the narrowed one — so the pins and the strip can never disagree about what
+   * is on the map. `openDestinationId` is deliberately not looked up here: `DestinationSheet`
+   * fetches its own detail by id, so a sheet stays open on a Destination the owner has just
+   * filtered away rather than closing itself mid-edit (`CalendarShell`'s own "anything that
+   * displays a set takes the narrowed list; anything that acts on a row takes the whole one"
+   * rule, `frontend/AGENTS.md`).
+   */
+  const visible = selectByStatus(destinations, statusFilter);
 
   function openDestination(destination: Destination): void {
     setOpenDestinationId(destination.id);
@@ -86,12 +100,17 @@ export function MapShell() {
        */}
       <main className="min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
         <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
-          <MapView destinations={destinations} today={today} onOpenDestination={openDestination} />
+          <MapView destinations={visible} today={today} onOpenDestination={openDestination} />
         </div>
       </main>
 
+      {/* T052: below the map and above the strip — the bottom portion of a 375x667 screen, which
+          is what `.claude/rules/design.md` means by thumb reach, and the same departure from where
+          a design draws a filter that `PlatformFilter` already makes on the calendar. */}
+      <StatusFilter status={statusFilter} onChange={setStatusFilter} />
+
       <DestinationStrip
-        destinations={destinations}
+        destinations={visible}
         today={today}
         onOpenDestination={openDestination}
       />
