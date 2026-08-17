@@ -611,3 +611,160 @@ def test_list_destinations_computes_the_flag_for_every_row(
     assert response.status_code == 200
     by_name = {row["name"]: row["outside_trip_range"] for row in response.json()}
     assert by_name == {"In range": False, "Out of range": True}
+
+
+# --- A body naming a Trip that does not exist (T058, 2026-08-17) -----------------------------
+#
+# Found by the Final Phase `reviewer` pass. Before `require_trip_or_422`, the foreign key raised
+# `IntegrityError` at commit, nothing handled it, and Starlette answered
+# `500 text/plain "Internal Server Error"` — breaking the uniform `{"detail": "<string>"}` body
+# `app/main.py` promises. Reachable in practice: `QuickAdd` and `TripPanel` both send a `trip_id`
+# from a Trip list loaded earlier in the session, so a Trip deleted on another device is enough.
+
+
+def test_create_destination_422s_when_trip_id_names_no_trip(auth_client: TestClient) -> None:
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Nowhere", "latitude": 1.0, "longitude": 1.0, "trip_id": 999999},
+    )
+
+    assert response.status_code == 422
+    # The uniform error body is the half of this that regressed, so it is asserted, not assumed.
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {"detail": "No such trip."}
+
+
+def test_update_destination_422s_when_trip_id_names_no_trip(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"trip_id": 999999})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "No such trip."}
+
+
+def test_update_destination_still_detaches_on_an_explicit_null_trip_id(
+    auth_client: TestClient, trip: Trip
+) -> None:
+    """The control the guard must not break: FR-020's detach path sends `trip_id: null`, which
+    names no Trip and must stay a 200 rather than becoming collateral of the check above.
+    """
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "trip_id": trip.id},
+    ).json()
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"trip_id": None})
+
+    assert response.status_code == 200
+    assert response.json()["trip_id"] is None
+
+
+def test_create_destination_with_no_trip_id_at_all_is_unaffected(auth_client: TestClient) -> None:
+    """The second control. FR-020 lets a Destination exist with no Trip, and an omitted `trip_id`
+    must not be dragged into the lookup — a guard that refused this would break the whole
+    quick-add path.
+    """
+    response = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Reykjavik", "latitude": 64.1466, "longitude": -21.9426}
+    )
+
+    assert response.status_code == 201
+    assert response.json()["trip_id"] is None
+
+
+# --- INV-2 for the three new tables (T058, 2026-08-17) ---------------------------------------
+#
+# `data-model.md`'s INV-2 promises "a test asserts neither `trip`, `destination`, nor
+# `photograph` has a column matching `%user%`, `%owner%`, `%tenant%`, or `%creator%`, and no
+# foreign key to `creator` at all." The `reviewer` pass found that test was never written:
+# `test_schema.py` guards `content_item`'s columns and the *set of table names*, and its own
+# docstring says the table-name allowlist does not duplicate a column review. So constitution
+# VII's regression guard for this iteration's three tables did not exist. It does now.
+#
+# It lives here rather than in `test_schema.py` because these are 003's tables and this is 003's
+# test file; `test_schema.py` keeps 001's.
+
+FORBIDDEN_COLUMN_PATTERNS = ("user", "owner", "tenant", "creator", "account", "org")
+"""Constitution VII's vocabulary, plus this project's own noun.
+
+`creator` is the one that matters and the one a generic multi-tenancy list would miss — the same
+correction `001`'s T019 had to make when `%user%`/`%owner%`/`%tenant%` could not see `creator_id`
+(`backend/AGENTS.md`). Matched as substrings, so `created_at` would collide with `creator`; the
+allowlist below is what resolves that, deliberately, rather than loosening the pattern.
+"""
+
+ALLOWED_COLUMNS = {
+    "trip": {"id", "name", "start_date", "end_date", "status", "created_at", "updated_at"},
+    "destination": {
+        "id",
+        "trip_id",
+        "name",
+        "latitude",
+        "longitude",
+        "start_date",
+        "end_date",
+        "status",
+        "note",
+        "created_at",
+        "updated_at",
+    },
+    "photograph": {"id", "destination_id", "object_key", "created_at"},
+}
+"""Every column `data-model.md` describes, and nothing else — written out by hand, because
+deriving it from the models would compare them to themselves and pass whatever either one said.
+"""
+
+
+@pytest.mark.parametrize("table", sorted(ALLOWED_COLUMNS))
+def test_new_table_has_exactly_the_columns_the_data_model_describes(
+    session: Session, table: str
+) -> None:
+    from sqlalchemy import inspect
+
+    columns = {c["name"] for c in inspect(session.get_bind()).get_columns(table)}
+    assert columns == ALLOWED_COLUMNS[table]
+
+
+@pytest.mark.parametrize("table", sorted(ALLOWED_COLUMNS))
+def test_new_table_has_no_owner_column(session: Session, table: str) -> None:
+    from sqlalchemy import inspect
+
+    columns = {c["name"] for c in inspect(session.get_bind()).get_columns(table)}
+    offending = {
+        column
+        for column in columns - ALLOWED_COLUMNS[table]
+        if any(pattern in column.lower() for pattern in FORBIDDEN_COLUMN_PATTERNS)
+    }
+    assert offending == set()
+
+
+@pytest.mark.parametrize("table", sorted(ALLOWED_COLUMNS))
+def test_new_table_has_no_foreign_key_to_creator(session: Session, table: str) -> None:
+    """The half a column-name check cannot see: an owner link named something else entirely."""
+    from sqlalchemy import inspect
+
+    referred = {fk["referred_table"] for fk in inspect(session.get_bind()).get_foreign_keys(table)}
+    assert "creator" not in referred
+
+
+def test_the_forbidden_pattern_check_would_notice_a_real_owner_column(session: Session) -> None:
+    """`assert not ...` is green against an empty database, a typo'd table name, and a broken
+    check — `backend/AGENTS.md`'s "a test that asserts an absence passes trivially when it is
+    broken". So make it fail: add the column constitution VII forbids, inside a transaction the
+    fixture rolls back, and confirm the guard sees it.
+    """
+    from sqlalchemy import inspect, text
+
+    session.exec(text("ALTER TABLE destination ADD COLUMN creator_id INTEGER"))  # type: ignore[call-overload]
+
+    columns = {c["name"] for c in inspect(session.get_bind()).get_columns("destination")}
+    offending = {
+        column
+        for column in columns - ALLOWED_COLUMNS["destination"]
+        if any(pattern in column.lower() for pattern in FORBIDDEN_COLUMN_PATTERNS)
+    }
+
+    assert offending == {"creator_id"}

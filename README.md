@@ -15,11 +15,11 @@ File này dùng để **chạy sản phẩm trên máy bạn, nhìn nó, và gó
 
 | | Trạng thái |
 |---|---|
-| **Content Calendar** | **Đã xây, đã test, đã deploy.** Toàn bộ hướng dẫn dưới đây là về nó. |
-| **Pixel-arcade re-skin** (002) | **Đã xây xong (T001–T053), đang chờ merge vào `main` (MR !63).** Hướng dẫn dưới đây vẫn mô tả `main` hiện tại (bản trước re-skin) — sau khi merge, nút `+ CAPTURE` đổi thành `+ New`, giao diện đổi hẳn sang phong cách pixel-arcade/comic-tech, có thêm nav drawer (theme sáng/tối, âm thanh, đăng xuất). |
-| **Travel map** (003) | Chưa xây. Đánh số lại thành 003 vì 002 đã dùng cho re-skin ở trên. |
+| **Travel map** (003) | **Đã xây xong, đã test, gắn tag `v0.3.0`** (2026-08-17). Đây là tính năng cốt lõi của sản phẩm. Xem mục 7 bên dưới. **Một chỗ chưa kiểm chứng được: tải ảnh lên** — chưa cấp phát bucket R2 nào, nên đường đi đó chưa từng chạy thật ở bất kỳ môi trường nào. |
+| **Pixel-arcade re-skin** (002) | **Đã merge và gắn tag `v0.2.0`.** Toàn bộ giao diện hiện ở phong cách pixel-arcade/comic-tech, nút là `+ New`, có nav drawer (theme sáng/tối, âm thanh, đăng xuất). |
+| **Content Calendar** (001) | **Đã xây, đã test, đã deploy** (`v0.1.0`). Giờ là bề mặt phụ, nằm sau nav drawer. Mục 6 bên dưới là về nó. |
 
-`main`: **271 test backend + 432 test frontend**, xanh hết, không skip cái nào.
+`main`: **413 test backend + 572 test frontend**, xanh hết, không skip cái nào.
 
 ---
 
@@ -185,6 +185,47 @@ docker compose exec -T db psql -U creatorhub -d creatorhub -c "delete from conte
 
 ---
 
+## 7. Đi qua bản đồ (`/map`) — tính năng cốt lõi
+
+Vẫn ở **375 × 667**. Mở <http://localhost:3000/map>, hoặc vào từ nav drawer.
+
+1. **Bản đồ phải vẽ ra thật.** Đường, nước, nhãn địa danh, và dòng ghi công
+   `MapLibre | © CARTO, © OpenStreetMap contributors` ở góc. **Nếu nền đen kịt mà pin vẫn hiện, đó
+   là bug thật** — không phải bản đồ đang tải. Đó chính là lỗi worker đã có lần lọt qua hai phase
+   vì mọi test đều xanh.
+2. **Đọc trạng thái mà không chạm.** Pin hình khiên, ba mức: viền rỗng / nửa đặc / đặc. **Nheo mắt
+   hoặc chuyển ảnh sang trắng đen** — nếu không phân biệt được Visited / Planned / Wishlist thì đó
+   là lỗi thật, vì màu không được phép là tín hiệu duy nhất.
+3. **Thêm một nơi thật nhanh.** Quick Add → gõ tên một thành phố có thật → chọn một kết quả → chọn
+   trạng thái. **Đúng ba thao tác**, không chuyển trang, pin hiện ra ngay. Nếu bạn đếm ra bốn, nói
+   ra.
+4. **Tìm một chỗ không có thật** (gõ bừa vài ký tự). Phải nói rõ "không tìm thấy" — và điều đó phải
+   **khác** với thông báo khi tìm kiếm *hỏng*. Hai chuyện khác nhau, không được gộp.
+5. **Chạm một pin Visited.** Sheet mở ra với ghi chú và ảnh. Chạm một pin Planned hoặc Wishlist —
+   **không** được có ghi chú hay thư viện ảnh. Nơi chưa đi thì chưa có gì để lưu.
+6. **Đổi trạng thái theo bất kỳ hướng nào.** Visited → Wishlist → Planned → Visited. Không có thứ
+   tự bắt buộc; đánh dấu nhầm phải sửa lại được.
+7. **Currently Traveling.** Một nơi Planned có khoảng ngày chứa hôm nay sẽ có thêm lớp phủ nhấp
+   nháy. Nó được **tính ra**, không lưu — nên nó tự hết khi qua ngày, không cần ai nhớ tắt.
+8. **Tạo một Trip** với tên và khoảng ngày, thêm Destination vào. Cho một Destination khoảng ngày
+   **nằm ngoài** khoảng ngày của Trip — hệ thống phải **đánh dấu** chứ không từ chối lưu.
+9. **Xoá Trip.** Xác nhận phải nói rõ những gì sẽ mất theo.
+10. **Lọc theo trạng thái**, rồi xoá bộ lọc. Phải tức thì — không có request nào đi ra sau mỗi lần
+    bấm.
+11. **Không thứ gì được ra khỏi màn hình**, kể cả sau khi kéo bản đồ đi.
+
+**Chưa kiểm chứng được: tải ảnh lên.** Chưa có bucket Cloudflare R2 nào được cấp phát, nên bốn biến
+`R2_*` đều rỗng và đường tải ảnh chưa từng chạy thật. Nếu bạn thử, nó sẽ báo lỗi nói rõ thiếu bốn
+biến nào. Đây là khoảng trống đã biết và đã ghi lại, không phải bug mới.
+
+### Xoá sạch dữ liệu bản đồ giữa hai lượt
+
+```bash
+docker compose exec -T db psql -U creatorhub -d creatorhub -c "delete from trip; delete from destination;"
+```
+
+---
+
 ## Bản đã deploy
 
 - Front-end: <https://creator-hub-hazel.vercel.app>
@@ -215,6 +256,8 @@ docker compose exec -T db psql -U creatorhub -d creatorhub -c "delete from conte
 
 - [`CLAUDE.md`](CLAUDE.md) — trạng thái hiện tại, các quyết định, và việc tiếp theo
 - [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — nguyên tắc mọi thay đổi bị soi chiếu vào
+- [`specs/003-travel-map/`](specs/003-travel-map/) — bản đồ được đặc tả để làm gì, **và những gì cố ý không xây**
 - [`specs/001-content-calendar/`](specs/001-content-calendar/) — Content Calendar được đặc tả để làm gì
 - [`CHANGELOG.md`](CHANGELOG.md) — đã ship những gì, gồm cả tiêu chí nghiệm thu duy nhất bị trượt khi lạnh
-- [`docs/retro-01.md`](docs/retro-01.md) — retro của iteration đầu tiên
+- [`docs/retro-01.md`](docs/retro-01.md), [`docs/retro-02.md`](docs/retro-02.md),
+  [`docs/retro-03.md`](docs/retro-03.md) — retro của ba iteration

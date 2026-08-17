@@ -1,15 +1,89 @@
 # Changelog
 
-All notable changes to VictorHub are recorded here. The format follows
+All notable changes to Victor Tracker are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 This project ships one module per iteration, each restarting the full eight-stage workflow with its
-own `spec.md`. **The product pivoted after v0.1**: it is now a personal travel memory map, not a
-content-creator brand operating system. The name "VictorHub" is retained for infrastructure reasons
-and no longer describes what is built here.
+own `spec.md`. **The product pivoted after v0.1**: it is a personal travel memory map, not a
+content-creator brand operating system.
+
+**On the name.** The product's brand text has been renamed twice — "CreatorHub" → "VictorHub"
+(2026-08-08) → **"Victor Tracker"** (2026-08-14). The **infrastructure** still says "creator-hub":
+the GitLab project path, the GitHub mirror, and the Render/Vercel service names and URLs, none of
+which is user-visible and each of which is a live system with its own runbook
+(`.claude/memory.md`, Deferred). Entries below their own dates use whichever name was current then,
+deliberately — they are a record, not a rename target.
 
 ## [Unreleased]
+
+## [0.3.0] — 2026-08-17
+
+**The Travel Map — the constitution's named core capability, and the reason the 2.0.0 amendment
+happened.** A world map of places visited, planned and wanted, where tapping a visited pin opens the
+photographs and notes kept against it. 62 tasks, 8 phases, 32 merge requests. Full detail in
+[`docs/retro-03.md`](docs/retro-03.md).
+
+**T056 hand-walked `quickstart.md` V1–V9 against a real production build** — `pnpm build && pnpm
+start`, the compose backend, real Postgres, **real CARTO tiles and real Nominatim**, nothing stubbed.
+**16 of 17 checks pass; all six success criteria hold.** Re-runnable as
+`frontend/scripts/t056-walk.mjs`.
+
+### Added
+
+- **`/map`** — a MapLibre world map on CARTO's dark-matter basemap, pannable and zoomable at the
+  375px floor, with the inset `MapShell` + `DestinationStrip` layout.
+- **Status-distinguishable pins** — a shield silhouette with an outline→half→solid progression, so
+  Visited, Planned and Wishlist are tellable apart by **shape, not colour alone**, and survive
+  greyscale. A **Currently Traveling** overlay is computed from today's date falling inside a Planned
+  Destination's range — never stored, so it cannot go stale.
+- **The Destination sheet** — note, photo gallery and a free-direction status control, offered only
+  on a Visited place; a Planned or Wishlist pin gets neither.
+- **Trips** — create, list, edit and delete, with a Destination's dates **flagged** when they fall
+  outside its Trip's rather than the write being refused, and a three-tap confirmation naming
+  everything a Trip delete cascades to.
+- **Location search** — `GET /locations/search`, proxied server-side to Nominatim so the usage policy
+  is satisfied by one identified caller. A typed name always resolves to real coordinates; a search
+  matching nothing is a plain empty result, kept **distinguishable** from a search that failed.
+- **Quick Add** — mark a new place from the map in at most three interactions, with or without
+  attaching it to a Trip, and no page transition.
+- **Status filter** — narrow the map to one status and clear back to all, by narrowing the
+  already-loaded list client-side rather than re-reading the server on every tap.
+- Three tables (`trip`, `destination`, `photograph`), one Alembic revision, 14 API operations.
+
+### Known gap
+
+- **Photograph upload has never run against real object storage.** The Cloudflare R2 bucket named as
+  a prerequisite was never provisioned, so all four `r2_*` settings are empty in every environment
+  and FR-023–FR-025 are stubbed in both suites; quickstart **V6 could not be walked at all**.
+  Recorded unsoftened, the way v0.1 recorded SC-001 failing cold. Provisioning R2 and re-running V6
+  is owed. An unconfigured R2 now fails with a message naming all four variables instead of an
+  opaque botocore `ValueError`.
+- **FR-028's status control has no automated frontend test.** The free-direction status change is
+  covered at the API layer and by T056's hand-walk, and by nothing in the Playwright suite.
+
+### Fixed
+
+- **MapLibre's worker died silently under Turbopack**, producing a fully-wired map drawing a
+  completely black canvas — style, sprites and attribution all load on the main thread, and vector
+  tiles are the only thing the worker fetches, so every existing test passed against it for two
+  phases. Fixed by serving the worker and its shared chunk under their original names, with
+  `predev`/`prebuild`/**`prestart`** hooks; the regression test asserts a real `.mvt` request,
+  the one thing no main-thread fetch can satisfy.
+- **A `trip_id` naming no Trip returned `500 text/plain "Internal Server Error"`**, breaking the
+  uniform `{"detail": "…"}` body every other error carries. Now a `422` on both create and update.
+  Reachable in practice: a Trip deleted on one device with a stale add-flow open on another.
+- **A Nominatim response that arrived but could not be parsed escaped as a 500** instead of the
+  contract's 502. Returning an empty list would have been the worse repair — "no matches" and "the
+  search broke" are exactly what the owner must be able to tell apart.
+
+### Deliberately not built
+
+Route display, trip budgeting and every cost field — **despite both being constitutionally permitted
+since the 2.1.0 amendment.** Also Destination category and priority, Transportation and Accommodation
+records, and Activity with its own itinerary Calendar. Each is recorded in `.claude/memory.md` with a
+trigger condition rather than as a bare list. Automatic location capture, any public or shared view
+of the map, and social-platform integration remain **forbidden outright**.
 
 ## [0.2.0] — 2026-08-11
 

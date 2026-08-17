@@ -169,12 +169,12 @@ prior iteration — a hand-walk, `/speckit-analyze`, and the `reviewer` agent ea
 class of defect.
 
 - [x] T056 Hand-walk quickstart.md's V1–V9 against a production build (`pnpm build && pnpm start`, real backend, real seeded account) at 375px, in both presentations — the browser-driven proof a stubbed suite cannot give (`001`'s T044/T072 precedent). **Done 2026-08-16, re-runnable as `frontend/scripts/t056-walk.mjs`: 16 of 17 checks pass. V1–V5 and V7–V9 all pass against the real backend, real CARTO tiles and real Nominatim. V6 could not be walked at all — see the note below.**
-- [ ] T057 Run `/speckit-analyze` against spec.md, plan.md, and tasks.md; resolve any CRITICAL/HIGH finding in the same merge request that introduced it
-- [ ] T058 Run the `reviewer` agent (`.claude/agents/reviewer.md`) against the full branch diff
-- [ ] T059 Documentation drift sweep: search the whole repository (not a scoped guess — `.claude/memory.md`'s "search the whole repository, then filter" rule) for stale claims about iteration 003/travel map, and correct every one in this same merge request
-- [ ] T060 Add a Deferred entry to `.claude/memory.md` for what this spec deliberately did not build (Activity/Calendar, Route, Budget/cost fields, Category/Priority) — the trigger condition for each, not a bare list
-- [ ] T061 Update `CLAUDE.md`'s status section and the `specs/003-travel-map/` row in "Where each part stands," matching how `001`/`002` closed their own status paragraphs
-- [ ] T062 Write `docs/retro-03.md` (Reflect stage) — bad estimates, scope creep, friction between SpecKit/GitLab/Design, shipped behaviour against spec.md's acceptance criteria item by item
+- [x] T057 Run `/speckit-analyze` against spec.md, plan.md, and tasks.md; resolve any CRITICAL/HIGH finding in the same merge request that introduced it. **Done 2026-08-17 — four findings, two HIGH, all resolved or recorded here; see "T057 `/speckit-analyze` — findings" below.**
+- [x] T058 Run the `reviewer` agent (`.claude/agents/reviewer.md`) against the full branch diff. **Done 2026-08-17 — see "T058 `reviewer` — findings" below.**
+- [x] T059 Documentation drift sweep: search the whole repository (not a scoped guess — `.claude/memory.md`'s "search the whole repository, then filter" rule) for stale claims about iteration 003/travel map, and correct every one in this same merge request. **Done 2026-08-17 — the sweep was repo-wide and most candidate hits were accurate history; the live drift was concentrated in `CLAUDE.md`. See the note below.**
+- [x] T060 Add a Deferred entry to `.claude/memory.md` for what this spec deliberately did not build (Activity/Calendar, Route, Budget/cost fields, Category/Priority) — the trigger condition for each, not a bare list. **Done 2026-08-15 by MR !94, ahead of this checkpoint; the checkbox is ticked here because the work landed before the box was.**
+- [x] T061 Update `CLAUDE.md`'s status section and the `specs/003-travel-map/` row in "Where each part stands," matching how `001`/`002` closed their own status paragraphs
+- [x] T062 Write `docs/retro-03.md` (Reflect stage) — bad estimates, scope creep, friction between SpecKit/GitLab/Design, shipped behaviour against spec.md's acceptance criteria item by item
 
 ### T056 walk — results, in full
 
@@ -215,6 +215,106 @@ answer before they were caught:**
   had actually created, since cleanup only sweeps the `T056` prefix. Now identified by **id
   difference** against a list read taken before the flow. The data lost was disposable dev demo data,
   but the lesson is not: **a fixture matched on a value a third party controls is not matched.**
+
+### T057 `/speckit-analyze` — findings
+
+Four findings, two HIGH. **For the first time across this project's four checkpoints, none was a
+wrong statement about API behaviour in `contracts/openapi.yaml`** — every `description` block was
+read against `trips.py`/`destinations.py`/`locations.py`/`photographs.py` and they matched, down to
+the clauses most likely to drift (`200`+`[]` versus `502`, no HEAD before confirm, no R2 object
+deleted when a row is, `outside_trip_range` false whenever a comparison side is absent).
+
+- **E1 (HIGH) — FR-028 has no automated frontend coverage, and `plan.md` claimed it did.**
+  `DestinationSheet`'s status radio group (`destination-status-option-*`) is not clicked by any test
+  in any Playwright project. The requirement with its own Clarification session behind it is covered
+  at the API layer (T033) and by T056's hand-walk of V7, and nowhere else. `plan.md`'s Project
+  Structure attributed V7 to `e2e/map.spec.ts`, which covers the *computed overlay* half and never
+  the *transition* half. **Resolved as a documented gap, not closed** — the owner's explicit decision
+  (2026-08-17). `plan.md` now states the gap; `docs/retro-03.md` repeats it. Closing it is one e2e
+  test driving the control the walk already drives by hand.
+- **E2 (HIGH) — nothing in 62 tasks provisions the R2 bucket.** `quickstart.md`'s Prerequisites table
+  calls it "not yet provisioned — first implementation task", but T001 adds only the four *setting
+  names* and says in its own line that no code reads them. That omission is why T056 could not walk
+  V6. **Recorded as a known gap against `v0.3.0` on the owner's decision** (2026-08-17), the same way
+  `001` recorded SC-001 failing cold rather than softening it. The half that *was* fixable is fixed —
+  see the guard below.
+- **F1 (MEDIUM) — `plan.md`'s Project Structure had drifted three ways** (four components unlisted,
+  `network-disclosure.spec.ts` missing, quickstart-scenario attributions wrong). Corrected in place,
+  as an appended section rather than a rewrite, so the prediction and the outcome stay both readable.
+- **F2 (MEDIUM) — the contract and `data-model.md` both presented `GET /destinations`'s `status`
+  query parameter as FR-010's realisation.** T053 requires the opposite: the map's filter narrows
+  the one already-loaded list client-side and never sends it. This is `001`'s Phase 6 shape exactly —
+  a true-sounding *reason* that licenses the thing the built design rejected, and a future agent
+  reading it would have been right to put a round trip behind every filter tap. Both artifacts
+  corrected, and stated in the general form ("the map issues one unparameterised read; every map
+  surface narrows that one loaded state") rather than as a fact about today's two parameters.
+  `data-model.md`'s `ix_destination_status` row carried the same claim and is now marked
+  **speculative as built**, kept knowingly rather than justified by a query nothing issues.
+
+**One thing the analysis got wrong and the `reviewer` pass corrected**, recorded because the mistake
+is instructive: T057 reported constitution VII as covered by a real test for the three new tables. It
+was not. `test_schema.py`'s `EXPECTED_TABLES` is a *table-name* allowlist whose own docstring says it
+does not duplicate a column review — and it was read as the column guard because the three table
+names were right there in it. **A test whose name and contents mention the right nouns is not a test
+of the right claim.**
+
+### T058 `reviewer` — findings
+
+Three confirmed, all three verified independently before being accepted rather than taken on the
+agent's word.
+
+- **R1 (HIGH, fixed) — a `trip_id` naming no Trip was an unhandled `IntegrityError`.** Reproduced
+  directly: `POST /destinations` with `trip_id: 999999` answered `500`, `content-type: text/plain`,
+  body `Internal Server Error` — breaking the uniform `{"detail": "<string>"}` shape `app/main.py`'s
+  own docstring names as the reason its validation handler exists. `PATCH` had the identical gap.
+  **Reachable, not theoretical**: `QuickAdd` and `TripPanel` both send a `trip_id` from a Trip list
+  loaded earlier in the session, so a Trip deleted on one device with a stale add-flow open on
+  another is enough. Fixed with `require_trip_or_422`; **422 rather than 404 because `trip_id` is a
+  body field**, which needs no contract amendment since both operations already declare 422. Stated
+  in the contract anyway. Verified by breaking the guard: exactly two tests went red, the two about
+  it, and both went green again on restore.
+- **R2 (MEDIUM, fixed) — `data-model.md`'s INV-2 promised a test that was never written.** It claims
+  "a test asserts neither `trip`, `destination`, nor `photograph` has a column matching `%user%`,
+  `%owner%`, `%tenant%`, or `%creator%`, and no foreign key to `creator` at all." No such test
+  existed for any of the three. **Constitution VII's regression guard for this iteration's tables was
+  absent for the whole iteration** — which is worse than an ordinary missing test, because principle
+  VII is the one this project is most likely to violate by accident and the guard is the only thing
+  that would notice. Written now in `test_destinations.py`: exact-column sets, the forbidden-pattern
+  check (including `creator`, the noun a generic multi-tenancy list misses — `001`'s T019 lesson),
+  and a no-FK-to-`creator` check, plus a test that adds `creator_id` inside a rolled-back
+  transaction to prove the guard is not vacuously green.
+- **R3 (LOW, recorded) — several MRs closed many tasks at once**, against this file's own line 299
+  saying one MR per task and calling `001`/`002`'s two-task MRs "a recorded deviation, not a default
+  to reach for here." Eight tasks landed in one MR at least once. No deviation was recorded anywhere.
+  Recorded in `docs/retro-03.md` rather than retro-fitted here as though it had been planned.
+
+Two further items the `reviewer` raised as suspected rather than confirmed. One was real and is
+fixed; one is left alone with a reason.
+
+- **Fixed**: `geocoding.search` indexed `display_name`/`lat`/`lon` and called `float()` with no
+  guard, so a Nominatim body that arrived but could not be parsed escaped as a 500 instead of the
+  contract's 502 — the same unhandled-500 shape as R1, one module over. Now raised as
+  `GeocodingError`. **Returning `[]` would have been the worse repair**: FR-012 exists so the owner
+  can tell "no matches" from "the search broke", and an empty list collapses exactly that.
+- **Left alone**: `PhotographCreate.object_key` is accepted without checking it matches the
+  `destinations/{id}/…` prefix `create_upload_url` mints. Real, and deliberately not fixed here —
+  there is no second account to leak into (constitution VII), no requirement asks for it, and any
+  check written now would be written against an object store that has never run. It belongs with
+  whoever provisions R2 and can test it.
+
+### The unconfigured-R2 guard (T057/T058)
+
+The part of E2 that did not need a Cloudflare account. With all four `r2_*` settings empty — the live
+state in every environment — `create_upload_url` failed inside botocore with
+`ValueError: Invalid endpoint: https://.r2.cloudflarestorage.com`, a 500 naming neither R2 nor a
+setting, from a URL assembled out of an empty account id. It now raises
+`ObjectStorageNotConfiguredError` naming all four variables and pointing at this section.
+
+**This is the "empty variable overrides a default" trap firing one layer later than T001 predicted.**
+T001's own task line gives preventing that trap as its purpose; an empty default is not an absent
+variable, so nothing noticed until a hand-walk tried to upload a photograph. Still a 500 to the
+caller — a server with no credentials is not the client's mistake — but the message is now the cause
+rather than a symptom. Verified against the running backend, not only in tests.
 
 ---
 
