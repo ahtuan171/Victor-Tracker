@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **2 remain, both deliberate; see Notes**
+- [x] No [NEEDS CLARIFICATION] markers remain — resolved via `/speckit-clarify`, 2026-08-17; see Notes
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,22 +31,17 @@
 
 ## Notes
 
-**Two `[NEEDS CLARIFICATION]` markers are open, and both are being left for `/speckit-clarify`
-rather than guessed.** Neither has a defensible default:
+**Both `[NEEDS CLARIFICATION]` markers were resolved via `/speckit-clarify` on 2026-08-17.** Neither
+had a defensible default, so neither was guessed:
 
-1. **User Story 6, scenario 4 — does an unfilled field block a status change?** This is the one
-   marker that matters, because it **collides with a ratified requirement**. `003`'s FR-028 guarantees
-   any status is reachable from any other at any time with no validation, and it has its own
-   clarification session behind it. If moving to Planned *refuses* without dates, that guarantee is
-   narrowed — which is a specification amendment with a stated reason, never a side effect of a form
-   deciding what it needs. FR-020 in this spec is the guard that keeps the question open rather than
-   letting the implementation answer it.
+1. **User Story 6, scenario 4 — does an unfilled field block a status change?** Resolved: **no** — a
+   status change always saves, even when a field the new status asks for is left empty. `003`'s
+   FR-028 guarantee (any status reachable from any other, at any time, with no validation) is
+   unchanged and unnarrowed. Recorded in FR-020 and in Clarifications.
 
-2. **Edge Cases — one layout or two?** The owner's reference material is a wide screen showing map and
-   detail side by side; this product's design rule makes the narrow layout the hard requirement and
-   anything wider an enhancement. Shipping one presentation at every width is defensible and cheaper;
-   shipping a distinct wide layout is what the reference shows. It changes the size of the iteration,
-   so it is a scope question, not a styling one.
+2. **Edge Cases — one layout or two?** Resolved: **one** — the detail panel presents the same way (a
+   bottom sheet / near-full-screen surface) at every viewport width; a distinct side-by-side
+   wide-screen layout is deferred to a later iteration. Recorded in FR-021 and in Clarifications.
 
 **No third marker was spent** on the "impressions" question — whether it means a new field or the note
 a place already carries. It was resolved in Clarifications instead, because a reasonable default

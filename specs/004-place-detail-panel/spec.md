@@ -69,6 +69,22 @@ These become input for a later iteration; recorded in the project's deferred not
   **A: No.** A Trip's status is descriptive and drives no pin, unchanged from `003`. Everything in
   this iteration keys off the **place's** status, which has exactly three values.
 
+- **Q: When the owner changes a place's status but leaves a newly-asked field empty, is the status
+  change still saved, or refused until the field is supplied?**
+  **A: Always saved.** `003`'s FR-028 guarantee — any status reachable from any other, at any time,
+  with no validation — is unchanged. A field the new status asks for (FR-018, FR-019) but that the
+  owner leaves empty simply stays unset; the status change is never refused on that basis. Refusing
+  would have narrowed a ratified guarantee as a side effect of a form, which this project's
+  non-negotiables treat as requiring its own explicit amendment, not something to decide here.
+
+- **Q: Does this iteration ship a distinct wide-screen layout with the map and detail panel side by
+  side, or one presentation at every width?**
+  **A: One presentation at every width.** The detail uses the same layout — a bottom sheet /
+  near-full-screen surface — regardless of viewport size, consistent with this product's
+  375px-first design rule, where anything wider is an enhancement rather than a second surface to
+  build and maintain. A side-by-side wide-screen treatment, matching the owner's reference material,
+  is deferred to a later iteration.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which place I just opened (Priority: P1)
@@ -203,10 +219,8 @@ take it on to Visited and confirm it asks for impressions and photographs.
    change is accepted — the direction is never restricted (this restates an existing guarantee, which
    this story must not break).
 4. **Given** the owner has been asked for a field they do not want to supply, **When** they leave it
-   empty, **Then** [NEEDS CLARIFICATION: is the status change still saved, or refused until the field
-   is supplied? The existing ratified guarantee is that any status is reachable from any other at any
-   time with no validation; refusing would narrow it and needs to be an explicit amendment rather
-   than a side effect of this form.]
+   empty, **Then** the status change is saved anyway and the field simply stays unset — asking for a
+   field never blocks the save.
 
 ---
 
@@ -222,11 +236,10 @@ take it on to Visited and confirm it asks for impressions and photographs.
   and shows the place as belonging to none.
 - What happens when the owner opens a place while the map is still loading its imagery? The panel
   opens normally; the panel's content does not depend on the map having drawn.
-- What happens on a screen wide enough to show the map and the detail at once?
-  [NEEDS CLARIFICATION: does this iteration ship a distinct wide-screen layout with the detail beside
-  the map, or one presentation at every width? The product's design rule makes the narrow layout the
-  hard requirement and anything wider an enhancement, so shipping one layout is defensible; the
-  owner's reference material is a wide screen showing both at once.]
+- What happens on a screen wide enough to show the map and the detail at once? Nothing different —
+  this iteration ships one presentation at every width. The detail remains a bottom sheet /
+  near-full-screen surface regardless of viewport, and a distinct side-by-side wide layout is
+  deferred (resolved in Clarifications above).
 
 ## Requirements *(mandatory)*
 
@@ -276,17 +289,23 @@ take it on to Visited and confirm it asks for impressions and photographs.
   status asks for what it makes meaningful.
 - **FR-018**: Moving a place to Planned MUST ask for its dates and its Trip.
 - **FR-019**: Moving a place to Visited MUST ask for its impressions and its photographs.
-- **FR-020**: A place's status MUST remain changeable to any other status in any direction — this
-  iteration MUST NOT narrow that guarantee as a side effect of asking for fields (see the open
-  question in User Story 6, scenario 4).
+- **FR-020**: A place's status MUST remain changeable to any other status in any direction, and a
+  status change MUST save even when a field the new status asks for (FR-018, FR-019) is left empty —
+  this iteration MUST NOT narrow `003`'s FR-028 guarantee as a side effect of asking for fields.
+
+**Layout**
+
+- **FR-021**: The detail panel MUST present the same way — a bottom sheet / near-full-screen surface —
+  at every viewport width. This iteration MUST NOT ship a distinct wide-screen layout showing the map
+  and the detail side by side.
 
 **What this iteration does not record**
 
-- **FR-021**: This iteration MUST NOT introduce any new recorded information about a place. Cost, who
+- **FR-022**: This iteration MUST NOT introduce any new recorded information about a place. Cost, who
   the owner travelled with, and a scheduled itinerary are each a later iteration starting from its own
   specification.
-- **FR-022**: This iteration MUST NOT introduce a time of day anywhere. Dates remain calendar days.
-- **FR-023**: This iteration MUST NOT merge Trips and places into one entity.
+- **FR-023**: This iteration MUST NOT introduce a time of day anywhere. Dates remain calendar days.
+- **FR-024**: This iteration MUST NOT merge Trips and places into one entity.
 
 ### Key Entities
 
@@ -322,8 +341,9 @@ recorded:
 - **Selecting a pin and opening its detail are two steps on purpose**, and the interaction budget this
   product measures applies to marking a new place, not to reading one.
 - **A Trip's own status is not read anywhere in this iteration.** It remains descriptive.
-- **The wide-screen question is a layout decision, not a data one** — whatever is decided, the content
-  each status shows is the same.
+- **One presentation ships at every width** — the detail as a bottom sheet / near-full-screen surface,
+  regardless of viewport size (FR-021, resolved in Clarifications above). The content each status
+  shows is the same either way; a side-by-side wide-screen treatment is deferred.
 - **Cost, travel companions, itinerary, and merging Trips into places are all deferred**, each to an
   iteration starting from its own specification. Recorded as deferred items once this spec is
   committed.
