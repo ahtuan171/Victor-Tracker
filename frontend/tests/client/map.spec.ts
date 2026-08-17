@@ -7,6 +7,7 @@ import {
   disambiguateCoincidentPins,
   isCurrentlyTraveling,
   pinTreatment,
+  resolveOverlap,
   selectByStatus,
 } from "@/lib/map";
 
@@ -190,6 +191,85 @@ test.describe("boundsForDestinations", () => {
       139.7671, // east: tokyo's longitude
       35.6812, // north: tokyo's latitude
     ]);
+  });
+});
+
+test.describe("resolveOverlap", () => {
+  /**
+   * Both fixtures sit on the equator (`latitude: 0`) on purpose — Web Mercator's y-axis depends on
+   * latitude through the Gudermannian inverse, but its x-axis is a plain linear function of
+   * longitude alone. Fixing both points to the same latitude collapses the distance to a pure
+   * x-difference, which lets these fixtures be **derived exactly** from the pixel distance they are
+   * meant to test, rather than approximated and asserted loosely (004, T006, R-002).
+   *
+   * `scale = 256 * 2^zoom`; a longitude delta of `pixels * 360 / scale` degrees is exactly
+   * `pixels` screen pixels apart at that zoom. Zoom 10 is an arbitrary "city view" reference zoom
+   * — nothing about these tests depends on its specific value beyond it being fixed and known.
+   */
+  const REFERENCE_ZOOM = 10;
+  const SCALE_AT_REFERENCE_ZOOM = 256 * 2 ** REFERENCE_ZOOM;
+
+  function degreesForPixels(pixels: number): number {
+    return (pixels * 360) / SCALE_AT_REFERENCE_ZOOM;
+  }
+
+  const origin = destination({ id: 1, latitude: 0, longitude: 100 });
+  /** Exactly 40px from `origin` at `REFERENCE_ZOOM` — inside the 44px radius (research.md R-002). */
+  const near = destination({ id: 2, latitude: 0, longitude: 100 + degreesForPixels(40) });
+  /** Exactly 50px from `origin` at `REFERENCE_ZOOM` — outside the 44px radius. */
+  const far = destination({ id: 3, latitude: 0, longitude: 100 + degreesForPixels(50) });
+
+  test("no other destination at all is never overlapping, and the zoom is unchanged", () => {
+    const result = resolveOverlap(origin, [origin], REFERENCE_ZOOM);
+    expect(result).toEqual({ overlapping: false, targetZoom: REFERENCE_ZOOM });
+  });
+
+  test("excludes the tapped destination itself from the comparison", () => {
+    // If the tapped destination were compared against itself, distance would be 0 and this would
+    // always report overlapping — the same fixture as the test above, spelled out explicitly.
+    const result = resolveOverlap(origin, [origin], REFERENCE_ZOOM);
+    expect(result.overlapping).toBe(false);
+  });
+
+  test("50px apart, right at the boundary's outside edge, is not overlapping", () => {
+    const result = resolveOverlap(origin, [origin, far], REFERENCE_ZOOM);
+    expect(result).toEqual({ overlapping: false, targetZoom: REFERENCE_ZOOM });
+  });
+
+  test("40px apart is overlapping, and the zoom step that clears it is exact", () => {
+    // Web Mercator distance doubles with every whole zoom level, so a 40px gap becomes
+    // 40 * sqrt(2) ≈ 56.6px after the +0.5 zoom step `resolveOverlap` takes — already past the
+    // 44px radius, so this is the first (and only) step the search needs.
+    const result = resolveOverlap(origin, [origin, near], REFERENCE_ZOOM);
+    expect(result).toEqual({ overlapping: true, targetZoom: REFERENCE_ZOOM + 0.5 });
+  });
+
+  test("the returned targetZoom actually resolves the overlap it reported", () => {
+    // A self-consistency check that needs no independent reimplementation of the projection math:
+    // whatever zoom the function says will separate the pair, asking it again at that exact zoom
+    // must come back clear.
+    const first = resolveOverlap(origin, [origin, near], REFERENCE_ZOOM);
+    expect(first.overlapping).toBe(true);
+
+    const second = resolveOverlap(origin, [origin, near], first.targetZoom);
+    expect(second.overlapping).toBe(false);
+  });
+
+  test("picks the closest of several other destinations", () => {
+    // `far` alone would not overlap; `near` alone would. Together, the closer one must win.
+    const result = resolveOverlap(origin, [origin, far, near], REFERENCE_ZOOM);
+    expect(result.overlapping).toBe(true);
+  });
+
+  test("two destinations at the exact same coordinate stay overlapping but the search still terminates", () => {
+    // Distance is 0 at every zoom for a genuinely coincident pair — no zoom level separates them —
+    // so this is the case the search's own upper bound exists for. It must still return promptly
+    // with a finite, bounded zoom rather than loop forever.
+    const coincident = destination({ id: 2, latitude: origin.latitude, longitude: origin.longitude });
+    const result = resolveOverlap(origin, [origin, coincident], REFERENCE_ZOOM);
+    expect(result.overlapping).toBe(true);
+    expect(Number.isFinite(result.targetZoom)).toBe(true);
+    expect(result.targetZoom).toBeLessThan(25);
   });
 });
 
