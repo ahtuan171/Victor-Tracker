@@ -81,9 +81,13 @@ interface OverlapResolution {
 }
 ```
 
-Pure Web Mercator arithmetic over `(tappedDestination, allDestinations, currentZoom, mapWidthPx)` — no
-MapLibre instance required to compute it, only to apply it (`map.easeTo`). The overlap radius is
-**44px**, this product's own tap-target floor (research.md R-002).
+Pure Web Mercator arithmetic over `(tappedDestination, allDestinations, currentZoom)` — no MapLibre
+instance required to compute it, only to apply it (`map.easeTo`). **No map-width parameter**: Web
+Mercator screen-pixel *distance* between two coordinates depends only on the coordinates and the zoom
+level, never on the container's width — a wider container shows more of the same projected pixel
+grid, it does not rescale it. (An earlier draft of this document carried a `mapWidthPx` parameter;
+dropped during T001's implementation once the projection math made clear it was never load-bearing.)
+The overlap radius is **44px**, this product's own tap-target floor (research.md R-002).
 
 ---
 

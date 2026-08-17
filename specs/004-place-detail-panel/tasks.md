@@ -51,11 +51,13 @@ time; dismissing leaves the map where it is; overlapping pins separate on tap.
 centre it, the pin is distinguishable as selected, and dismissing leaves the map in place with nothing
 selected.
 
-- [ ] T001 [P] [US1] Add pure Web Mercator overlap/target-zoom geometry to `frontend/lib/map.ts` — a
-      function taking `(tapped: Destination, all: readonly Destination[], currentZoom: number,
-      mapWidthPx: number)` and returning `data-model.md`'s `OverlapResolution` (R-002): whether the
-      tapped place has another within a too-close-to-tap-separately screen-pixel radius at
-      `currentZoom`, and if so, the smallest zoom that separates them
+- [x] T001 [P] [US1] Add pure Web Mercator overlap/target-zoom geometry to `frontend/lib/map.ts` — a
+      function taking `(tapped: Destination, all: readonly Destination[], currentZoom: number)` and
+      returning `data-model.md`'s `OverlapResolution` (R-002): whether the tapped place has another
+      within a too-close-to-tap-separately screen-pixel radius (44px) at `currentZoom`, and if so, the
+      smallest zoom that separates them. **No `mapWidthPx` parameter** — dropped during
+      implementation once the Mercator math showed screen-pixel distance never depends on container
+      width (`data-model.md`'s own correction note)
 - [ ] T002 [P] [US1] Add a `selected` prop to `frontend/components/map/DestinationPin.tsx`, drawn as a
       distinct treatment beyond the existing status fill — not colour alone (FR-002)
 - [ ] T003 [US1] Add `selectedId: number | null` state to `frontend/components/map/MapShell.tsx`; pass

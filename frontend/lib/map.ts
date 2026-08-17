@@ -230,3 +230,89 @@ export function boundsForDestinations(destinations: readonly Destination[]): Lng
 
   return [west, south, east, north];
 }
+
+// --- Selection zoom and overlap resolution (T001, FR-001, FR-005, research.md R-002) --------------
+
+/** The outcome of checking whether a tapped Destination is too close to another to tap separately. */
+export interface OverlapResolution {
+  readonly overlapping: boolean;
+  /** Unchanged from the current zoom when `overlapping` is `false`. */
+  readonly targetZoom: number;
+}
+
+/**
+ * The screen-pixel radius under which two pins are considered too close to tap separately —
+ * this product's own 44px tap-target floor (`.claude/rules/design.md`), reused rather than
+ * inventing a second constant (research.md R-002).
+ */
+const OVERLAP_RADIUS_PX = 44;
+
+/** Web Mercator's world size in pixels at zoom 0 — the shared 256px-tile convention every slippy
+ * map (MapLibre included) builds its zoom levels on. */
+const WORLD_PX_AT_ZOOM_0 = 256;
+
+/** How far `resolveOverlap` will zoom in searching for separation, so two destinations placed at
+ * the exact same coordinate (already nudged apart by `disambiguateCoincidentPins` before this ever
+ * runs) cannot spin the search past what a real map ever zooms to. */
+const MAX_OVERLAP_SEARCH_ZOOM = 20;
+
+/**
+ * A coordinate's Web Mercator pixel position at a given zoom — the same projection MapLibre's own
+ * renderer uses, computed here with no map instance (research.md R-002: testable with plain
+ * arrays). Screen-space *distance* between two points depends only on their coordinates and the
+ * zoom level, never on the map container's width — a wider container shows more of the same
+ * projected pixel grid, it does not rescale it.
+ */
+function mercatorPixel(point: { readonly latitude: number; readonly longitude: number }, zoom: number): {
+  readonly x: number;
+  readonly y: number;
+} {
+  const scale = WORLD_PX_AT_ZOOM_0 * 2 ** zoom;
+  const x = ((point.longitude + 180) / 360) * scale;
+  const sinLatitude = Math.sin((point.latitude * Math.PI) / 180);
+  const y = (0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI)) * scale;
+  return { x, y };
+}
+
+/** The on-screen pixel distance between two coordinates at a given zoom. */
+function mercatorPixelDistance(
+  a: { readonly latitude: number; readonly longitude: number },
+  b: { readonly latitude: number; readonly longitude: number },
+  zoom: number,
+): number {
+  const pa = mercatorPixel(a, zoom);
+  const pb = mercatorPixel(b, zoom);
+  return Math.hypot(pa.x - pb.x, pa.y - pb.y);
+}
+
+/**
+ * Whether the tapped Destination sits within `OVERLAP_RADIUS_PX` of another at `currentZoom`, and
+ * if so, the smallest zoom that separates it from every other Destination by at least that radius
+ * (FR-005 — "the map moves in far enough that each is separately tappable").
+ *
+ * Web Mercator's scale doubles with every whole zoom level, so distance grows monotonically as
+ * `zoom` increases — the search below is a plain increasing walk, not a binary search, because the
+ * step count is small (`MAX_OVERLAP_SEARCH_ZOOM` bounds it) and a walk is the version that reads
+ * as "closed-form arithmetic", matching research.md R-002's own description.
+ */
+export function resolveOverlap(
+  tapped: Destination,
+  all: readonly Destination[],
+  currentZoom: number,
+): OverlapResolution {
+  const others = all.filter((destination) => destination.id !== tapped.id);
+  if (others.length === 0) return { overlapping: false, targetZoom: currentZoom };
+
+  const closestDistanceAt = (zoom: number): number =>
+    Math.min(...others.map((other) => mercatorPixelDistance(tapped, other, zoom)));
+
+  if (closestDistanceAt(currentZoom) >= OVERLAP_RADIUS_PX) {
+    return { overlapping: false, targetZoom: currentZoom };
+  }
+
+  let zoom = currentZoom;
+  while (closestDistanceAt(zoom) < OVERLAP_RADIUS_PX && zoom < MAX_OVERLAP_SEARCH_ZOOM) {
+    zoom += 0.5;
+  }
+  return { overlapping: true, targetZoom: zoom };
+}
