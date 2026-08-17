@@ -53,9 +53,8 @@ async function openMap(
       body: JSON.stringify(destinations),
     });
   });
-  // `DestinationSheet` still opens directly on a pin tap in this increment (T004's interim
-  // behaviour) — stub its detail fetch so that open does not itself throw and obscure the
-  // selection assertions this file actually cares about.
+  // `DestinationSheet`'s detail fetch, stubbed regardless: `PlaceConfirm`'s own "Open" action still
+  // reaches it (T009), even though a bare pin tap no longer does.
   await page.route("**/api/destinations/*", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     const id = Number(new URL(route.request().url()).pathname.split("/").pop());
@@ -69,6 +68,29 @@ async function openMap(
   await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
   await page.goto("/map");
   await page.getByTestId("map-canvas").waitFor();
+}
+
+/**
+ * Waits until two pin locators' boxes are far enough apart to click independently.
+ *
+ * Selecting a place triggers an *animated* `easeTo` (T009's `MINIMUM_SELECTION_ZOOM`, on top of
+ * `resolveOverlap`'s own target — `MapView.tsx`), and it is that animation settling that eventually
+ * separates a genuinely overlapping pair on screen. A click sent before it finishes can still land
+ * on the wrong element — the exact flakiness `force: true` exists to route around for the *first*
+ * tap in a cluster, reintroduced for a *second* tap this file needs to land on one specific pin.
+ * Polling the boxes' own on-screen distance is a DOM-observable consequence of the camera having
+ * settled, not a read of MapLibre's internal state (`research.md` R-002's own DOM-only rule).
+ */
+async function waitUntilSeparated(a: ReturnType<Page["locator"]>, b: ReturnType<Page["locator"]>): Promise<void> {
+  await expect
+    .poll(async () => {
+      const [boxA, boxB] = await Promise.all([a.boundingBox(), b.boundingBox()]);
+      if (boxA === null || boxB === null) return Number.POSITIVE_INFINITY;
+      const centerA = { x: boxA.x + boxA.width / 2, y: boxA.y + boxA.height / 2 };
+      const centerB = { x: boxB.x + boxB.width / 2, y: boxB.y + boxB.height / 2 };
+      return Math.hypot(centerA.x - centerB.x, centerA.y - centerB.y);
+    })
+    .toBeGreaterThan(44);
 }
 
 test("tapping a pin marks it selected, and only it", async ({ page, baseURL }) => {
@@ -111,22 +133,26 @@ test("selecting a different place moves the mark — never two at once (FR-003)"
   const stationPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto Station"]');
   const towerPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto Tower"]');
 
-  // Both `force: true` — at this distance the two 44px tap targets genuinely overlap on screen
-  // before either has been selected, same as the FR-005 fixture below, and for the same reason:
-  // a strict actionability check would refuse to click either box while they overlap. Which one
-  // the first tap actually lands on is real-browser hit-testing, not something this test needs to
-  // pin down; what matters is that selecting *the other one* next moves the mark, never leaving
-  // both selected at once.
+  // `force: true` on the first tap only — at this distance the two 44px tap targets genuinely
+  // overlap on screen before either has been selected, same as the FR-005 fixture below, and for
+  // the same reason: a strict actionability check would refuse to click either box while they
+  // overlap. Which one the first tap actually lands on is real-browser hit-testing, not something
+  // this test needs to pin down.
   await stationPin.click({ force: true });
   const firstSelected = (await stationPin.getAttribute("aria-pressed")) === "true" ? stationPin : towerPin;
   const secondPin = firstSelected === stationPin ? towerPin : stationPin;
   await expect(firstSelected).toHaveAttribute("aria-pressed", "true");
 
+  // Wait for the camera's animated response to `firstSelected` to actually separate the pair before
+  // sending a click that needs to land on one specific element (`waitUntilSeparated`'s own docstring
+  // has the full reasoning).
+  await waitUntilSeparated(stationPin, towerPin);
+
   // Deliberately no dismissal here: `PlaceConfirm` (T009) only covers the map's own lower strip,
   // and the other pin sits well clear of it, so this exercises selecting a second place *while the
   // first is still being confirmed* — the more demanding version of "never two at once" than
   // dismissing first would be.
-  await secondPin.click({ force: true });
+  await secondPin.click();
 
   await expect(secondPin).toHaveAttribute("aria-pressed", "true");
   // The first stops being marked the instant the second becomes the selection — at most one, ever.
@@ -167,10 +193,13 @@ test("tapping an overlapping cluster zooms in far enough that both become indivi
   const otherPin = selectedAfterFirstTap === crossingPin ? stationPin : crossingPin;
   await expect(selectedAfterFirstTap).toHaveAttribute("aria-pressed", "true");
 
-  // The actual FR-005 claim: after the camera has moved to separate the cluster, the *other* place
-  // is now cleanly, individually tappable — a plain `.click()` with no `force`, exactly as any
-  // other single-pin test in this suite already clicks a pin, must succeed without Playwright's
-  // actionability check ever needing an escape hatch.
+  // Wait for the camera's animated response to actually separate the pair — otherwise a click sent
+  // mid-animation can still land on the wrong element (`waitUntilSeparated`'s own docstring).
+  await waitUntilSeparated(crossingPin, stationPin);
+
+  // The actual FR-005 claim: once separated, the *other* place is cleanly, individually tappable —
+  // a plain `.click()` with no `force`, exactly as any other single-pin test in this suite already
+  // clicks a pin, must succeed without Playwright's actionability check ever needing an escape hatch.
   await otherPin.click();
 
   await expect(otherPin).toHaveAttribute("aria-pressed", "true");
