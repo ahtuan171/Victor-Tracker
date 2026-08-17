@@ -58,18 +58,25 @@ selected.
       smallest zoom that separates them. **No `mapWidthPx` parameter** — dropped during
       implementation once the Mercator math showed screen-pixel distance never depends on container
       width (`data-model.md`'s own correction note)
-- [ ] T002 [P] [US1] Add a `selected` prop to `frontend/components/map/DestinationPin.tsx`, drawn as a
+- [x] T002 [P] [US1] Add a `selected` prop to `frontend/components/map/DestinationPin.tsx`, drawn as a
       distinct treatment beyond the existing status fill — not colour alone (FR-002)
-- [ ] T003 [US1] Add `selectedId: number | null` state to `frontend/components/map/MapShell.tsx`; pass
+- [x] T003 [US1] Add `selectedId: number | null` state to `frontend/components/map/MapShell.tsx`; pass
       `selected={destination.id === selectedId}` through `MapView` to each `DestinationPin` (depends on
       T002)
-- [ ] T004 [US1] In `frontend/components/map/MapView.tsx`, call `map.easeTo({ center, zoom })` on
+- [x] T004 [US1] In `frontend/components/map/MapView.tsx`, call `map.easeTo({ center, zoom })` on
       selection (no `essential: true`, so `prefers-reduced-motion` collapses it to an instant jump
       automatically, R-002), using T001's geometry to pick the target zoom when the tapped place
-      overlaps another; wire pin taps to set `selectedId` (depends on T001, T003)
-- [ ] T005 [US1] Confirm dismissing the selection leaves the map's camera untouched (FR-004) — clearing
+      overlaps another; wire pin taps to set `selectedId` (depends on T001, T003). **Combined into one
+      MR with T003 and T005**: `setSelectedId` from T003 alone has no caller until T004 wires it, which
+      is exactly the "a task's entire subject is the next task" collision `003`'s own accepted
+      deviations already named — confirmed by `pnpm lint` actually failing on the unused setter when
+      tried as separate commits.
+- [x] T005 [US1] Confirm dismissing the selection leaves the map's camera untouched (FR-004) — clearing
       `selectedId` must not itself trigger another `easeTo` call; add a guard in T004's effect if the
-      current structure would otherwise re-fire one
+      current structure would otherwise re-fire one. **No guard needed**: `easeTo` is only ever called
+      inside the pin's own click closure (`buildOnOpen` in `MapView.tsx`), never reactively from the
+      `selectedId`-watching sync effect, so clearing the selection re-renders every pin's `selected`
+      prop without touching the camera at all.
 - [ ] T006 [P] [US1] `frontend/tests/client/map.spec.ts` — pure-function tests for T001's overlap/
       target-zoom geometry, asserting against plain coordinate arrays, no live map instance
 - [ ] T007 [P] [US1] `frontend/tests/e2e/place-selection.spec.ts` — V1: selection marking, at-most-one-
