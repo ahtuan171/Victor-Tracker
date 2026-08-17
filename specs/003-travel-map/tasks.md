@@ -168,13 +168,53 @@ has a task that realises it.
 prior iteration — a hand-walk, `/speckit-analyze`, and the `reviewer` agent each catch a different
 class of defect.
 
-- [ ] T056 Hand-walk quickstart.md's V1–V9 against a production build (`pnpm build && pnpm start`, real backend, real seeded account) at 375px, in both presentations — the browser-driven proof a stubbed suite cannot give (`001`'s T044/T072 precedent)
+- [x] T056 Hand-walk quickstart.md's V1–V9 against a production build (`pnpm build && pnpm start`, real backend, real seeded account) at 375px, in both presentations — the browser-driven proof a stubbed suite cannot give (`001`'s T044/T072 precedent). **Done 2026-08-16, re-runnable as `frontend/scripts/t056-walk.mjs`: 16 of 17 checks pass. V1–V5 and V7–V9 all pass against the real backend, real CARTO tiles and real Nominatim. V6 could not be walked at all — see the note below.**
 - [ ] T057 Run `/speckit-analyze` against spec.md, plan.md, and tasks.md; resolve any CRITICAL/HIGH finding in the same merge request that introduced it
 - [ ] T058 Run the `reviewer` agent (`.claude/agents/reviewer.md`) against the full branch diff
 - [ ] T059 Documentation drift sweep: search the whole repository (not a scoped guess — `.claude/memory.md`'s "search the whole repository, then filter" rule) for stale claims about iteration 003/travel map, and correct every one in this same merge request
 - [ ] T060 Add a Deferred entry to `.claude/memory.md` for what this spec deliberately did not build (Activity/Calendar, Route, Budget/cost fields, Category/Priority) — the trigger condition for each, not a bare list
 - [ ] T061 Update `CLAUDE.md`'s status section and the `specs/003-travel-map/` row in "Where each part stands," matching how `001`/`002` closed their own status paragraphs
 - [ ] T062 Write `docs/retro-03.md` (Reflect stage) — bad estimates, scope creep, friction between SpecKit/GitLab/Design, shipped behaviour against spec.md's acceptance criteria item by item
+
+### T056 walk — results, in full
+
+Run 2026-08-16 against `pnpm start` (production bundle, port 3400) with `API_BASE_URL` pointed at
+the compose backend and real Postgres behind it. **Nothing stubbed**: the basemap fetched real
+CARTO tiles and the location search reached real Nominatim.
+
+**16 of 17 checks pass.** V1 (pins distinguishable, tiles really drawn, no horizontal overflow after
+a pan, every control inside 375px), V2 (a Visited place's note one tap from the map; a Wishlist place
+offering neither note nor gallery), V3 (a real place resolving to real coordinates; a no-match
+message distinct from a transport failure), V4 (Trip created and listed, its Destination drawn on the
+map, `outside_trip_range` flagged rather than the write rejected, cascade delete confirmed), V5
+(three interactions, no navigation), V7 (all four transitions accepted; the Currently Traveling
+overlay drawn while the stored `status` stays `planned`), V8 (filter narrows, clear restores), V9
+(14 tile requests and the search request, none carrying a stored record).
+
+**V6 could not be walked, and this is a genuine gap rather than a soft pass.** `GET`ting
+`r2_account_id`, `r2_access_key_id`, `r2_secret_access_key` and `r2_bucket_name` off the running
+backend's settings returns **empty for all four** — the Cloudflare R2 bucket named as T001's
+prerequisite in `quickstart.md` was never provisioned. So the presigned-`PUT` path FR-023–FR-025
+describe has never been exercised against real object storage in any environment; `test_photographs`
+and the frontend's own tests both stub it. **This is the one acceptance criterion of this iteration
+whose evidence is unit-level only**, and it is recorded here unsoftened, the same way `001`'s T072
+recorded SC-001 failing cold. Provisioning R2 and re-running `V6` is owed before anyone claims
+photograph upload works end to end.
+
+**Two defects in the walk script itself, worth recording because both produced a confident wrong
+answer before they were caught:**
+
+- **A fixed 4-second sleep reported "0 vector tile requests"** — the exact signature of the dead
+  MapLibre worker fixed on 2026-08-15, against a basemap that was merely still loading. A screenshot
+  taken at 10s showed the map drawn correctly. The script now polls for a real `.mvt` rather than
+  sleeping. **The general form: a timing artifact and a real defect can present identically, and the
+  fix is to wait for the thing itself rather than for a duration.**
+- **Matching the quick-added row by name deleted the wrong row.** Nominatim answered "Kyoto" with
+  the local exonym (京都市), so `name.includes("kyoto")` matched the *pre-existing demo row* instead,
+  reported its coordinates as the walk's own result, and deleted it — while leaking the row the walk
+  had actually created, since cleanup only sweeps the `T056` prefix. Now identified by **id
+  difference** against a list read taken before the flow. The data lost was disposable dev demo data,
+  but the lesson is not: **a fixture matched on a value a third party controls is not matched.**
 
 ---
 
