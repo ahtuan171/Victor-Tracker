@@ -16,6 +16,7 @@ import {
 } from "@/lib/map";
 
 import { DestinationPin } from "./DestinationPin";
+import { PlaceConfirm } from "./PlaceConfirm";
 
 /**
  * The map surface (T014, FR-003, FR-004, T019, T020).
@@ -85,6 +86,9 @@ export function MapView({
   selectedId = null,
   onSelectDestination,
   onOpenDestination,
+  confirmingDestination,
+  onOpenConfirmed,
+  onDismissConfirmation,
 }: {
   readonly destinations: readonly Destination[];
   /** Null until the browser's clock is read (research.md R-006 addendum) — passed straight
@@ -107,11 +111,24 @@ export function MapView({
    * pass this. See `DestinationPin`'s own docstring for why the pin is a real button regardless.
    */
   readonly onOpenDestination?: (destination: Destination) => void;
+  /**
+   * The Destination `PlaceConfirm` is naming, if any (004, T009 follow-up). Owned by `MapShell`
+   * alongside `selectedId`, but **rendered here**, not by the caller — the confirmation card is a
+   * `maplibregl.Popup` anchored to this Destination's own coordinate rather than a fixed-position
+   * bar (so it reads as attached to the pin, matching the interaction the owner pointed at), and
+   * only this component holds `mapRef`/`maplibreRef` to attach one.
+   */
+  readonly confirmingDestination: Destination | null;
+  /** `PlaceConfirm`'s one action (FR-007): requests the full detail for the confirming place. */
+  readonly onOpenConfirmed: () => void;
+  /** `PlaceConfirm`'s dismiss action (FR-008): the confirmation closes, nothing else changes. */
+  readonly onDismissConfirmation: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreGL.Map | null>(null);
   const maplibreRef = useRef<typeof MapLibreGL | null>(null);
   const markersRef = useRef<Map<number, MarkerEntry>>(new Map());
+  const confirmPopupRef = useRef<ConfirmPopupEntry | null>(null);
   const hasFitBoundsRef = useRef(false);
 
   /**
@@ -186,6 +203,11 @@ export function MapView({
         entry.root.unmount();
       }
       markers.clear();
+      if (confirmPopupRef.current !== null) {
+        confirmPopupRef.current.popup.remove();
+        unmountPopupRoot(confirmPopupRef.current.root);
+        confirmPopupRef.current = null;
+      }
       mapRef.current?.remove();
       mapRef.current = null;
       maplibreRef.current = null;
@@ -214,6 +236,80 @@ export function MapView({
       onOpenDestination,
     );
   }, [isMapReady, destinations, today, selectedId, onSelectDestination, onOpenDestination]);
+
+  /**
+   * Show/update/remove the confirmation callout as a `maplibregl.Popup` anchored to the
+   * confirming Destination's own coordinate (004, T009 follow-up — replaces the earlier
+   * full-width bottom bar). MapLibre repositions a `Popup` on every pan/zoom by itself, the same
+   * reason pins are plain `maplibregl.Marker` instances rather than something this component
+   * would have to re-project by hand on every camera move.
+   *
+   * Anchors at the **same, possibly-nudged** coordinate `syncMarkers` placed the pin at
+   * (`disambiguateCoincidentPins`), so the callout never floats over open water while its own pin
+   * sits nudged apart from an exact coincidence with another Destination.
+   *
+   * `anchor: "bottom"` puts the popup's own tip at the given coordinate and the card itself
+   * *above* it — the "floats over the pin" placement the owner asked for, as opposed to the
+   * retired bar anchored to the map's own lower edge.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const maplibregl = maplibreRef.current;
+    if (map === null || maplibregl === null) return;
+
+    if (confirmingDestination === null) {
+      if (confirmPopupRef.current !== null) {
+        confirmPopupRef.current.popup.remove();
+        unmountPopupRoot(confirmPopupRef.current.root);
+        confirmPopupRef.current = null;
+      }
+      return;
+    }
+
+    const placed = disambiguateCoincidentPins(destinations);
+    const target = placed.find((d) => d.id === confirmingDestination.id) ?? confirmingDestination;
+    const lngLat: [number, number] = [target.longitude, target.latitude];
+
+    const existing = confirmPopupRef.current;
+    if (existing === null || existing.destinationId !== confirmingDestination.id) {
+      existing?.popup.remove();
+      if (existing !== null) unmountPopupRoot(existing.root);
+
+      const element = document.createElement("div");
+      const root = createRoot(element);
+      root.render(
+        <PlaceConfirm
+          destination={confirmingDestination}
+          onOpen={onOpenConfirmed}
+          onDismiss={onDismissConfirmation}
+        />,
+      );
+
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        anchor: "bottom",
+        offset: 28,
+        maxWidth: "none",
+        className: "place-confirm-popup",
+      })
+        .setLngLat(lngLat)
+        .setDOMContent(element)
+        .addTo(map);
+
+      confirmPopupRef.current = { popup, root, destinationId: confirmingDestination.id };
+      return;
+    }
+
+    existing.popup.setLngLat(lngLat);
+    existing.root.render(
+      <PlaceConfirm
+        destination={confirmingDestination}
+        onOpen={onOpenConfirmed}
+        onDismiss={onDismissConfirmation}
+      />,
+    );
+  }, [isMapReady, destinations, confirmingDestination, onOpenConfirmed, onDismissConfirmation]);
 
   // Fit the view to every Destination the first time they become available (T019) — not on every
   // change afterward, which would yank the owner's own pan/zoom around every time a new place is
@@ -249,6 +345,30 @@ const CARTO_DARK_MATTER_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl
 interface MarkerEntry {
   readonly marker: MapLibreGL.Marker;
   readonly root: Root;
+}
+
+/** One live `PlaceConfirm` popup at a time — `destinationId` is what lets the popup effect tell
+ * "still confirming the same place, just re-render" apart from "confirming a different one, tear
+ * down and recreate at the new coordinate". */
+interface ConfirmPopupEntry {
+  readonly popup: MapLibreGL.Popup;
+  readonly root: Root;
+  readonly destinationId: number;
+}
+
+/**
+ * Unmount a popup's React root on the next tick rather than synchronously.
+ *
+ * Calling `root.unmount()` straight from the effect above is what React 19 warns as "Attempted to
+ * synchronously unmount a root while React was already rendering" — observed while switching
+ * `confirmingDestination` between two places in quick succession (a real sequence: tapping one
+ * pin's confirmation, then another's, before the first has settled). The unmount is still real and
+ * still runs before the next popup for a *different* destination would reuse the DOM node — it is
+ * simply deferred past the render pass that's asking for it, which is the documented workaround for
+ * a `createRoot` root nested inside another component's own render/commit cycle.
+ */
+function unmountPopupRoot(root: Root): void {
+  setTimeout(() => root.unmount(), 0);
 }
 
 /**
@@ -365,11 +485,17 @@ function buildOnOpen(
 }
 
 /**
- * A local-area zoom — street names and district blocks legible, individual buildings not yet
- * distinguishable — close enough that "bring the map to that place" (FR-001) reads as an actual
- * approach rather than a recentre at whatever zoom the owner happened to be at.
+ * A close, street-level zoom — individual streets legible and named, buildings beginning to
+ * separate — close enough that "bring the map to that place" (FR-001) reads as an actual approach
+ * rather than a recentre at whatever zoom the owner happened to be at.
+ *
+ * **Raised from 14 to 16** (004, T009 follow-up): the owner's own reference images for this
+ * confirmation-callout redesign both showed a tighter, street-level view than 14 (a
+ * neighbourhood/district-block view) produces — see this file's module docstring and
+ * `PlaceConfirm.tsx` for the rest of that change. `resolveOverlap` is untouched, so its own
+ * exact-value tests (`tests/client/map.spec.ts`, T006) still hold unaffected.
  */
-const MINIMUM_SELECTION_ZOOM = 14;
+const MINIMUM_SELECTION_ZOOM = 16;
 
 /** Fit the view to every Destination, once, the first time the list is non-empty (T019). */
 function fitBoundsOnce(
