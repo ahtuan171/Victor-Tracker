@@ -78,7 +78,14 @@ selected.
       `selectedId`-watching sync effect, so clearing the selection re-renders every pin's `selected`
       prop without touching the camera at all.
 - [x] T006 [P] [US1] `frontend/tests/client/map.spec.ts` — pure-function tests for T001's overlap/
-      target-zoom geometry, asserting against plain coordinate arrays, no live map instance
+      target-zoom geometry, asserting against plain coordinate arrays, no live map instance.
+      **Merged late, not late-started**: its MR (!103) auto-merge-on-pipeline-success silently
+      stalled on a conflict when T003–T005's MR (!102) landed first and moved the shared lines in
+      this file out from under it — GitLab left !103 `state: opened` for the rest of the session
+      while `glab mr merge --yes`'s own stdout had already claimed success. Caught only by an
+      end-of-session `git merge-base --is-ancestor` sweep across every commit believed merged, not
+      by anything in the moment. Fixed by rebasing onto `main` and re-merging, verified via the API
+      this time rather than the CLI's own report.
 - [x] T007 [P] [US1] `frontend/tests/e2e/place-selection.spec.ts` — V1: selection marking,
       at-most-one-selected, overlapping pins separate on tap (depends on T004, T005). **Dismiss is
       not covered here** — `quickstart.md`'s own V1 step 3 already deferred it to V2 ("via the
