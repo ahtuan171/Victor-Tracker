@@ -11,6 +11,7 @@ import { selectByStatus } from "@/lib/map";
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
+import { PlaceConfirm } from "./PlaceConfirm";
 import { QuickAdd } from "./QuickAdd";
 import { StatusFilter } from "./StatusFilter";
 import { TripPanel } from "./TripPanel";
@@ -37,12 +38,18 @@ export function MapShell() {
   const [statusFilter, setStatusFilter] = useState<DestinationStatus | null>(null);
   /**
    * The one place `MapView` draws as selected and centres its camera on (004, T003/T004, FR-002,
-   * FR-003). Kept separate from `openDestinationId`: a place can be selected without its full
-   * detail ever opening, which is exactly User Story 1's own scope before User Story 2's
-   * confirmation step exists — the strip's own tap handler below still opens the full detail
-   * directly (unchanged), while a pin tap now also reports its selection here.
+   * FR-003).
    */
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  /**
+   * The place `PlaceConfirm` is naming (004, T009, FR-006–FR-008, User Story 2). A pin tap sets
+   * both this and `selectedId` together — selecting and confirming are one gesture from here on,
+   * which is what retires the old "pin tap opens the full sheet directly" behaviour T004 preserved
+   * only as an interim step. `DestinationStrip`'s own tap handler (T010) still opens the full
+   * detail directly, bypassing this — a strip card is already unambiguous, so there is no mis-tap
+   * for a confirmation step to guard against there.
+   */
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
 
   /*
    * T053, User Story 5: the filter narrows the **loaded** list, and both surfaces that draw
@@ -58,6 +65,30 @@ export function MapShell() {
   function openDestination(destination: Destination): void {
     setOpenDestinationId(destination.id);
   }
+
+  /**
+   * A pin tap (004, T009): selects the place **and** shows the confirmation step over it — the two
+   * happen together now, unlike the strip's own direct-open path (T010).
+   */
+  function selectDestination(destination: Destination): void {
+    setSelectedId(destination.id);
+    setConfirmingId(destination.id);
+  }
+
+  /**
+   * Dismissing the confirmation step (FR-008: nothing about the place changes — true here by
+   * construction, since this touches only local UI state) also clears the selection itself, not
+   * only the confirmation surface. FR-004 (User Story 1) is explicit that dismissing a selection
+   * "MUST... leave no place selected" — `PlaceConfirm` is the only dismiss gesture this product
+   * has, so this is the one place that guarantee is actually discharged.
+   */
+  function dismissConfirmation(): void {
+    setConfirmingId(null);
+    setSelectedId(null);
+  }
+
+  const confirmingDestination =
+    confirmingId === null ? null : (destinations.find((d) => d.id === confirmingId) ?? null);
 
   return (
     <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
@@ -113,16 +144,28 @@ export function MapShell() {
             destinations={visible}
             today={today}
             selectedId={selectedId}
-            onSelectDestination={(destination) => setSelectedId(destination.id)}
-            onOpenDestination={openDestination}
+            onSelectDestination={selectDestination}
           />
         </div>
 
-        {/* T049-T050, User Story 4. Anchored over the map's lower edge rather than placed beneath
-            it: `MapView` installs no `ResizeObserver`, so a container whose height changed would
-            leave MapLibre's canvas at its old size. Floating keeps the map's own box constant
-            whatever the quick-add flow expands to, and puts the flow in thumb reach. */}
-        <QuickAdd onCreated={reload} />
+        {/* T049-T050, User Story 4 / T009, User Story 2. Anchored over the map's lower edge rather
+            than placed beneath it: `MapView` installs no `ResizeObserver`, so a container whose
+            height changed would leave MapLibre's canvas at its old size. Floating keeps the map's
+            own box constant whatever either flow expands to, and puts it in thumb reach.
+            `PlaceConfirm` and `QuickAdd` are mutually exclusive — confirming an existing place and
+            marking a new one are different modes, and there is no 375px room for both. */}
+        {confirmingDestination !== null ? (
+          <PlaceConfirm
+            destination={confirmingDestination}
+            onOpen={() => {
+              setConfirmingId(null);
+              setOpenDestinationId(confirmingDestination.id);
+            }}
+            onDismiss={dismissConfirmation}
+          />
+        ) : (
+          <QuickAdd onCreated={reload} />
+        )}
       </main>
 
       {/* T052: below the map and above the strip — the bottom portion of a 375x667 screen, which
