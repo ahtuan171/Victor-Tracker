@@ -79,9 +79,11 @@ selected.
       prop without touching the camera at all.
 - [ ] T006 [P] [US1] `frontend/tests/client/map.spec.ts` — pure-function tests for T001's overlap/
       target-zoom geometry, asserting against plain coordinate arrays, no live map instance
-- [ ] T007 [P] [US1] `frontend/tests/e2e/place-selection.spec.ts` — V1: selection marking, at-most-one-
-      selected, dismiss leaves the camera in place, overlapping pins separate on tap (depends on T004,
-      T005)
+- [x] T007 [P] [US1] `frontend/tests/e2e/place-selection.spec.ts` — V1: selection marking,
+      at-most-one-selected, overlapping pins separate on tap (depends on T004, T005). **Dismiss is
+      not covered here** — `quickstart.md`'s own V1 step 3 already deferred it to V2 ("via the
+      confirmation step's dismissal"), since the only dismiss gesture this product has is
+      `PlaceConfirm`'s, which does not exist until T008–T009. Coverage lands with T011.
 
 **Checkpoint**: US1 independently functional — selection and zoom-to-pin work with no confirmation
 step or restructured detail yet.
