@@ -104,11 +104,25 @@ detail opening, and confirm dismissing returns to the map with nothing else havi
       the selected place and its status, with exactly one action that requests the full detail
       (FR-006, FR-007). Occupies `QuickAdd`'s own floating slot in `MapShell.tsx` (T009 wires the
       swap) rather than a new position — the two panels are mutually exclusive by construction.
-- [ ] T009 [US2] Add `confirmingId: number | null` state to `MapShell.tsx`; a pin tap sets both
+- [x] T009 [US2] Add `confirmingId: number | null` state to `MapShell.tsx`; a pin tap sets both
       `selectedId` (T003) and `confirmingId`; `PlaceConfirm`'s action clears `confirmingId` and sets
-      `openDestinationId` (opening the existing `DestinationSheet`); dismissing clears only
-      `confirmingId`, leaving `selectedId` and the map's position alone (FR-008) (depends on T003,
-      T008)
+      `openDestinationId` (opening the existing `DestinationSheet`) (depends on T003, T008).
+      **Correction found during implementation**: dismissing clears **both** `confirmingId` and
+      `selectedId`, not only `confirmingId` as this line originally said. FR-004 (User Story 1) is
+      explicit that dismissing a selection "MUST... leave no place selected" — `PlaceConfirm` is the
+      only dismiss gesture this product has, so leaving `selectedId` set on dismiss would leave
+      FR-004 undischarged. The map's camera is still untouched either way (nothing here calls
+      `easeTo`). **Also retires T004's interim behaviour**: a pin tap no longer calls
+      `onOpenDestination` (stopped passing that prop to `MapView`), so `DestinationSheet` only opens
+      via `PlaceConfirm`'s own action now — required fixing three tests in `photo-upload.spec.ts`
+      and one in `place-selection.spec.ts` (T007) that assumed the old direct-open, in this same
+      commit. **Also adds `MINIMUM_SELECTION_ZOOM` (owner request, mid-session)**: selecting a place
+      now always eases to at least a close, local-area zoom (14) via `Math.max` on top of
+      `resolveOverlap`'s own answer in `MapView.tsx`'s `buildOnOpen` — `resolveOverlap` itself is
+      untouched, keeping T006's exact-value tests valid. The owner's reference material (a
+      third-party map product's screenshot) was used only for this interaction-pattern description
+      — zoom closer, callout, panel-after-tap — never as a visual/asset source (standing
+      Spider-Man-IP exclusion, `.claude/memory.md`).
 - [ ] T010 [US2] Update `frontend/components/map/DestinationStrip.tsx`'s tap handler to set
       `selectedId` and move the camera (T004) but open `openDestinationId` directly, skipping
       `confirmingId` — R-001's documented asymmetry: a strip card is already unambiguous, so the

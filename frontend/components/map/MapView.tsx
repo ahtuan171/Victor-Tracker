@@ -331,6 +331,16 @@ function syncMarkers(
  *
  * Returns `undefined` when there is nothing to wire up, so `syncMarkers` can omit the `onOpen` key
  * entirely under `exactOptionalPropertyTypes` rather than pass an explicit `undefined`.
+ *
+ * ## Selecting always zooms in to at least a close, local-area view
+ *
+ * `resolveOverlap` alone only *raises* the zoom when the tapped place is genuinely too close to
+ * another to tap separately — at a wide, zoomed-out view with nothing nearby, it hands back the
+ * current zoom unchanged (its own contract, `tests/client/map.spec.ts`). FR-001 asks selection to
+ * "bring the map to that place", and staying at a world- or country-scale zoom does not read as
+ * that. `MINIMUM_SELECTION_ZOOM` is a second, independent floor applied with `Math.max` *after*
+ * `resolveOverlap`'s own answer — deliberately not folded into `resolveOverlap` itself, which stays
+ * a pure overlap-detector with its own exact-value tests unaffected by this.
  */
 function buildOnOpen(
   map: MapLibreGL.Map,
@@ -346,13 +356,20 @@ function buildOnOpen(
       const resolution = resolveOverlap(destination, allDestinations, map.getZoom());
       map.easeTo({
         center: [destination.longitude, destination.latitude],
-        zoom: resolution.targetZoom,
+        zoom: Math.max(resolution.targetZoom, MINIMUM_SELECTION_ZOOM),
       });
       onSelectDestination(destination);
     }
     onOpenDestination?.(destination);
   };
 }
+
+/**
+ * A local-area zoom — street names and district blocks legible, individual buildings not yet
+ * distinguishable — close enough that "bring the map to that place" (FR-001) reads as an actual
+ * approach rather than a recentre at whatever zoom the owner happened to be at.
+ */
+const MINIMUM_SELECTION_ZOOM = 14;
 
 /** Fit the view to every Destination, once, the first time the list is non-empty (T019). */
 function fitBoundsOnce(

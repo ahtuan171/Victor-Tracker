@@ -14,13 +14,12 @@ import { expect, test, type Page } from "@playwright/test";
  * `research.md` R-002 already rejected for pin rendering, for the same reason: the map instance is
  * not exposed to the page and should not be, so there is nothing to read.
  *
- * **This file does not test "dismiss" yet.** FR-004's dismiss scenario is User Story 1's own
- * acceptance criterion, but the only dismiss gesture this product has is `PlaceConfirm`'s (User
- * Story 2, T008–T009) — `quickstart.md`'s own V1 step 3 says so explicitly ("via the confirmation
- * step's dismissal, V2"). Before T009 lands, a pin tap still opens `DestinationSheet` directly
- * (T004's preserved interim behaviour), so there is no standalone "select without opening" gesture
- * to dismiss. `tests/e2e/place-selection.spec.ts` (this file) gains that coverage when T011 extends
- * it, not here.
+ * **Updated by T009**: a pin tap now shows `PlaceConfirm` instead of opening `DestinationSheet`
+ * directly — closing that confirmation card (`place-confirm-dismiss`) is what these tests use to
+ * get back to a clean map between taps, replacing the `destination-sheet-close` click an earlier
+ * version of this file used when a pin tap still opened the full sheet (T004's now-retired interim
+ * behaviour). The dedicated dismiss *scenario* — that dismissing also clears the selection, FR-004
+ * — is V2's own coverage, added by T011, not here.
  */
 
 const SESSION_COOKIE = "ch_session";
@@ -100,26 +99,38 @@ test("selecting a different place moves the mark — never two at once (FR-003)"
   page,
   baseURL,
 }) => {
+  // Deliberately close together, not two cities apart: selecting either now zooms in to at least a
+  // local-area view (`MapView.tsx`'s `MINIMUM_SELECTION_ZOOM`, T009's zoom refinement), which would
+  // push a genuinely distant second place off-screen and make it unclickable for a reason this test
+  // has nothing to do with. ~150m keeps both reachable at any zoom either selection settles on.
   await openMap(page, baseURL, [
-    destination({ id: 1, name: "Kyoto", status: "visited" }),
-    destination({ id: 2, name: "Tokyo", latitude: 35.6812, longitude: 139.7671, status: "planned" }),
+    destination({ id: 1, name: "Kyoto Station", latitude: 35.6598, longitude: 139.7006, status: "visited" }),
+    destination({ id: 2, name: "Kyoto Tower", latitude: 35.6608, longitude: 139.7016, status: "planned" }),
   ]);
 
-  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
-  const tokyoPin = page.locator('[data-testid="destination-pin"][aria-label*="Tokyo"]');
+  const stationPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto Station"]');
+  const towerPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto Tower"]');
 
-  await kyotoPin.click();
-  await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
+  // Both `force: true` — at this distance the two 44px tap targets genuinely overlap on screen
+  // before either has been selected, same as the FR-005 fixture below, and for the same reason:
+  // a strict actionability check would refuse to click either box while they overlap. Which one
+  // the first tap actually lands on is real-browser hit-testing, not something this test needs to
+  // pin down; what matters is that selecting *the other one* next moves the mark, never leaving
+  // both selected at once.
+  await stationPin.click({ force: true });
+  const firstSelected = (await stationPin.getAttribute("aria-pressed")) === "true" ? stationPin : towerPin;
+  const secondPin = firstSelected === stationPin ? towerPin : stationPin;
+  await expect(firstSelected).toHaveAttribute("aria-pressed", "true");
 
-  // Close the sheet T004's interim behaviour opened, so the second pin's own click actually lands
-  // on the map rather than on the sheet's overlay.
-  await page.getByTestId("destination-sheet-close").click();
+  // Deliberately no dismissal here: `PlaceConfirm` (T009) only covers the map's own lower strip,
+  // and the other pin sits well clear of it, so this exercises selecting a second place *while the
+  // first is still being confirmed* — the more demanding version of "never two at once" than
+  // dismissing first would be.
+  await secondPin.click({ force: true });
 
-  await tokyoPin.click();
-
-  await expect(tokyoPin).toHaveAttribute("aria-pressed", "true");
-  // Kyoto stops being marked the instant Tokyo becomes the selection — at most one, ever.
-  await expect(kyotoPin).toHaveAttribute("aria-pressed", "false");
+  await expect(secondPin).toHaveAttribute("aria-pressed", "true");
+  // The first stops being marked the instant the second becomes the selection — at most one, ever.
+  await expect(firstSelected).toHaveAttribute("aria-pressed", "false");
 });
 
 test("tapping an overlapping cluster zooms in far enough that both become individually tappable (FR-005)", async ({
@@ -155,11 +166,6 @@ test("tapping an overlapping cluster zooms in far enough that both become indivi
     : stationPin;
   const otherPin = selectedAfterFirstTap === crossingPin ? stationPin : crossingPin;
   await expect(selectedAfterFirstTap).toHaveAttribute("aria-pressed", "true");
-
-  // T004's interim behaviour (preserved until User Story 2's confirmation step replaces it, T009)
-  // still opens `DestinationSheet` directly on every pin tap, covering the map — close it so the
-  // second tap actually lands on the other pin rather than on the sheet's own content.
-  await page.getByTestId("destination-sheet-close").click();
 
   // The actual FR-005 claim: after the camera has moved to separate the cluster, the *other* place
   // is now cleanly, individually tappable — a plain `.click()` with no `force`, exactly as any

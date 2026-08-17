@@ -62,7 +62,10 @@ test("a Visited pin's sheet shows its note and photograph in one tap (V2 scenari
   });
   await openMapWithDetail(page, baseURL, [destination({ id: 1, name: "Lisbon", status: "visited" })], visited);
 
+  // A pin tap now shows the confirmation step first (004, T009) rather than opening the sheet
+  // directly; its one action is what actually opens it.
   await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
   await page.getByTestId("destination-sheet-close").waitFor();
 
   await expect(page.getByTestId("destination-note-input")).toHaveValue("Tram 28 at 7am, empty.");
@@ -77,6 +80,7 @@ test("a Planned or Wishlist pin's sheet offers no gallery or note (V2 scenario 3
   await openMapWithDetail(page, baseURL, [destination({ id: 1, status: "wishlist" })], wishlist);
 
   await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
   await page.getByTestId("destination-sheet-close").waitFor();
 
   await expect(page.getByTestId("destination-photo-attach")).toHaveCount(0);
@@ -146,6 +150,7 @@ test("the upload PUT goes straight to R2, never to this product's own backend or
   });
 
   await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
   await page.getByTestId("destination-photo-attach").waitFor();
 
   const fileInput = page.getByTestId("destination-photo-input");
