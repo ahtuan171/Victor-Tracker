@@ -35,12 +35,20 @@ import { cn } from "@/lib/utils";
 export function DestinationPin({
   destination,
   today,
+  selected = false,
   onOpen,
   className,
 }: {
   readonly destination: Destination;
   /** Null until the browser's clock is read (research.md R-006 addendum) — see `lib/map.ts`. */
   readonly today: DateOnly | null;
+  /**
+   * The one place `selectedId` currently names (004, FR-002, FR-003). Drawn as a size increase
+   * plus a static ring — not colour alone, matching the rule the status shield's own fill
+   * progression already follows, and distinct from the *pulsing* Currently-Traveling ring below so
+   * the two never read as the same signal.
+   */
+  readonly selected?: boolean;
   /**
    * Optional and unwired in this phase (User Story 1 draws pins; User Story 2, T029, opens a
    * sheet on tap). A real `<button>` regardless, because a map pin is inherently a tappable
@@ -60,17 +68,29 @@ export function DestinationPin({
       type="button"
       onClick={onOpen}
       aria-label={`${destination.name} — ${label}`}
+      aria-pressed={selected}
       data-testid="destination-pin"
       data-status={destination.status}
       data-traveling={traveling}
+      data-selected={selected ? "" : undefined}
       // 44px floor (`.claude/rules/design.md`) even though the shield itself draws smaller —
-      // the tap target is the button's full box, the glyph is decoration inside it.
+      // the tap target is the button's full box, the glyph is decoration inside it. `selected`'s
+      // scale-up is a transform, so it never changes that box's layout size or pushes a neighbour.
       className={cn(
-        "focus-ring relative flex size-11 items-center justify-center",
+        "focus-ring relative flex size-11 items-center justify-center transition-transform",
         treatment.textClass,
+        selected && "scale-125",
         className,
       )}
     >
+      {selected ? (
+        <span
+          aria-hidden="true"
+          data-testid="destination-pin-selected-ring"
+          className="ring-brand absolute inset-0 rounded-full ring-2 ring-offset-2 ring-offset-transparent"
+        />
+      ) : null}
+
       {traveling ? (
         // The overlay: a pulsing ring behind the shield, plus a small chevron badge at the
         // shield's shoulder — layered, not a fifth shield state (see docstring).
