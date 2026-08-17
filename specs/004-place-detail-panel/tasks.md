@@ -122,7 +122,7 @@ shown as the panel's substance rather than as fields on a form.
 - [ ] T012 [US3] Restructure `frontend/components/map/DestinationSheet.tsx` into a thin shell: fetch
       `DestinationDetail` as today, then branch what it renders on `detail.status` (FR-009) —
       `"visited"` renders the new `VisitedPanel` (T013); every other status keeps today's unconditional
-      form as an explicit, temporary fallback, replaced by US4 (T020) and US5 (T023) in their own
+      form as an explicit, temporary fallback, replaced by US4 (T021) and US5 (T024) in their own
       phases rather than built here
 - [ ] T013 [US3] Add `frontend/components/map/VisitedPanel.tsx` — photographs and the existing `note`
       field (spec.md's "impressions", Clarifications) presented as content; move the existing
@@ -172,8 +172,9 @@ its range, this place's own dates, and the sibling place.
       `status === "planned"`, passing down `destinations` (already loaded in `MapShell`) and `trips`
       (T016) (depends on T012, T016, T020)
 - [ ] T022 [P] [US4] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V4: Trip context, the
-      outside-range message, the currently-traveling message, the sibling list, and the attach-a-Trip
-      flow actually attaching (depends on T021)
+      outside-range message, the currently-traveling message, the sibling list, the attach-a-Trip flow
+      actually attaching, and — FR-016 — no `destination-photo`/`destination-note-input` testid present
+      on a Planned place's panel (depends on T021)
 
 **Checkpoint**: US1–US4 — a Planned place now opens to its trip context. Wishlist places still show
 the old unconditional form.
@@ -197,7 +198,8 @@ the next step, with no blank photo grid and no empty date fields presented as co
       `status === "wishlist"`, which is also what removes the last of T012's temporary unconditional
       fallback (depends on T012, T023)
 - [ ] T025 [P] [US5] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V5: the empty state's message
-      and offer, absence of gallery/note/blank fields (depends on T024)
+      and offer, and — FR-016 — no `destination-photo`/`destination-note-input` testid present on a
+      Wishlist place's panel (depends on T024)
 
 **Checkpoint**: US1–US5 — every status now opens to its own content; `DestinationSheet`'s old
 unconditional form is fully retired from the display side.
@@ -239,16 +241,43 @@ delivered.
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix anything either flags
+- [ ] T029 [P] Extend `frontend/tests/e2e/viewport-audit.spec.ts` with a `/map` block: the existing
+      map surfaces `003` never added (`MapView`, `DestinationStrip`, `TripPanel`, `QuickAdd`,
+      `StatusFilter`, `LocationSearch`) plus this iteration's four new ones (`PlaceConfirm`,
+      `VisitedPanel`, `PlannedPanel`, `WishlistPanel`) — FR-021, SC-005. Found by this iteration's
+      `/speckit-analyze` pass: the file is hand-maintained per-surface, not an automatic sweep, and
+      `/map` was never in it even before this iteration
+- [ ] T030 [P] Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix anything either flags
       across every file this iteration touched
-- [ ] T030 Hand-walk `quickstart.md`'s V1–V6 at 375px against a real backend (`pnpm build && pnpm
+- [ ] T031 Hand-walk `quickstart.md`'s V1–V6 at 375px against a real backend (`pnpm build && pnpm
       start`, matching `frontend/AGENTS.md`'s hand-walk setup) — the same discipline every prior
       iteration's Final Phase used, and the one check no automated suite structurally can (`.claude/
       memory.md`'s Traps)
-- [ ] T031 Run `/speckit-analyze` against spec.md/plan.md/tasks.md before merge (constitution Stage 6)
-- [ ] T032 Run the `reviewer` agent against the full branch diff before merge, per this project's
+- [ ] T032 Run `/speckit-analyze` against spec.md/plan.md/tasks.md before merge (constitution Stage 6)
+- [ ] T033 Run the `reviewer` agent against the full branch diff before merge, per this project's
       standing checkpoint practice (constitution principles II, III, IV, VII as the recurring
       offenders)
+
+---
+
+## Pre-implementation `/speckit-analyze` pass (2026-08-17)
+
+Run before any code, per constitution Stage 1 (`/speckit-analyze` after `/speckit-tasks`). Four
+findings, none CRITICAL, all fixed in this same pass rather than left for `/speckit-implement` to
+discover — this project's own recurring lesson about a drifted claim not sitting inert applies to a
+task list as much as to any other artifact:
+
+- **Two task-ID cross-references were wrong.** T012 originally cited "(T020) and (T023)" as the tasks
+  that replace its temporary fallback; the tasks that actually do (they wire the shell) are **T021**
+  and **T024**. Fixed.
+- **FR-021/SC-005 (one presentation at every width) had no task.** `viewport-audit.spec.ts` is
+  hand-maintained per-surface, not an automatic sweep, and `/map` was never added to it — not by this
+  iteration and not by `003` before it. Added **T029**.
+- **The overlap-detection radius (R-002, T001) was never given a number.** Pinned at **44px** (this
+  product's own tap-target floor) in `research.md` and `data-model.md`.
+- **FR-016 (gallery/note never offered outside Visited) had no negative assertion.** Structurally true
+  by construction (`PlannedPanel`/`WishlistPanel` never import that UI) but unverified. Added an
+  assertion each to T022 and T025.
 
 ---
 

@@ -82,7 +82,8 @@ interface OverlapResolution {
 ```
 
 Pure Web Mercator arithmetic over `(tappedDestination, allDestinations, currentZoom, mapWidthPx)` — no
-MapLibre instance required to compute it, only to apply it (`map.easeTo`).
+MapLibre instance required to compute it, only to apply it (`map.easeTo`). The overlap radius is
+**44px**, this product's own tap-target floor (research.md R-002).
 
 ---
 

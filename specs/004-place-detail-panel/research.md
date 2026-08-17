@@ -48,7 +48,10 @@ a surface where the wrong place was never in question.
 
 **Decision**: `MapView` calls `map.easeTo({ center, zoom })` on selection, where `zoom` is either the
 map's current zoom (if the tapped place has no other place within a "too close to tap separately"
-screen-pixel radius of it) or a computed target zoom that separates them (FR-005). The separation
+screen-pixel radius of it) or a computed target zoom that separates them (FR-005). **The radius is
+44px** — this product's own established tap-target floor (`.claude/rules/design.md`), reused rather
+than inventing a second constant: two pins closer together than one tap target's own width are, by the
+same reasoning that floor already encodes, not reliably separately tappable. The separation
 check and the target-zoom computation are a **pure function in `lib/map.ts`**, not a live query against
 the MapLibre instance — the same split `003`'s R-002 already drew ("assert the map through the DOM,
 never through its canvas") extended one step further to geometry: Web Mercator's pixel-per-degree
