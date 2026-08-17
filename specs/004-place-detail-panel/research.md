@@ -83,8 +83,9 @@ rather than introducing a new marker type this iteration has no other reason to 
 
 ## R-003 — A Planned place's Trip context, composed with no new endpoint
 
-**Decision**: `PlannedPanel` reads `MapShell`'s already-loaded `useDestinations()` and `useTrips()`
-state, both passed down rather than fetched again. Given a Planned `DestinationDetail`, the panel finds
+**Decision**: `PlannedPanel` reads `useDestinations()`'s already-loaded list (unchanged — `MapShell`
+already calls this today) plus a **`useTrips()` call lifted up into `MapShell`**, both passed down as
+props rather than fetched again. Given a Planned `DestinationDetail`, the panel finds
 `trips.find((t) => t.id === destination.trip_id)` for the Trip's own name/range, and
 `destinations.filter((d) => d.trip_id === destination.trip_id && d.id !== destination.id)` for the
 sibling places (FR-011). `destination.outside_trip_range` (FR-012) and the currently-traveling
@@ -92,13 +93,24 @@ computation (`lib/map.ts`'s existing `isCurrentlyTraveling`, FR-013) are already
 `Destination` — `003` computes the first server-side on every response and the second is already a
 pure client function. **No field on this list is missing; nothing here needs `GET /trips/{id}`.**
 
+**The lift-up, stated precisely so it is not mistaken for a new request**: today, `useTrips()` is
+called exactly once, inside `TripPanel.tsx` — `MapShell.tsx` itself has no Trip state at all. Moving
+that one call up to `MapShell` and passing `trips`/`status`/`error`/`reload` down to both `TripPanel`
+(as props, replacing its own internal call) and the new `PlannedPanel` (via `DestinationSheet`) is
+**the same single unparameterised read, relocated one component higher** — not a second `useTrips()`
+call running alongside the first. Two independent calls would silently double the request `TripPanel`
+already made every time the map screen opens, which is exactly the cost R-007 exists to avoid; the
+lift-up is what keeps this iteration's "no new round trip" claim (`plan.md`) true rather than merely
+stated.
+
 **Rationale**: this is `001`'s R-007 ("load once, narrow client-side") applied a third time in this
 codebase, after `003`'s own `StatusFilter` reused it a second time (`tasks.md` T053). The same cost
 argument applies again: a per-open request against a stack whose cold path `001`'s T072 measured in
 tens of seconds is not worth paying when the data needed is already sitting in memory the moment
 `MapShell` has loaded once. The handoff note going into this planning stage flagged this precedent as
-"likely applies again — confirm rather than assume"; this section is that confirmation, not an
-assumption.
+"likely applies again — confirm rather than assume"; this section is that confirmation, with one
+correction the confirmation itself surfaced (the lift-up above) rather than an assumption carried
+through unchecked.
 
 **A Trip with no Destinations passed down** (deleted mid-session on another device, e.g.) is handled by
 the same `trips.find` returning `undefined` — `PlannedPanel` treats a missing Trip identically to

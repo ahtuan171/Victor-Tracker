@@ -15,13 +15,15 @@ place's own status (FR-009–FR-020). Every field involved already exists on `De
 
 **This iteration touches no backend file.** `002-pixel-arcade-skin` is the only precedent for a
 frontend-only iteration, and this one is frontend-only for a stronger reason than that one: nothing
-here needs a new read (`outside_trip_range` and `trip_id` are already present on every `Destination`,
-and both `useDestinations()` and `useTrips()` already load their full, unparameterised lists — R-003
-below is `001`'s R-007 "load once, narrow client-side" applied a third time), and nothing needs a new
-write (attaching an existing place to a Trip is the existing `PATCH /destinations/{id}` `trip_id`
-field, used in the direction opposite `003`'s FR-020 detach). `plan.md` names this explicitly rather
-than leaving it to be discovered mid-implementation, because every prior iteration's plan opened a new
-Alembic revision and this is the first one that does not.
+here needs a new read (`outside_trip_range` and `trip_id` are already present on every `Destination`;
+`useDestinations()` already loads its full, unparameterised list in `MapShell` today, and `useTrips()`
+already does the same — just one component lower, inside `TripPanel` — so R-003 below lifts that one
+call up to `MapShell` rather than adding a second one, which is `001`'s R-007 "load once, narrow
+client-side" applied a third time), and nothing needs a new write (attaching an existing place to a
+Trip is the existing `PATCH /destinations/{id}` `trip_id` field, used in the direction opposite `003`'s
+FR-020 detach). `plan.md` names this explicitly rather than leaving it to be discovered
+mid-implementation, because every prior iteration's plan opened a new Alembic revision and this is the
+first one that does not.
 
 ## Technical Context
 
@@ -123,8 +125,13 @@ frontend/
 │   ├── DestinationStrip.tsx   # MODIFIED — a strip tap still selects (so SC-001 holds regardless of
 │   │                           # entry point) but opens the full detail directly, bypassing the
 │   │                           # confirmation step (R-001 states why this is not a spec violation)
+│   ├── TripPanel.tsx          # MODIFIED — its own `useTrips()` call is removed; it now receives
+│   │                           # `trips`/`status`/`error`/`reload` as props from `MapShell` (R-003's
+│   │                           # lift-up), so the map screen still issues exactly one Trips read
 │   └── MapShell.tsx           # MODIFIED — threads selection/confirmation state between MapView,
-│                               # PlaceConfirm, and DestinationSheet
+│                               # PlaceConfirm, and DestinationSheet; now also calls `useTrips()`
+│                               # itself (lifted up from TripPanel, R-003) and passes it to both
+│                               # TripPanel and DestinationSheet
 ├── lib/
 │   ├── map.ts                 # MODIFIED — `findOverlapGroup`/target-zoom geometry (R-002), a pure
 │   │                           # function so it is tested the same way `disambiguateCoincidentPins` is
