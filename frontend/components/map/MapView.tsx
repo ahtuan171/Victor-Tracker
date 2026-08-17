@@ -8,7 +8,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { Destination } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
-import { DEFAULT_MAP_VIEW, boundsForDestinations, disambiguateCoincidentPins } from "@/lib/map";
+import {
+  DEFAULT_MAP_VIEW,
+  boundsForDestinations,
+  disambiguateCoincidentPins,
+  resolveOverlap,
+} from "@/lib/map";
 
 import { DestinationPin } from "./DestinationPin";
 
@@ -77,12 +82,26 @@ import { DestinationPin } from "./DestinationPin";
 export function MapView({
   destinations,
   today,
+  selectedId = null,
+  onSelectDestination,
   onOpenDestination,
 }: {
   readonly destinations: readonly Destination[];
   /** Null until the browser's clock is read (research.md R-006 addendum) — passed straight
    * through to `DestinationPin` for the "Currently Traveling" overlay. */
   readonly today: DateOnly | null;
+  /** `MapShell`'s selection state (004, T003) — threaded to each `DestinationPin` so at most one
+   * ever draws as selected (FR-003). */
+  readonly selectedId?: number | null;
+  /**
+   * Tapping a pin (004, T004, FR-001, FR-005): brings the map to that place and reports the
+   * selection up to `MapShell`, which is what actually holds `selectedId`. This component owns
+   * the camera move itself — only it holds `mapRef` — and computes the overlap-aware target zoom
+   * via `resolveOverlap` before calling `map.easeTo`. Deliberately separate from
+   * `onOpenDestination` below: selecting a place and opening its full detail are two different
+   * gestures as of this iteration (User Story 1 vs. User Story 2's confirmation step).
+   */
+  readonly onSelectDestination?: (destination: Destination) => void;
   /**
    * Optional and unwired in this phase — `DestinationSheet` (T029, User Story 2) is what will
    * pass this. See `DestinationPin`'s own docstring for why the pin is a real button regardless.
@@ -184,8 +203,17 @@ export function MapView({
     const map = mapRef.current;
     const maplibregl = maplibreRef.current;
     if (map === null || maplibregl === null) return;
-    syncMarkers(maplibregl, map, markersRef.current, destinations, today, onOpenDestination);
-  }, [isMapReady, destinations, today, onOpenDestination]);
+    syncMarkers(
+      maplibregl,
+      map,
+      markersRef.current,
+      destinations,
+      today,
+      selectedId,
+      onSelectDestination,
+      onOpenDestination,
+    );
+  }, [isMapReady, destinations, today, selectedId, onSelectDestination, onOpenDestination]);
 
   // Fit the view to every Destination the first time they become available (T019) — not on every
   // change afterward, which would yank the owner's own pan/zoom around every time a new place is
@@ -238,6 +266,8 @@ function syncMarkers(
   markers: Map<number, MarkerEntry>,
   destinations: readonly Destination[],
   today: DateOnly | null,
+  selectedId: number | null,
+  onSelectDestination: ((destination: Destination) => void) | undefined,
   onOpenDestination: ((destination: Destination) => void) | undefined,
 ): void {
   const placed = disambiguateCoincidentPins(destinations);
@@ -255,17 +285,19 @@ function syncMarkers(
     // `undefined` is not the same as an omitted prop, and `DestinationPin.onOpen` is typed
     // `?: () => void` (no `| undefined`). Omitting the key entirely when there is nothing to
     // pass is what that flag requires — see `frontend/AGENTS.md`'s `ContentItemUpdate` note.
-    const pinProps =
-      onOpenDestination === undefined
-        ? {}
-        : { onOpen: () => onOpenDestination(destination) };
+    const onOpen = buildOnOpen(map, destination, placed, onSelectDestination, onOpenDestination);
+    const pinProps = onOpen === undefined ? {} : { onOpen };
 
     const existing = markers.get(destination.id);
+
+    const selected = destination.id === selectedId;
 
     if (existing === undefined) {
       const element = document.createElement("div");
       const root = createRoot(element);
-      root.render(<DestinationPin destination={destination} today={today} {...pinProps} />);
+      root.render(
+        <DestinationPin destination={destination} today={today} selected={selected} {...pinProps} />,
+      );
 
       // `Marker`'s own default anchor (`center`) puts the pin's centre on the coordinate, which
       // is correct for this shield: it has no separate "tip" the way a teardrop marker would.
@@ -277,9 +309,49 @@ function syncMarkers(
       continue;
     }
 
-    existing.root.render(<DestinationPin destination={destination} today={today} {...pinProps} />);
+    existing.root.render(
+      <DestinationPin destination={destination} today={today} selected={selected} {...pinProps} />,
+    );
     existing.marker.setLngLat([destination.longitude, destination.latitude]);
   }
+}
+
+/**
+ * The pin's click handler (004, T004): selects the tapped Destination, brings the map to it, and
+ * — while User Story 2's confirmation step does not exist yet — still opens the full detail
+ * directly, exactly as it does today.
+ *
+ * The camera move reads `map.getZoom()` **inside this closure**, i.e. at tap time rather than at
+ * the last `syncMarkers` call — the owner may have panned or zoomed freely between syncs, and
+ * `resolveOverlap` needs the zoom the tap actually happened at, not a stale one from whenever
+ * markers last reconciled. `essential` is deliberately omitted from the `easeTo` call: MapLibre
+ * collapses an inessential camera move to an instant jump under `prefers-reduced-motion: reduce`
+ * on its own (research.md R-002) — this function does not need to branch on that preference
+ * itself.
+ *
+ * Returns `undefined` when there is nothing to wire up, so `syncMarkers` can omit the `onOpen` key
+ * entirely under `exactOptionalPropertyTypes` rather than pass an explicit `undefined`.
+ */
+function buildOnOpen(
+  map: MapLibreGL.Map,
+  destination: Destination,
+  allDestinations: readonly Destination[],
+  onSelectDestination: ((destination: Destination) => void) | undefined,
+  onOpenDestination: ((destination: Destination) => void) | undefined,
+): (() => void) | undefined {
+  if (onSelectDestination === undefined && onOpenDestination === undefined) return undefined;
+
+  return () => {
+    if (onSelectDestination !== undefined) {
+      const resolution = resolveOverlap(destination, allDestinations, map.getZoom());
+      map.easeTo({
+        center: [destination.longitude, destination.latitude],
+        zoom: resolution.targetZoom,
+      });
+      onSelectDestination(destination);
+    }
+    onOpenDestination?.(destination);
+  };
 }
 
 /** Fit the view to every Destination, once, the first time the list is non-empty (T019). */

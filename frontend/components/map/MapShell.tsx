@@ -35,6 +35,14 @@ export function MapShell() {
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
   const [tripsOpen, setTripsOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DestinationStatus | null>(null);
+  /**
+   * The one place `MapView` draws as selected and centres its camera on (004, T003/T004, FR-002,
+   * FR-003). Kept separate from `openDestinationId`: a place can be selected without its full
+   * detail ever opening, which is exactly User Story 1's own scope before User Story 2's
+   * confirmation step exists — the strip's own tap handler below still opens the full detail
+   * directly (unchanged), while a pin tap now also reports its selection here.
+   */
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   /*
    * T053, User Story 5: the filter narrows the **loaded** list, and both surfaces that draw
@@ -101,7 +109,13 @@ export function MapShell() {
        */}
       <main className="relative min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
         <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
-          <MapView destinations={visible} today={today} onOpenDestination={openDestination} />
+          <MapView
+            destinations={visible}
+            today={today}
+            selectedId={selectedId}
+            onSelectDestination={(destination) => setSelectedId(destination.id)}
+            onOpenDestination={openDestination}
+          />
         </div>
 
         {/* T049-T050, User Story 4. Anchored over the map's lower edge rather than placed beneath
