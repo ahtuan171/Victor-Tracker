@@ -77,7 +77,7 @@ selected.
       inside the pin's own click closure (`buildOnOpen` in `MapView.tsx`), never reactively from the
       `selectedId`-watching sync effect, so clearing the selection re-renders every pin's `selected`
       prop without touching the camera at all.
-- [ ] T006 [P] [US1] `frontend/tests/client/map.spec.ts` — pure-function tests for T001's overlap/
+- [x] T006 [P] [US1] `frontend/tests/client/map.spec.ts` — pure-function tests for T001's overlap/
       target-zoom geometry, asserting against plain coordinate arrays, no live map instance
 - [x] T007 [P] [US1] `frontend/tests/e2e/place-selection.spec.ts` — V1: selection marking,
       at-most-one-selected, overlapping pins separate on tap (depends on T004, T005). **Dismiss is
