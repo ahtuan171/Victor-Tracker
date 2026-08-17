@@ -100,9 +100,10 @@ detail opening, and confirm dismissing returns to the map with nothing else havi
 
 **Depends on US1** — reuses `selectedId` and the pin-tap handler T004 wired.
 
-- [ ] T008 [US2] Add `frontend/components/map/PlaceConfirm.tsx` — a small dismissible surface naming
+- [x] T008 [US2] Add `frontend/components/map/PlaceConfirm.tsx` — a small dismissible surface naming
       the selected place and its status, with exactly one action that requests the full detail
-      (FR-006, FR-007)
+      (FR-006, FR-007). Occupies `QuickAdd`'s own floating slot in `MapShell.tsx` (T009 wires the
+      swap) rather than a new position — the two panels are mutually exclusive by construction.
 - [ ] T009 [US2] Add `confirmingId: number | null` state to `MapShell.tsx`; a pin tap sets both
       `selectedId` (T003) and `confirmingId`; `PlaceConfirm`'s action clears `confirmingId` and sets
       `openDestinationId` (opening the existing `DestinationSheet`); dismissing clears only
