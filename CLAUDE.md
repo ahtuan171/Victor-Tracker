@@ -2,6 +2,50 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Status as of 2026-08-17: **`003-travel-map` is done and `v0.3.0` is tagged. The map is real.**
+
+**Read this paragraph before every other "Status as of" section below it.** Those sections are still
+accurate about their own dates and are left as written; this one supersedes them about what is true
+now. In particular, the "2026-08-13" section below still says the travel map "is next", that MapLibre
+must be spiked before writing tasks that depend on it, and that the constitution needs amending for
+route/budget permissions. **All three are long done** — the spike passed on 2026-08-14
+(`frontend/AGENTS.md` Traps), the constitution went to **2.1.0** for route/budget, and the iteration
+has now shipped.
+
+**All 62 tasks of `003-travel-map` are done (T001–T062), all eight phases closed.** On `main`:
+**413 backend tests and 572 frontend tests passing, and nothing skipped.** A signed-in owner can open
+a world map of every place they have marked, tell Visited from Planned from Wishlist without tapping
+anything, see a Currently-Traveling overlay computed from today's date, pan and zoom at 375px, tap a
+Visited pin to read its note and photographs, edit the note and the status in any direction, search a
+real place name and have it resolve to real coordinates through Nominatim, organise places into Trips
+with a containment flag when a Destination's dates fall outside its Trip's, delete either behind a
+three-tap confirmation that names what cascades, mark a new place from the map in three interactions,
+and filter the map to a single status.
+
+**One acceptance path is unverified end to end, and it is not softened anywhere: photograph upload.**
+The Cloudflare R2 bucket that `quickstart.md` names as T001's prerequisite **was never provisioned**,
+so all four `r2_*` settings are empty in every environment and the presigned-`PUT` path FR-023–FR-025
+describe **has never run against real object storage**. Both the backend tests and the frontend tests
+stub it; T056's hand-walk could not walk V6 at all. The owner's explicit decision (2026-08-17) was to
+record this as a known gap against `v0.3.0` rather than block the tag — the same treatment `001` gave
+SC-001 failing cold. **Do not claim photograph upload works end to end.** Provisioning R2 and
+re-running V6 is owed; the walk script `frontend/scripts/t056-walk.mjs` re-runs on demand. What *was*
+fixable is fixed: an unconfigured R2 now fails with a message naming all four variables instead of
+`ValueError: Invalid endpoint: https://.r2.cloudflarestorage.com`.
+
+**The Final Phase checkpoint found six things across its three gates, and the gates did not overlap** —
+which is the whole argument for running all three. `/speckit-analyze` found a requirement with no
+frontend coverage and two artifacts describing a filter that works the other way; the `reviewer` agent
+found a reachable unhandled 500 and a constitution-VII regression guard that `data-model.md` promised
+and nobody wrote; the hand-walk found the R2 gap. Full detail is in `specs/003-travel-map/tasks.md`
+under T056–T058, and the retro is `docs/retro-03.md`.
+
+**The next substantive action is the owner's choice of a `004` subject.** `.claude/memory.md`'s
+Deferred section closes with a ranked shortlist (Travel Log and the full-screen photo viewer first,
+both re-presenting data the surfaces already load). **Nothing on it is scheduled and nothing gets
+built without its own `spec.md`** — non-negotiable 3 is unchanged. Provisioning R2 is a credential
+chore that survives whatever `004` turns out to be.
+
 ## Status as of 2026-08-14: **The product's brand text changed again, to "Victor Tracker."**
 
 **Read this paragraph before the "2026-08-13" one below it, and before the brand-text paragraph
@@ -70,8 +114,9 @@ effect of building the map.
 still apply — they were bought at real cost and none of them is about content calendars specifically.
 
 All 77 tasks of feature 001 done, all 8 phases closed, **`v0.1.0` tagged at `a1eb269`** and pushed.
-On `main`, **271 backend tests and 432 frontend tests passing, and nothing skipped.** MRs !1 through
-!59.
+At that point `main` carried **271 backend tests and 432 frontend tests**, none skipped, across MRs
+!1 through !59. (Those two numbers describe `v0.1.0`, not today — the current green state is in the
+status section at the top of this file and beside the commands near the bottom.)
 
 **The immediate next action is finishing `002-pixel-arcade-skin`** — T046 (this sweep) then T047
 (retro + tag), both described above. **After that**, the substantive action is the map iteration,
@@ -186,6 +231,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `.specify/` | Installed, v0.14.4.dev0. Constitution ratified at **v1.0.0** — 7 principles. `feature.json` points at `specs/001-content-calendar`. |
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**77 tasks, 8 phases; T001–T070 plus T073, T075 and T077 ticked — Phases 3–7 all closed with their checkpoints. T077 was *added* at the Phase 7 checkpoint**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
 | `specs/002-pixel-arcade-skin/` | **All 53 tasks done (T001–T053), on `main`** via MR !63, tagged `v0.2.0`. `spec.md` (34 FR, 15 SC, 4 stories), `plan.md`, `research.md` (R-001…R-009), `data-model.md`, `contracts/openapi.yaml` (`GET`/`PATCH /preferences`), `quickstart.md` (V1…V11), `tasks.md`. Full detail — including a further "comic-tech" visual refinement sub-phase (T048–T053) done inside this same iteration's Phase 7 — is in the status section at the top of this file; the rest of this table below still describes the presentation layer as it stood **before** this branch merged, since rewriting every row for the re-skin is the next iteration's job, not a retrofit. |
+| `specs/003-travel-map/` | **All 62 tasks done (T001–T062), on `main`**, tagged `v0.3.0`. `spec.md` (28 FR, 6 SC, 5 stories, 5 clarifications), `plan.md`, `research.md` (R-001…R-004), `data-model.md` (3 tables, INV-1…INV-3), `contracts/openapi.yaml` (14 operations across `/trips`, `/destinations`, `/locations/search` and the per-destination photograph routes), `quickstart.md` (V1…V9), `tasks.md`, `checklists/requirements.md` (16/16). Two `/speckit-analyze` passes **before** implementation took the task count 57 → 60 → 62 as full renumbers (nothing was built yet, so no issue references could drift). The Final Phase's own three gates found six more — recorded under T056 (the hand-walk, including the R2 gap), T057 (`/speckit-analyze`) and T058 (`reviewer`) in `tasks.md`. **The one thing this row must not be read as claiming: photograph upload is not verified end to end** — see the status section at the top. |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |
@@ -275,20 +321,25 @@ and neither is duplicated here.
    `stuck_pending_no_matching_runners` is a *misleading* symptom of the quota, not a runner problem.
    Note also that a healthy runner's `contacted_at` is routinely ~30–55 minutes stale, because GitLab
    throttles that write; the live process is the evidence, not the timestamp.
-3. **Feature 001 and `002-pixel-arcade-skin` are both finished and closed, `v0.2.0` tagged. The open
-   work now is the map iteration, renumbered `003`.**
+3. **All three iterations are finished and closed — `001`, `002-pixel-arcade-skin` and
+   `003-travel-map` — tagged `v0.1.0`, `v0.2.0` and `v0.3.0`. There is no open iteration.**
 
-   - **Next, in order**: amend the constitution for the route/budget permissions the "Victor Tracker"
-     input spec needs (`.claude/memory.md` Deferred), spike MapLibre under headless Playwright at
-     375px, and run the `new-feature` skill to drive stages 1–3 for iteration `003`. The spike comes
-     first, because WebGL in headless Chromium is the one thing about this module nobody here has
-     verified, and the whole test strategy depends on the answer.
-   - **Do not extend `001-content-calendar` or `002-pixel-arcade-skin`**, and do not retarget
-     `content_item` to trips — the constitution names that a separate iteration. Content Calendar
-     keeps its behaviour and moves behind the navigation drawer (built at `002-pixel-arcade-skin`'s
-     T029).
-   - **Still owed from 001: rotate `SEED_CREATOR_PASSWORD`** (details at the end of this list). It
-     survived the pivot because it is a credential chore, not a feature.
+   - **There is no "next task" to pick up.** The next substantive action is the owner choosing a
+     subject for `004`, and `.claude/memory.md`'s Deferred section ends with a ranked shortlist for
+     exactly that moment — Travel Log and the full-screen photo viewer first, because neither needs
+     a new column. **It is a ranking, not a plan**: nothing on it is scheduled, and nothing gets
+     built until it has its own `spec.md` (non-negotiable 3). Use the `new-feature` skill when one
+     is chosen; do not extend `001`, `002` or `003`.
+   - **Two chores survive the iteration, and neither is a feature.** **Provision Cloudflare R2** and
+     re-run V6 (`frontend/scripts/t056-walk.mjs`) — photograph upload has never touched real object
+     storage, and it is recorded as a known gap against `v0.3.0` rather than pretended away. And
+     **rotate `SEED_CREATOR_PASSWORD`** (details at the end of this list), still owed from 001.
+   - **Do not retarget `content_item` to trips** — the constitution names that a separate iteration
+     with its own `spec.md`. Content Calendar keeps its behaviour behind the navigation drawer.
+   - **Do not build Route, Budget/cost fields, Category/Priority, or an Activity/Calendar surface**,
+     and do not add automatic location capture, a public or shared map view, share-on-social, or a
+     social feed panel. The first group is deferred with a trigger condition each; the second is
+     forbidden outright. Both lists, with reasons, are in `.claude/memory.md`'s Deferred section.
 
    What 001 finished with, kept because the reasoning is still load-bearing:
 
@@ -346,7 +397,7 @@ docker compose up -d backend                # serves /health; first start ~70s w
 ```
 
 Per-tree commands live with their rules, so they cannot drift from them: **`backend/AGENTS.md`** and
-**`frontend/AGENTS.md`**. Current green state is **271 backend tests and 432 frontend tests, none
+**`frontend/AGENTS.md`**. Current green state is **413 backend tests and 572 frontend tests, none
 skipped**, with `pnpm typecheck` and `pnpm lint` both silent. (`pnpm typecheck` reads generated route
 types out of `.next/`, so it goes red straight after a branch switch — `rm -rf .next` and re-run.)
 
@@ -367,8 +418,18 @@ change every one of those fields, drag it onto a day or back to the backlog, fil
 record where it was published and open the live post, delete it behind a three-tap confirmation, and
 sign out.**
 
-What is *not* real yet: **the deployed environment has not been walked by hand** (T072), and
-`docker compose up frontend` has still never been run.
+**Real now, and added by `003-travel-map`: `/map`.** A MapLibre world map on CARTO's dark-matter
+basemap, one status-distinguishable pin per Destination (shield silhouette, outline→half→solid — not
+colour alone), the Currently-Traveling overlay computed from today's date, the Destination sheet with
+its note, photo gallery and free-direction status control, `TripPanel`, `LocationSearch` against real
+Nominatim, `QuickAdd`, `StatusFilter`, and the inset `MapShell` + `DestinationStrip` layout.
+
+What is *not* real yet: **photograph upload has never run against real object storage** — no R2
+bucket is provisioned, so FR-023–FR-025 are stubbed everywhere and quickstart V6 has never been
+walked (see the status section at the top). **`003`'s surfaces have not been walked against the
+*deployed* environment either** — T056 walked them against a local production build with the real
+backend, real CARTO tiles and real Nominatim, which is stronger than the suite and weaker than
+`001`'s T072. And `docker compose up frontend` has still never been run.
 
 **Live URLs**: frontend `https://creator-hub-hazel.vercel.app`, backend
 `https://creator-hub-1dgs.onrender.com`. Render appends a **random suffix** to service hostnames —
@@ -386,9 +447,15 @@ A **personal travel memory map** for one person. A world map carrying two kinds 
 visited and places wanted — where tapping a visited pin opens the photographs, notes and experiences
 kept against it. Still named Victor Tracker for infrastructure reasons; see the status section.
 
-**v0.2 ships the Travel Map only.** Its one capability, in the sense constitution III means, is the
-map itself. Content Calendar rides along from v0.1 as a secondary scheduling surface behind the
-navigation drawer, unchanged.
+**The Travel Map shipped at `v0.3.0`** (2026-08-17, iteration `003-travel-map`). Its one capability,
+in the sense constitution III means, is the map itself — Trip and Destination CRUD exist to put
+things on it, the same relationship `001`'s CRUD has to its status-pipeline view. Content Calendar
+rides along from v0.1 as a secondary scheduling surface behind the navigation drawer, unchanged.
+
+(The version numbering: the constitution's 2.0.0 Scope Constraints section committed "v0.2" to the
+map, then `002-pixel-arcade-skin` was inserted ahead of it and took that tag, so the map landed one
+release later than the constitution's wording predicts. The ordering was deliberate — the map gets
+drawn once, in the final visual language — and nothing about the scope changed with the number.)
 
 **The failure mode this project is structured to avoid has not changed, only its shape.** At v0.1 it
 was building four creator modules at once. Here it is the adjacent travel feature that is always one

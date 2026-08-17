@@ -35,6 +35,30 @@ def get_or_404(session: SessionDep, destination_id: int) -> Destination:
     return destination
 
 
+def require_trip_or_422(session: SessionDep, trip_id: int | None) -> None:
+    """Refuse a body whose `trip_id` names no Trip, before the insert reaches the foreign key.
+
+    **Found by the Final Phase `reviewer` pass (T058, 2026-08-17), and it was reachable rather
+    than theoretical.** Without this, the `ON DELETE CASCADE` foreign key raises `IntegrityError`
+    at `commit()`, nothing in `app/main.py` handles it, and Starlette answers
+    `500 text/plain "Internal Server Error"` — which breaks the uniform `{"detail": "<string>"}`
+    body `main.py`'s own docstring names as the reason its `RequestValidationError` handler exists.
+    `QuickAdd` and `TripPanel` both send a `trip_id` taken from a Trip list loaded earlier in the
+    session, so deleting a Trip on one device with a stale add-flow open on another reproduces it.
+
+    **422, not 404, and no contract amendment was needed for it.** `trip_id` arrives in the
+    *body*, so this is a request that failed validation — the 422 both `createDestination` and
+    `updateDestination` already declare — rather than the 404 the contract reserves for an
+    id-addressed row in the *path* (`get_or_404`). Stated in `contracts/openapi.yaml` as well as
+    here, because `001`'s Phase 7 finding was a contract *silence* rather than a wrong sentence,
+    and a silence is the one thing grepping a claim cannot find.
+    """
+    if trip_id is None:
+        return
+    if session.get(Trip, trip_id) is None:
+        raise HTTPException(status_code=422, detail="No such trip.")
+
+
 def _outside_trip_range(destination: Destination, trip: Trip | None) -> bool:
     """FR-017: flagged, never rejected. Applies only when both ranges are present —
     `trip.start_date`/`end_date` are `NOT NULL` (data-model.md), so the only nullable side is
@@ -198,6 +222,7 @@ def create_destination(
     **FR-017**'s containment flag is computed here too: a `trip_id` that survived the insert's
     foreign key names a real Trip, so fetching it after `commit()` is guaranteed to find one.
     """
+    require_trip_or_422(session, body.trip_id)
     destination = Destination(**body.model_dump())
     session.add(destination)
     session.commit()
@@ -237,6 +262,11 @@ def update_destination(
     """
     destination = get_or_404(session, destination_id)
     updates = body.model_dump(exclude_unset=True)
+
+    # Only when the caller actually sent `trip_id`: an omitted key means "leave it" and an
+    # explicit `null` is FR-020's detach path, neither of which names a Trip to check.
+    if "trip_id" in updates:
+        require_trip_or_422(session, updates["trip_id"])
 
     for field, value in updates.items():
         setattr(destination, field, value)

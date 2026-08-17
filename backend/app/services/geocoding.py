@@ -26,7 +26,8 @@ TIMEOUT_SECONDS = 5.0
 
 
 class GeocodingError(Exception):
-    """Raised when Nominatim cannot be reached, times out, or answers with an error status.
+    """Raised when Nominatim cannot be reached, times out, answers with an error status, or
+    answers with a body this module cannot read.
 
     FR-012's "search failed, retry" — the 502 `searchLocations` declares in
     `contracts/openapi.yaml` — is this exception reaching `app/api/locations.py`. Kept separate
@@ -54,12 +55,24 @@ def search(query: str) -> list[LocationCandidate]:
     except httpx.HTTPError as exc:
         raise GeocodingError(f"Nominatim request failed: {exc}") from exc
 
-    return [
-        LocationCandidate(
-            name=result["display_name"].split(",", 1)[0].strip(),
-            address=result["display_name"],
-            latitude=float(result["lat"]),
-            longitude=float(result["lon"]),
-        )
-        for result in response.json()
-    ]
+    # A response that arrived but cannot be read is still a failed search, not an empty one.
+    #
+    # Raised as `GeocodingError` so it becomes the contract's **502** — "the search itself failed,
+    # retry" — rather than escaping as an unhandled 500 with a `text/plain` body, which is what a
+    # missing key or a non-numeric coordinate did before the Final Phase `reviewer` pass flagged
+    # the shape (T058, 2026-08-17). Returning `[]` would be the worse repair of the two: FR-012
+    # turns on the owner being able to tell "no matches" from "the search broke", and a silent
+    # empty list collapses exactly that distinction.
+    try:
+        results = response.json()
+        return [
+            LocationCandidate(
+                name=result["display_name"].split(",", 1)[0].strip(),
+                address=result["display_name"],
+                latitude=float(result["lat"]),
+                longitude=float(result["lon"]),
+            )
+            for result in results
+        ]
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise GeocodingError(f"Nominatim returned an unreadable response: {exc!r}") from exc

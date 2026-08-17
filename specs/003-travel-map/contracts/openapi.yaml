@@ -156,22 +156,43 @@ paths:
       summary: List Destinations, optionally narrowed
       operationId: listDestinations
       description: |
-        FR-001, FR-010, FR-019. With no query parameters, returns every Destination regardless of
-        Trip membership — this is the map's own read, and every Destination renders on it (FR-001,
+        FR-001, FR-019. With no query parameters, returns every Destination regardless of Trip
+        membership — this is the map's own read, and every Destination renders on it (FR-001,
         FR-019) whether or not it has a Trip.
+
+        **Every parameter below narrows what the *server* returns, and the map deliberately sends
+        none of them.** Amended at the Final Phase checkpoint (T057, 2026-08-17), because the
+        `status` parameter was described as "FR-010's map filter" and that is not how FR-010 is
+        realised: `tasks.md` T053 requires the map's status filter to narrow the **already-loaded**
+        list client-side and never re-issue this call per filter change — `001`'s research.md R-007
+        rule, applied here for the same reason (a filter toggle must not cost a round trip on a
+        stack whose cold path is measured in tens of seconds, `.claude/memory.md`). A future agent
+        reading the old wording would have been *right* to wire a request behind every filter tap.
+
+        Stated in the general form, so this does not have to be re-derived for a parameter that does
+        not exist yet: **the map issues exactly one unparameterised read and every map surface
+        narrows that one loaded state.** These parameters exist for callers that genuinely want the
+        server to narrow — `trip_id` has one (the Trip organising view, User Story 3); `status` has
+        none in this iteration and is kept because the contract declares the resource, not the
+        callers this iteration happened to build.
       parameters:
         - name: trip_id
           in: query
           required: false
           schema:
             type: integer
-          description: Narrow to one Trip's Destinations (the organising view, User Story 3).
+          description: |
+            Narrow to one Trip's Destinations. Used by the Trip organising view (User Story 3,
+            `TripPanel`) — the one caller that wants server-side narrowing.
         - name: status
           in: query
           required: false
           schema:
             $ref: "#/components/schemas/DestinationStatus"
-          description: FR-010's map filter.
+          description: |
+            Narrow to one stored status. **No surface in this iteration sends this** — see the
+            operation description above. FR-010's filter is client-side (T053); this parameter is
+            not its realisation.
       responses:
         "200":
           description: Matching Destinations
@@ -194,6 +215,19 @@ paths:
         reached **after** `GET /locations/search` has already resolved a name to coordinates
         (FR-011); it does not itself geocode a free-text name. `start_date`/`end_date` are optional
         (data-model.md's note on why, against §12's own listing).
+
+        **A `trip_id` naming no Trip is a `422`, not a `404`** — added at the Final Phase
+        checkpoint (T058, 2026-08-17), where the `reviewer` pass found it was previously an
+        unhandled `IntegrityError` surfacing as `500 text/plain "Internal Server Error"`, breaking
+        the uniform `{"detail": "<string>"}` body every other error on this API carries. It is
+        reachable rather than theoretical: the quick-add and Trip-organising surfaces both send a
+        `trip_id` from a Trip list loaded earlier in the session, so a Trip deleted on one device
+        with a stale flow open on another produces exactly this body.
+
+        **422 rather than 404 because `trip_id` arrives in the body**, which makes it a request
+        that failed validation; the `404` this contract declares elsewhere is for an id-addressed
+        row in the *path*. Written down rather than left to the response list, because `001`'s
+        Phase 7 finding was a contract *silence* — the one defect grepping a claim cannot find.
       requestBody:
         required: true
         content:
@@ -252,6 +286,10 @@ paths:
         change is a new search via `GET /locations/search` followed by sending new
         `latitude`/`longitude` here explicitly, so a coordinate never changes as a side effect of a
         typo fix.
+
+        **A `trip_id` naming no Trip is a `422`**, same rule and same reasoning as
+        `createDestination` above. An explicit `trip_id: null` is FR-020's detach path and stays a
+        `200` — it names no Trip to check, which is a different thing from naming one that is gone.
       requestBody:
         required: true
         content:
@@ -325,7 +363,18 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
         "502":
-          description: Nominatim was unreachable or timed out. The frontend surfaces this as FR-012's "search failed, retry" — never as an empty result set, which would read as "no matches" rather than "the search itself failed."
+          description: |
+            Nominatim was unreachable, timed out, answered with an error status, **or answered with
+            a body this backend could not read**. The frontend surfaces all of these as FR-012's
+            "search failed, retry" — never as an empty result set, which would read as "no matches"
+            rather than "the search itself failed."
+
+            The last clause was added at the Final Phase checkpoint (T058, 2026-08-17). A malformed
+            or unexpected Nominatim body previously escaped the geocoding client as an unhandled
+            `KeyError`/`ValueError` and became a 500, which is neither of the two answers FR-012
+            asks this endpoint to distinguish. Returning `[]` would have been the worse repair:
+            "no matches" and "the search broke" are precisely what the owner must be able to tell
+            apart, and an empty list collapses them.
           content:
             application/json:
               schema:

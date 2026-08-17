@@ -145,6 +145,41 @@ frontend/
     └── client/map.spec.ts            # NEW — currently-traveling computation, pure function tests
 ```
 
+### What actually shipped, and where this section was wrong (T057, 2026-08-17)
+
+The tree above is the **plan**, kept as written because that is what it is. The Final Phase's
+`/speckit-analyze` found three places where it had drifted from what got built, and correcting it
+here rather than rewriting it above keeps the prediction and the outcome both readable:
+
+- **`components/map/` holds nine components, not five.** The four this section never named are
+  `LocationSearch.tsx` and `StatusFilter.tsx` (both planned as tasks — T041, T052 — just not listed
+  here), plus `MapShell.tsx` and `DestinationStrip.tsx`, which came from the 2026-08-15 layout
+  decision recorded in `.claude/memory.md` (the reference product's map is *inset*, with a band of
+  real content beneath it, and that shape is what makes it read as an instrument).
+- **`tests/e2e/network-disclosure.spec.ts` is missing from the list.** It was added by Pass 1 of the
+  Stage-1 `/speckit-analyze` — SC-006 had a manual quickstart step (V9) and no automated test — and
+  the amendment reached `tasks.md` (T048) without reaching this section. **The project's own
+  recurring lesson, landing on `plan.md` this time**: an amendment applied to one artifact is not
+  applied.
+- **The quickstart-scenario attributions are wrong.** As built: `map.spec.ts` covers **V1** and
+  **V8** (plus the Currently-Traveling overlay), `photo-upload.spec.ts` covers **V2** and **V6**,
+  `trip-organise.spec.ts` covers **V3** and **V4**, `quick-add.spec.ts` covers **V5**, and
+  `network-disclosure.spec.ts` covers **V9**.
+
+**The third correction exposed a real coverage gap rather than only a bookkeeping error, and it is
+recorded rather than closed.** This section claimed `map.spec.ts` covered **V7** — "status changes
+freely, in any direction". It does not. It covers the *computed overlay* half (a Planned pin whose
+range contains today draws the Currently Traveling treatment, FR-002/R-004); it never touches the
+*transition* half. **FR-028 — the one requirement in this spec with its own Clarification session
+behind it — has no automated frontend coverage at all**: the status radio group in
+`DestinationSheet.tsx` (`destination-status-option-*`) is not clicked by any test in any Playwright
+project. Its evidence is `backend/tests/test_destinations.py` at the API layer (T033) and T056's
+hand-walk of V7, and that is the whole of it.
+
+Left as a known gap on the owner's explicit decision (2026-08-17), not closed, and written here as
+well as in `docs/retro-03.md` so it stays visible to whoever adds the next map surface. Closing it
+is one e2e test driving the control the walk already drives by hand.
+
 **Structure Decision**: the existing two-tree web application layout is kept unchanged, matching `001`
 and `002`. `frontend/components/map/` is a new sibling to `components/calendar/` and
 `components/arcade/` — not nested inside either, since it belongs to neither the content pipeline nor

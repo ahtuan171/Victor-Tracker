@@ -82,9 +82,20 @@ either range is absent — there is nothing to compare.
 
 **Indexes**
 
-- `ix_destination_trip_id` on `trip_id` — "this Trip's Destinations" is the query User Story 3 needs.
-- `ix_destination_status` on `status` — the map's status filter (FR-010) is a `WHERE status = …` on
-  every read.
+- `ix_destination_trip_id` on `trip_id` — "this Trip's Destinations" is the query User Story 3 needs,
+  and `TripPanel` really does issue it (`GET /destinations?trip_id=…`).
+- `ix_destination_status` on `status` — **speculative as built, and kept knowingly.** This line
+  originally read "the map's status filter (FR-010) is a `WHERE status = …` on every read", which is
+  false about what shipped: T053 realises FR-010 by narrowing the one already-loaded list
+  client-side, so no query this product issues has a `WHERE status = …` in it at all. Corrected at
+  the Final Phase checkpoint (T057, 2026-08-17).
+
+  Kept rather than dropped in a migration, for one reason worth stating rather than assuming: the
+  index costs a single-owner database with a personal number of rows essentially nothing, and
+  removing it would be a second migration whose only benefit is tidiness. **But it is not evidence
+  that the filter is a server-side query** — this row said it was, and that is exactly the shape of
+  drift this project keeps finding: a true-sounding justification that a later reader consults about
+  a decision it was never actually describing.
 
 **Columns deliberately absent**
 
@@ -182,7 +193,7 @@ data-model.md, State transitions).
 | FR-006 | `destination.note` |
 | FR-007, FR-008 | `photograph.object_key`, resolved to a presigned GET URL per read (FR-024) |
 | FR-009 | Frontend gate on `status`; INV-3 |
-| FR-010 | `ix_destination_status`; `status` query parameter on the list endpoint |
+| FR-010 | **Client-side narrowing of the one loaded Destination list** (`tasks.md` T053, `frontend/lib/map.ts`) — *not* the `status` query parameter, and *not* `ix_destination_status`. Corrected at T057; see the note below the index list. |
 | FR-011, FR-012 | `latitude`/`longitude` `NOT NULL`; INV-1; geocoding failure returns no row (research.md R-001) |
 | FR-013 | Geocoding and tile requests carry no `destination`/`trip` field — research.md R-001 |
 | FR-014 | `trip` table |
