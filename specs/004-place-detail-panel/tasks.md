@@ -231,14 +231,25 @@ its range, this place's own dates, and the sibling place.
       **Implementation note**: mechanical — `MapShell` now holds `tripsStore = useTrips()` and passes
       its four fields straight through. Verified with the full `trip-organise` + `map` suite (20
       tests) with no regressions.
-- [ ] T017 [US4] Add the pure `PlannedPlaceContext` composition to `frontend/lib/map.ts` (R-003): a
+- [x] T017 [US4] Add the pure `PlannedPlaceContext` composition to `frontend/lib/map.ts` (R-003): a
       function taking `(destination: DestinationDetail, allDestinations: readonly Destination[],
       allTrips: readonly Trip[])` and returning `data-model.md`'s `PlannedPlaceContext` — the matching
       Trip or `null`, sibling places sharing `trip_id`, and the already-present
       `outside_trip_range`/currently-traveling flags passed through unchanged
-- [ ] T018 [P] [US4] `frontend/tests/client/map.spec.ts` (extend) — T017's composition against plain
+      **Implementation note**: the signature also takes a fourth parameter, `today: DateOnly | null`
+      — `data-model.md` says `currentlyTraveling` is "`isCurrentlyTraveling()`, as-is", and that
+      function requires `today` for the same reason every other caller of it does (`dates.today()`
+      throws outside the browser). Not a deviation from the contract, a parameter the task line's
+      prose omitted while the referenced function still needs it.
+- [x] T018 [P] [US4] `frontend/tests/client/map.spec.ts` (extend) — T017's composition against plain
       arrays: a Trip found, siblings correctly excluding the place itself, a missing/deleted Trip
       treated the same as no `trip_id` (depends on T017)
+      **Implementation note**: six tests — the three named in this line, plus `outsideTripRange`
+      passing through, `currentlyTraveling` matching `isCurrentlyTraveling` exactly (asserted against
+      the real function, not a duplicated expectation), and a no-mutation guard matching this file's
+      existing style for the other pure functions. Bundled into T017's own MR: a task whose entire
+      subject is proving the previous one, same exception this project already uses elsewhere.
+      36/36 `client` project tests passing, no regressions in the other five `describe` blocks.
 - [ ] T019 [US4] Add `frontend/components/map/PlannedPanel.tsx` — own dates, Trip name/range, the
       outside-range message (FR-012), the currently-traveling message reusing `isCurrentlyTraveling`
       (FR-013), and the sibling-places list (FR-011) (depends on T017)
