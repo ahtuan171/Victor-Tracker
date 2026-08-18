@@ -12,13 +12,17 @@ import { cn } from "@/lib/utils";
  * detail — nothing here saves, edits, or fetches anything, so a mis-tap on a crowded map costs a
  * glance rather than a screen (spec.md's own framing).
  *
- * ## Occupies `QuickAdd`'s own floating slot, not a new one
+ * ## A card, not a bar — `MapView.tsx` hosts it in a `maplibregl.Popup` anchored to the pin
  *
- * `MapShell.tsx` shows this **instead of** `QuickAdd` whenever a place is being confirmed, reusing
- * the exact `absolute inset-x-3 bottom-2` position `QuickAdd.tsx` already anchors to over the map's
- * lower edge. The two are mutually exclusive by construction — confirming an existing place and
- * marking a new one are different modes, there is no 375px room for both floating panels at once,
- * and reusing the slot means no new layout math and nothing new that could collide with it.
+ * **Redesigned (004, T009 follow-up)** from the original full-width bar anchored to the map's own
+ * lower edge (which briefly shared `QuickAdd.tsx`'s floating slot) into a compact card that floats
+ * directly over the selected pin, per the owner's own reference images: "which place is this"
+ * should read at the place itself, not at the bottom of the screen. `MapView.tsx` owns the popup's
+ * lifecycle and position — this component only renders its content, so it carries no positioning
+ * classes of its own (`w-64` bounds its width; everything else is intrinsic).
+ *
+ * `QuickAdd` is no longer suppressed while a place is being confirmed — the two no longer compete
+ * for the same screen region now that this card floats at the pin instead of the map's edge.
  *
  * ## Dismissing changes nothing (FR-008)
  *
@@ -39,10 +43,10 @@ export function PlaceConfirm({
 
   return (
     <div
-      className="border-hairline notch-card bg-surface-0/95 absolute inset-x-3 bottom-2 z-10 flex items-center gap-2 border p-2 shadow-e1"
+      className="border-hairline notch-card bg-surface-0/95 flex w-64 flex-col gap-2 border p-3 shadow-e1"
       data-testid="place-confirm"
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <p className="text-ink truncate text-sm font-semibold" data-testid="place-confirm-name">
           {destination.name}
         </p>
@@ -57,23 +61,25 @@ export function PlaceConfirm({
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="border-hairline text-ink-mid focus-ring h-11 shrink-0 rounded-sm border px-3 text-[11px] font-semibold tracking-[0.08em] uppercase"
-        data-testid="place-confirm-dismiss"
-      >
-        Dismiss
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="border-hairline text-ink-mid focus-ring h-11 flex-1 rounded-sm border text-[11px] font-semibold tracking-[0.08em] uppercase"
+          data-testid="place-confirm-dismiss"
+        >
+          Dismiss
+        </button>
 
-      <button
-        type="button"
-        onClick={onOpen}
-        className="bg-brand font-display focus-ring-inset h-11 shrink-0 rounded-sm px-4 text-[11px] font-semibold tracking-[0.08em] text-white uppercase shadow-e1"
-        data-testid="place-confirm-open"
-      >
-        Open
-      </button>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="bg-brand font-display focus-ring-inset h-11 flex-1 rounded-sm text-[11px] font-semibold tracking-[0.08em] text-white uppercase shadow-e1"
+          data-testid="place-confirm-open"
+        >
+          Open
+        </button>
+      </div>
     </div>
   );
 }

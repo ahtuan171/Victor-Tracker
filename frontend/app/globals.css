@@ -657,6 +657,26 @@
 }
 
 /*
+ * Strip MapLibre's own popup chrome — `maplibre-gl.css` (imported by `MapView.tsx`) draws
+ * `.maplibregl-popup-content` as a white, padded, drop-shadowed box with a matching triangular
+ * tip, which is right for a generic library default and wrong doubled up against `PlaceConfirm`'s
+ * own dark card styling (004, T009 follow-up — the confirmation card moved from a fixed bottom
+ * bar into a `maplibregl.Popup` anchored at the pin). Scoped to `place-confirm-popup` (the
+ * `className` `MapView.tsx` passes to `new maplibregl.Popup(...)`) rather than every popup this
+ * product might ever add, so a future popup with a different look is not silently reset too.
+ */
+.maplibregl-popup.place-confirm-popup .maplibregl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.maplibregl-popup.place-confirm-popup .maplibregl-popup-tip {
+  display: none;
+}
+
+/*
  * Reduced motion is structural, not polish (constitution V). The export's motion language is
  * "snap and settle" — fast in, small overshoot — which is exactly the kind of movement that provokes
  * vestibular symptoms, so it is switched off wholesale rather than per-animation.

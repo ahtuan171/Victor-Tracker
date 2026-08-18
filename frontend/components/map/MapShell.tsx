@@ -11,7 +11,6 @@ import { selectByStatus } from "@/lib/map";
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
 import { MapView } from "./MapView";
-import { PlaceConfirm } from "./PlaceConfirm";
 import { QuickAdd } from "./QuickAdd";
 import { StatusFilter } from "./StatusFilter";
 import { TripPanel } from "./TripPanel";
@@ -90,6 +89,14 @@ export function MapShell() {
   const confirmingDestination =
     confirmingId === null ? null : (destinations.find((d) => d.id === confirmingId) ?? null);
 
+  /** `PlaceConfirm`'s "Open" action (004, T009 follow-up): closes the confirmation card and opens
+   * the full detail on the same place. */
+  function openConfirmedDestination(): void {
+    if (confirmingDestination === null) return;
+    setConfirmingId(null);
+    setOpenDestinationId(confirmingDestination.id);
+  }
+
   return (
     <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
       <header className="border-hairline web-grain flex items-center justify-between gap-3 border-b px-4 pt-5 pb-3">
@@ -145,27 +152,19 @@ export function MapShell() {
             today={today}
             selectedId={selectedId}
             onSelectDestination={selectDestination}
+            confirmingDestination={confirmingDestination}
+            onOpenConfirmed={openConfirmedDestination}
+            onDismissConfirmation={dismissConfirmation}
           />
         </div>
 
-        {/* T049-T050, User Story 4 / T009, User Story 2. Anchored over the map's lower edge rather
-            than placed beneath it: `MapView` installs no `ResizeObserver`, so a container whose
-            height changed would leave MapLibre's canvas at its old size. Floating keeps the map's
-            own box constant whatever either flow expands to, and puts it in thumb reach.
-            `PlaceConfirm` and `QuickAdd` are mutually exclusive — confirming an existing place and
-            marking a new one are different modes, and there is no 375px room for both. */}
-        {confirmingDestination !== null ? (
-          <PlaceConfirm
-            destination={confirmingDestination}
-            onOpen={() => {
-              setConfirmingId(null);
-              setOpenDestinationId(confirmingDestination.id);
-            }}
-            onDismiss={dismissConfirmation}
-          />
-        ) : (
-          <QuickAdd onCreated={reload} />
-        )}
+        {/* T049-T050, User Story 4. Anchored over the map's lower edge: `MapView` installs no
+            `ResizeObserver`, so a container whose height changed would leave MapLibre's canvas at
+            its old size. Floating keeps the map's own box constant, and puts it in thumb reach.
+            No longer suppressed while a place is being confirmed (004, T009 follow-up) —
+            `PlaceConfirm` moved into `MapView`'s own popup, anchored at the pin instead of this
+            edge, so the two no longer compete for the same region. */}
+        <QuickAdd onCreated={reload} />
       </main>
 
       {/* T052: below the map and above the strip — the bottom portion of a 375x667 screen, which

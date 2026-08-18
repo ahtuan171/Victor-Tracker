@@ -130,6 +130,20 @@ detail opening, and confirm dismissing returns to the map with nothing else havi
       third-party map product's screenshot) was used only for this interaction-pattern description
       — zoom closer, callout, panel-after-tap — never as a visual/asset source (standing
       Spider-Man-IP exclusion, `.claude/memory.md`).
+      **Further owner-directed follow-up, same day, against two more reference images ("image 1"
+      and "image 2")**: `MINIMUM_SELECTION_ZOOM` raised **14 → 16** (a street-level view, closer
+      than the neighbourhood-level first guess); `PlaceConfirm` moved from a fixed full-width bar
+      anchored to the map's own lower edge into a `maplibregl.Popup` anchored to the confirming
+      Destination's own coordinate, so it floats directly over the selected pin instead — MapLibre
+      repositions a `Popup` on pan/zoom by itself, matching how pins are already plain
+      `maplibregl.Marker` instances rather than anything hand-projected. `QuickAdd` is no longer
+      suppressed while a place is being confirmed, since the two no longer compete for the map's
+      lower edge. FR-006–FR-008's guarantees, every `place-confirm*` testid, and `resolveOverlap`
+      itself are all unchanged — this is a presentation change, not a behaviour change. See
+      `MapView.tsx`'s and `PlaceConfirm.tsx`'s own docstrings for the detail. Same standing
+      Spider-Man-IP exclusion held again: the owner's reference images described zoom level and
+      the "floats at the pin, one action, panel only after tapping it" mechanic only, never a
+      visual/asset source.
 - [ ] T010 [US2] Update `frontend/components/map/DestinationStrip.tsx`'s tap handler to set
       `selectedId` and move the camera (T004) but open `openDestinationId` directly, skipping
       `confirmingId` — R-001's documented asymmetry: a strip card is already unambiguous, so the
