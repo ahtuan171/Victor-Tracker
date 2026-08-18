@@ -206,6 +206,8 @@ export function MapShell() {
       <DestinationSheet
         destinationId={openDestinationId}
         today={today}
+        allDestinations={destinations}
+        trips={tripsStore.trips}
         onOpenChange={(open) => {
           if (!open) setOpenDestinationId(null);
         }}

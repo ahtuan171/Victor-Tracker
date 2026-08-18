@@ -21,12 +21,14 @@ import {
   type Destination,
   type DestinationDetail,
   type DestinationStatus,
+  type Trip,
 } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
 import { isCurrentlyTraveling, pinTreatment } from "@/lib/map";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
+import { PlannedPanel } from "./PlannedPanel";
 import { VisitedPanel } from "./VisitedPanel";
 
 /**
@@ -43,11 +45,12 @@ import { VisitedPanel } from "./VisitedPanel";
  * Deliberate, and easy to get backwards: what content panel renders is a fact about the
  * Destination as it actually is, not a live preview of what the status control is being dragged
  * toward mid-edit. `VisitedPanel` (T013) is `detail.status === "visited"`'s content; `PlannedPanel`
- * (`004` US4) and `WishlistPanel` (`004` US5) are the other two statuses' own content, added in
- * their own phases. **Until all three exist, every non-Visited status keeps today's bare
- * editable-fields form as an explicit, temporary fallback** — there is deliberately no Planned or
- * Wishlist content section yet. What the *editing form itself* asks for as the status control
- * changes (US6, T026) is a separate branch, on `draft.status`, and belongs to a later phase.
+ * (T019–T021) is Planned's own — its own dates, the Trip it belongs to (or an offer to attach
+ * one), and the sibling places in that Trip. `WishlistPanel` (`004` US5) is the remaining status's
+ * content, not yet built — **a Wishlist place keeps today's bare editable-fields form as an
+ * explicit, temporary fallback** until it lands. What the *editing form itself* asks for as the
+ * status control changes (US6, T026) is a separate branch, on `draft.status`, and belongs to a
+ * later phase.
  *
  * ## Opens on an id, fetches its own detail
  *
@@ -67,6 +70,8 @@ import { VisitedPanel } from "./VisitedPanel";
 export function DestinationSheet({
   destinationId,
   today,
+  allDestinations,
+  trips,
   onOpenChange,
   onUpdated,
   onDeleted,
@@ -74,6 +79,13 @@ export function DestinationSheet({
   /** The Destination to open, or null when the sheet is closed. */
   readonly destinationId: number | null;
   readonly today: DateOnly | null;
+  /** `MapShell`'s already-loaded Destination list (004, T021) — `PlannedPanel` needs it for
+   * `plannedPlaceContext`'s sibling-places composition (T017); this sheet fetches only its own
+   * `DestinationDetail` and has no list of its own. */
+  readonly allDestinations: readonly Destination[];
+  /** `MapShell`'s already-loaded Trip list (004, T016/T021) — same reasoning, for the matching
+   * Trip and the "attach a Trip" picker (T020). */
+  readonly trips: readonly Trip[];
   readonly onOpenChange: (open: boolean) => void;
   /** Called after a successful field/status save, so `MapView`'s list stays in sync. */
   readonly onUpdated: (destination: Destination) => void;
@@ -351,11 +363,21 @@ export function DestinationSheet({
             </button>
 
             {/* FR-009: content below this point is determined by the Destination's own *saved*
-                status, not the draft being edited above — see the module docstring for why. Every
-                status but Visited keeps no content section yet (`PlannedPanel`/`WishlistPanel` are
-                later `004` phases), which is this shell's explicit, temporary fallback. */}
+                status, not the draft being edited above — see the module docstring for why. A
+                Wishlist place keeps no content section yet (`WishlistPanel` is a later `004`
+                phase), which is this shell's explicit, temporary fallback for that one status. */}
             {detail.status === "visited" ? (
               <VisitedPanel key={detail.id} detail={detail} setDetail={setDetail} onUpdated={onUpdated} />
+            ) : detail.status === "planned" ? (
+              <PlannedPanel
+                key={detail.id}
+                detail={detail}
+                allDestinations={allDestinations}
+                trips={trips}
+                today={today}
+                setDetail={setDetail}
+                onUpdated={onUpdated}
+              />
             ) : null}
           </div>
         )}

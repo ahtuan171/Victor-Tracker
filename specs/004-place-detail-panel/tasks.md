@@ -250,20 +250,33 @@ its range, this place's own dates, and the sibling place.
       existing style for the other pure functions. Bundled into T017's own MR: a task whose entire
       subject is proving the previous one, same exception this project already uses elsewhere.
       36/36 `client` project tests passing, no regressions in the other five `describe` blocks.
-- [ ] T019 [US4] Add `frontend/components/map/PlannedPanel.tsx` — own dates, Trip name/range, the
+- [x] T019 [US4] Add `frontend/components/map/PlannedPanel.tsx` — own dates, Trip name/range, the
       outside-range message (FR-012), the currently-traveling message reusing `isCurrentlyTraveling`
       (FR-013), and the sibling-places list (FR-011) (depends on T017)
-- [ ] T020 [US4] Add the "offer to attach a Trip" UI in `PlannedPanel.tsx` for a Planned place with no
+- [x] T020 [US4] Add the "offer to attach a Trip" UI in `PlannedPanel.tsx` for a Planned place with no
       Trip: a picker sourced from the `trips` prop (T016), wired to
       `updateDestination(id, { trip_id })` (FR-014, R-004 — the existing `PATCH`, no new endpoint)
       (depends on T016, T019)
-- [ ] T021 [US4] Wire `DestinationSheet.tsx`'s shell (T012) to render `PlannedPanel` for
+- [x] T021 [US4] Wire `DestinationSheet.tsx`'s shell (T012) to render `PlannedPanel` for
       `status === "planned"`, passing down `destinations` (already loaded in `MapShell`) and `trips`
       (T016) (depends on T012, T016, T020)
-- [ ] T022 [P] [US4] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V4: Trip context, the
+      **Implementation note**: T019–T021 bundled into one MR — `PlannedPanel` alone (T019) is a
+      compilable but unusable component until T021 wires it in, and T020's attach picker lives in
+      the same file, so splitting them would put an unreachable component behind two green-but-inert
+      pipelines. Same reasoning already used for T012–T014.
+- [x] T022 [P] [US4] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V4: Trip context, the
       outside-range message, the currently-traveling message, the sibling list, the attach-a-Trip flow
       actually attaching, and — FR-016 — no `destination-photo`/`destination-note-input` testid present
       on a Planned place's panel (depends on T021)
+      **Implementation note**: four tests, one per V4 scenario, bundled into T019–T021's own MR since
+      its whole subject is verifying them. The traveling-message test also asserts the *pin's* own
+      `data-traveling="true"` overlay in the same test, so it proves the panel's message actually
+      matches the pin rather than merely existing (FR-013's own wording). One real bug caught while
+      writing it: the list fixture (`GET /destinations`) needs the place's dates repeated onto it
+      separately from the `detail` fixture — the pin reads the list response, not the detail one —
+      the same trap `map.spec.ts`'s own Currently-Traveling test exists to get right. Verified 5
+      consecutive local runs, `--retries=0`, plus the full map-related suite (65 tests) with no
+      regressions.
 
 **Checkpoint**: US1–US4 — a Planned place now opens to its trip context. Wishlist places still show
 the old unconditional form.
