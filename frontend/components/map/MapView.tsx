@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type * as MapLibreGL from "maplibre-gl";
@@ -80,16 +80,7 @@ import { PlaceConfirm } from "./PlaceConfirm";
  * a button that does nothing would be the "wasted tap target" `Frame.tsx`'s own rivets already
  * avoid.
  */
-export function MapView({
-  destinations,
-  today,
-  selectedId = null,
-  onSelectDestination,
-  onOpenDestination,
-  confirmingDestination,
-  onOpenConfirmed,
-  onDismissConfirmation,
-}: {
+interface MapViewProps {
   readonly destinations: readonly Destination[];
   /** Null until the browser's clock is read (research.md R-006 addendum) — passed straight
    * through to `DestinationPin` for the "Currently Traveling" overlay. */
@@ -123,13 +114,54 @@ export function MapView({
   readonly onOpenConfirmed: () => void;
   /** `PlaceConfirm`'s dismiss action (FR-008): the confirmation closes, nothing else changes. */
   readonly onDismissConfirmation: () => void;
-}) {
+}
+
+/**
+ * Imperative escape hatch for a caller that selects a Destination **without** going through a
+ * pin's own click handler (004, T010) — `DestinationStrip`'s tap is the one case: it is a sibling
+ * of `MapView`, not a child, so it cannot reach `mapRef` any other way. `focusDestination` runs
+ * the identical camera-move `buildOnOpen` uses (`easeToDestination` below), so a strip tap and a
+ * pin tap bring the map to the same place the same way — only whether `PlaceConfirm` appears
+ * differs, and that is `MapShell`'s decision (T009 vs. T010), not this component's.
+ */
+export interface MapViewHandle {
+  focusDestination(destinationId: number): void;
+}
+
+export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
+  {
+    destinations,
+    today,
+    selectedId = null,
+    onSelectDestination,
+    onOpenDestination,
+    confirmingDestination,
+    onOpenConfirmed,
+    onDismissConfirmation,
+  },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreGL.Map | null>(null);
   const maplibreRef = useRef<typeof MapLibreGL | null>(null);
   const markersRef = useRef<Map<number, MarkerEntry>>(new Map());
   const confirmPopupRef = useRef<ConfirmPopupEntry | null>(null);
   const hasFitBoundsRef = useRef(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusDestination(destinationId: number) {
+        const map = mapRef.current;
+        if (map === null) return;
+        const placed = disambiguateCoincidentPins(destinations);
+        const target = placed.find((destination) => destination.id === destinationId);
+        if (target === undefined) return;
+        easeToDestination(map, target, placed);
+      },
+    }),
+    [destinations],
+  );
 
   /**
    * Flips once the async `import("maplibre-gl")` below has resolved and `mapRef.current` is set
@@ -337,7 +369,7 @@ export function MapView({
       ) : null}
     </div>
   );
-}
+});
 
 /** CARTO's free dark-matter basemap, no API key (`tech-defaults.md`'s "The map"). */
 const CARTO_DARK_MATTER_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -473,15 +505,30 @@ function buildOnOpen(
 
   return () => {
     if (onSelectDestination !== undefined) {
-      const resolution = resolveOverlap(destination, allDestinations, map.getZoom());
-      map.easeTo({
-        center: [destination.longitude, destination.latitude],
-        zoom: Math.max(resolution.targetZoom, MINIMUM_SELECTION_ZOOM),
-      });
+      easeToDestination(map, destination, allDestinations);
       onSelectDestination(destination);
     }
     onOpenDestination?.(destination);
   };
+}
+
+/**
+ * The camera move a selection always performs: overlap-aware zoom-in (`resolveOverlap`) floored
+ * at `MINIMUM_SELECTION_ZOOM`, centred on the Destination's own (possibly nudged-apart)
+ * coordinate. Shared between `buildOnOpen` (a pin's own tap) and `focusDestination` (`MapViewHandle`,
+ * a caller outside the map — `DestinationStrip`, 004 T010) so the two selection paths bring the
+ * map to a place the identical way.
+ */
+function easeToDestination(
+  map: MapLibreGL.Map,
+  destination: Destination,
+  allDestinations: readonly Destination[],
+): void {
+  const resolution = resolveOverlap(destination, allDestinations, map.getZoom());
+  map.easeTo({
+    center: [destination.longitude, destination.latitude],
+    zoom: Math.max(resolution.targetZoom, MINIMUM_SELECTION_ZOOM),
+  });
 }
 
 /**

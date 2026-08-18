@@ -19,7 +19,13 @@ import { expect, test, type Page } from "@playwright/test";
  * get back to a clean map between taps, replacing the `destination-sheet-close` click an earlier
  * version of this file used when a pin tap still opened the full sheet (T004's now-retired interim
  * behaviour). The dedicated dismiss *scenario* — that dismissing also clears the selection, FR-004
- * — is V2's own coverage, added by T011, not here.
+ * — is V2's own coverage, added by T011, below.
+ *
+ * **V2 coverage (T011, User Story 2, FR-004, FR-006–FR-008)** is the four tests at the bottom of
+ * this file: the confirmation step appears naming the place and its status, dismissing it clears
+ * the selection and opens nothing, its own action opens the full detail, and — the T010 half —
+ * `DestinationStrip`'s own tap skips the confirmation step entirely while still marking the place
+ * selected underneath.
  */
 
 const SESSION_COOKIE = "ch_session";
@@ -213,4 +219,70 @@ test("tapping an overlapping cluster zooms in far enough that both become indivi
   await expect(selectedAfterFirstTap).toHaveAttribute("aria-pressed", "false");
   // Both remain present and independently reachable throughout — neither tap merged or hid either.
   await expect(page.getByTestId("destination-pin")).toHaveCount(2);
+});
+
+test("selecting a pin shows the confirmation step, naming the place and its status (FR-006, FR-007)", async ({
+  page,
+  baseURL,
+}) => {
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+  await expect(page.getByTestId("place-confirm-name")).toHaveText("Kyoto");
+  await expect(page.getByTestId("place-confirm-status")).toHaveText("Visited");
+  // Nothing else happened yet — the full detail has not opened.
+  await expect(page.getByTestId("destination-sheet-close")).toBeHidden();
+});
+
+test("dismissing the confirmation step clears the selection and opens nothing (FR-004, FR-008)", async ({
+  page,
+  baseURL,
+}) => {
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+
+  await page.getByTestId("place-confirm-dismiss").click();
+
+  // FR-004 (User Story 1) — dismissing the *confirmation* also leaves no place selected, not only
+  // the confirmation card itself (`MapShell.tsx`'s `dismissConfirmation`, T009's own correction).
+  await expect(page.getByTestId("place-confirm")).not.toBeVisible();
+  await expect(kyotoPin).toHaveAttribute("aria-pressed", "false");
+  await expect(kyotoPin).not.toHaveAttribute("data-selected", "");
+  await expect(page.getByTestId("destination-sheet-close")).toBeHidden();
+});
+
+test("the confirmation step's action opens the full detail (FR-007)", async ({ page, baseURL }) => {
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+  await page.getByTestId("place-confirm-open").click();
+
+  await page.getByTestId("destination-sheet-close").waitFor();
+  await expect(page.getByTestId("destination-name-input")).toHaveValue("Kyoto");
+});
+
+test("a strip tap opens the full detail directly, skipping the confirmation step, while still selecting the place (T010)", async ({
+  page,
+  baseURL,
+}) => {
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+
+  await page.getByTestId("destination-card-1").click();
+
+  // R-001's documented asymmetry: a strip card is already unambiguous, so the confirmation step's
+  // mis-tap defence does not apply there — it never appears for a strip tap.
+  await expect(page.getByTestId("place-confirm")).toHaveCount(0);
+  await page.getByTestId("destination-sheet-close").waitFor();
+  // The place is still marked selected on the map underneath, even though the sheet opened
+  // directly rather than through the confirmation step.
+  await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
 });

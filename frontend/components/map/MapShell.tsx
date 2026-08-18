@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import { NavDrawer } from "@/components/arcade/NavDrawer";
 import type { Destination, DestinationStatus } from "@/lib/api";
@@ -10,7 +10,7 @@ import { selectByStatus } from "@/lib/map";
 
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
-import { MapView } from "./MapView";
+import { MapView, type MapViewHandle } from "./MapView";
 import { QuickAdd } from "./QuickAdd";
 import { StatusFilter } from "./StatusFilter";
 import { TripPanel } from "./TripPanel";
@@ -49,6 +49,10 @@ export function MapShell() {
    * for a confirmation step to guard against there.
    */
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  /** `MapView`'s imperative escape hatch (004, T010) — lets `openDestination` below move the
+   * camera the same way a pin tap does, from a caller (`DestinationStrip`) that is `MapView`'s
+   * sibling rather than its child. */
+  const mapViewRef = useRef<MapViewHandle>(null);
 
   /*
    * T053, User Story 5: the filter narrows the **loaded** list, and both surfaces that draw
@@ -61,7 +65,15 @@ export function MapShell() {
    */
   const visible = selectByStatus(destinations, statusFilter);
 
+  /**
+   * `DestinationStrip`'s own tap handler (004, T010) — a strip card is already unambiguous
+   * (R-001), so unlike a pin tap it skips `confirmingId` and opens the full detail directly. It
+   * still selects the place and moves the camera to it (via `mapViewRef`), so the pin the owner
+   * just tapped a card for is the one left highlighted and centred once the sheet is dismissed.
+   */
   function openDestination(destination: Destination): void {
+    setSelectedId(destination.id);
+    mapViewRef.current?.focusDestination(destination.id);
     setOpenDestinationId(destination.id);
   }
 
@@ -148,6 +160,7 @@ export function MapShell() {
       <main className="relative min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
         <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
           <MapView
+            ref={mapViewRef}
             destinations={visible}
             today={today}
             selectedId={selectedId}
