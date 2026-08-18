@@ -224,10 +224,13 @@ its range, this place's own dates, and the sibling place.
 
 **Depends on US3** (T012's shell).
 
-- [ ] T016 [US4] Lift `useTrips()` out of `frontend/components/map/TripPanel.tsx` and into
+- [x] T016 [US4] Lift `useTrips()` out of `frontend/components/map/TripPanel.tsx` and into
       `MapShell.tsx` (R-003's lift-up); `TripPanel` receives `trips`/`status`/`error`/`reload` as
       props instead of calling the hook itself — the map screen still issues exactly one Trips read,
       not two
+      **Implementation note**: mechanical — `MapShell` now holds `tripsStore = useTrips()` and passes
+      its four fields straight through. Verified with the full `trip-organise` + `map` suite (20
+      tests) with no regressions.
 - [ ] T017 [US4] Add the pure `PlannedPlaceContext` composition to `frontend/lib/map.ts` (R-003): a
       function taking `(destination: DestinationDetail, allDestinations: readonly Destination[],
       allTrips: readonly Trip[])` and returning `data-model.md`'s `PlannedPlaceContext` — the matching

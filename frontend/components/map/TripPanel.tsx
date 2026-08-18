@@ -25,7 +25,7 @@ import {
   type Trip,
   type TripStatus,
 } from "@/lib/api";
-import { useTrips } from "@/lib/trips";
+import type { TripsStatus } from "@/lib/trips";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -43,19 +43,35 @@ import { LocationSearch } from "./LocationSearch";
  * `design/003-travel-map/BRIEF.md`'s audit findings, not the design export's own wording, which
  * invents a seventh ("Abandoned") with no ratified equivalent. A plain `<select>` is enough: the
  * brief states this status "drives no pin" and needs no elaborate encoding.
+ *
+ * ## `trips`/`status`/`error`/`reload` are props, not this component's own `useTrips()` call
+ *
+ * Lifted into `MapShell.tsx` (004, T016, R-003's lift-up) — `PlannedPanel` (004, T019) needs the
+ * full Trip list too, for `lib/map.ts`'s `plannedPlaceContext` composition, and a second
+ * `useTrips()` call there would issue a second, redundant `GET /trips` every time the map screen
+ * opens. One call, one source of truth, the same shape `useDestinations()` already has relative
+ * to `MapView` and `DestinationStrip`.
  */
 export function TripPanel({
   open,
   onOpenChange,
   onDestinationsChanged,
+  trips,
+  status,
+  error,
+  reload,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   /** Called after a Destination is added to a Trip, or a Trip (and its Destinations) is deleted
    * — so `MapShell` reloads the map's own pins. */
   readonly onDestinationsChanged: () => void;
+  /** `MapShell`'s own `useTrips()` state (004, T016) — this panel reads it, it does not load it. */
+  readonly trips: readonly Trip[];
+  readonly status: TripsStatus;
+  readonly error: string | null;
+  readonly reload: () => void;
 }) {
-  const { trips, status, error, reload } = useTrips();
   const [view, setView] = useState<"list" | number>("list");
 
   const nameId = useId();
