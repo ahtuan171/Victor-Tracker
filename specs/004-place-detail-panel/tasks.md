@@ -178,19 +178,35 @@ fields; an empty Visited place invites adding both.
 **Independent Test**: mark a place Visited with a note and photographs, open it, and confirm both are
 shown as the panel's substance rather than as fields on a form.
 
-- [ ] T012 [US3] Restructure `frontend/components/map/DestinationSheet.tsx` into a thin shell: fetch
+- [x] T012 [US3] Restructure `frontend/components/map/DestinationSheet.tsx` into a thin shell: fetch
       `DestinationDetail` as today, then branch what it renders on `detail.status` (FR-009) —
       `"visited"` renders the new `VisitedPanel` (T013); every other status keeps today's unconditional
       form as an explicit, temporary fallback, replaced by US4 (T021) and US5 (T024) in their own
       phases rather than built here
-- [ ] T013 [US3] Add `frontend/components/map/VisitedPanel.tsx` — photographs and the existing `note`
+      **Implementation note**: the branch reads `detail.status` (the saved status), deliberately not
+      `draft.status` (the earlier code's own gate) — what content panel shows is a fact about the
+      Destination as it is, not a live preview of the status control mid-edit. T026 (US6) is what
+      later branches the *editing form* on `draft.status`; the two are separate concerns from here on.
+- [x] T013 [US3] Add `frontend/components/map/VisitedPanel.tsx` — photographs and the existing `note`
       field (spec.md's "impressions", Clarifications) presented as content; move the existing
       attach-photo, remove-photo, and save-note actions here from the old combined form (FR-010)
       (depends on T012)
-- [ ] T014 [US3] In `VisitedPanel.tsx`, add the invitation to add impressions and photographs when a
+      **Implementation note**: takes `detail`/`setDetail`/`onUpdated` straight from the shell (the
+      identical `useState<DestinationDetail | null>` setter, not a wrapper) so a photo/note write
+      updates the one source of truth the shell's other fields also read. Rendered `key={detail.id}`
+      by the shell so its local `noteDraft` seeds fresh per Destination without an effect.
+- [x] T014 [US3] In `VisitedPanel.tsx`, add the invitation to add impressions and photographs when a
       Visited place has neither yet (FR-010 scenario 2) (depends on T013)
-- [ ] T015 [P] [US3] `frontend/tests/e2e/place-detail.spec.ts` — V3: a Visited place with content shows
+      **Implementation note**: bundled into the same MR as T012/T013 — T012 alone does not compile
+      without `VisitedPanel` existing, matching this project's own recorded exception for a task
+      whose entire subject is the next task (`CLAUDE.md`'s "Seven merge requests" note).
+- [x] T015 [P] [US3] `frontend/tests/e2e/place-detail.spec.ts` — V3: a Visited place with content shows
       both; an empty Visited place invites adding both (depends on T014)
+      **Implementation note**: new file (didn't exist before). Three tests — both scenarios plus a
+      third pinning the invitation's own boundary (retired by *either* a note or a photo, not only
+      both). Verified 5 consecutive local runs, `--retries=0`, plus the full map-related suite (61
+      tests, including the pre-existing `photo-upload.spec.ts` coverage from `003`) with no
+      regressions from the `detail.status` vs `draft.status` change.
 
 **Checkpoint**: US1–US3 — a Visited place now opens to its photos/impressions as content. Planned and
 Wishlist places still show the old unconditional form.
