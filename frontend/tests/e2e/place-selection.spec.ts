@@ -46,6 +46,13 @@ async function openMap(
   baseURL: string | undefined,
   destinations: unknown[] = [],
 ): Promise<void> {
+  // `TripPanel`'s own `useTrips()` fires on every mount regardless of whether its sheet is open
+  // (`TripPanel.tsx`'s own docstring) — unstubbed, a real backend answers the stub session cookie
+  // with a genuine 401, and `lib/api.ts`'s global handler navigates the page to `/login` for real,
+  // mid-test. A `waitUntilSeparated` poll is exactly long enough to lose that race intermittently.
+  await page.route("**/api/trips*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
+  });
   await page.route("**/api/destinations*", async (route) => {
     await route.fulfill({
       status: 200,
