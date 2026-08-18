@@ -7,6 +7,7 @@ import type { Destination, DestinationStatus } from "@/lib/api";
 import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
 import { selectByStatus } from "@/lib/map";
+import { useTrips } from "@/lib/trips";
 
 import { DestinationSheet } from "./DestinationSheet";
 import { DestinationStrip } from "./DestinationStrip";
@@ -31,6 +32,10 @@ import { TripPanel } from "./TripPanel";
  */
 export function MapShell() {
   const { destinations, status, error, reload } = useDestinations();
+  /** Lifted out of `TripPanel` (004, T016, R-003's lift-up) — `PlannedPanel` (T019) needs the
+   * full Trip list too, and a second `useTrips()` there would issue a second, redundant
+   * `GET /trips`. One call, passed down as props to whatever reads it. */
+  const tripsStore = useTrips();
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
   const [tripsOpen, setTripsOpen] = useState(false);
@@ -218,6 +223,10 @@ export function MapShell() {
         open={tripsOpen}
         onOpenChange={setTripsOpen}
         onDestinationsChanged={() => reload()}
+        trips={tripsStore.trips}
+        status={tripsStore.status}
+        error={tripsStore.error}
+        reload={tripsStore.reload}
       />
     </div>
   );
