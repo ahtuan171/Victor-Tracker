@@ -144,14 +144,26 @@ detail opening, and confirm dismissing returns to the map with nothing else havi
       Spider-Man-IP exclusion held again: the owner's reference images described zoom level and
       the "floats at the pin, one action, panel only after tapping it" mechanic only, never a
       visual/asset source.
-- [ ] T010 [US2] Update `frontend/components/map/DestinationStrip.tsx`'s tap handler to set
+- [x] T010 [US2] Update `frontend/components/map/DestinationStrip.tsx`'s tap handler to set
       `selectedId` and move the camera (T004) but open `openDestinationId` directly, skipping
       `confirmingId` — R-001's documented asymmetry: a strip card is already unambiguous, so the
       confirmation step's mis-tap defence does not apply there (depends on T004, T009)
-- [ ] T011 [P] [US2] `frontend/tests/e2e/place-selection.spec.ts` (extend) — V2: confirmation step
+      **Implementation note**: `DestinationStrip.tsx` itself needed no change — its tap already goes
+      through one callback (`onOpenDestination`), so the behaviour change lives in that callback,
+      `MapShell.tsx`'s `openDestination`. The camera move was the real obstacle: it only ever
+      happened inside `MapView.tsx`'s own pin-click closure (`buildOnOpen`), which `MapShell` cannot
+      reach — `MapView` owns `mapRef` privately. Solved with a small imperative escape hatch:
+      `MapView` is now `forwardRef`-wrapped exposing `MapViewHandle.focusDestination(id)`, backed by
+      a shared `easeToDestination` helper `buildOnOpen` now also calls, so a strip tap and a pin tap
+      move the camera identically. No change to `resolveOverlap`'s own exact-value tests (T006).
+- [x] T011 [P] [US2] `frontend/tests/e2e/place-selection.spec.ts` (extend) — V2: confirmation step
       appears naming place+status, dismiss changes nothing and opens nothing, its action opens the
       full detail, and a strip tap opens the full detail directly while still selecting (depends on
       T009, T010)
+      **Implementation note**: four tests added. Verified 5 consecutive local runs, `--retries=0`,
+      all green — not green-once, matching this project's own standing bar for map e2e tests. Also
+      ran the full map-related surface (`map`, `photo-upload`, `place-selection`, `trip-organise`,
+      `viewport-audit`, 58 tests) against the `MapView` `forwardRef` change with no regressions.
 
 **Checkpoint**: US1+US2 — selecting and confirming a place both work; `DestinationSheet`'s content is
 still today's unconditional form.
