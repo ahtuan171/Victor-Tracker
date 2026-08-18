@@ -15,10 +15,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   ApiError,
   DESTINATION_STATUSES,
-  createPhotoUploadUrl,
-  createPhotograph,
   deleteDestination,
-  deletePhotograph,
   getDestination,
   updateDestination,
   type Destination,
@@ -30,15 +27,27 @@ import { isCurrentlyTraveling, pinTreatment } from "@/lib/map";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
+import { VisitedPanel } from "./VisitedPanel";
+
 /**
- * The single editing surface for one Destination (T029, T030, T031, T032 — User Story 2).
+ * The single editing surface for one Destination (T029–T032, User Story 2 of `003`;
+ * **restructured into a thin shell, 004 T012**).
  *
  * Built from the export's `DestinationSheet · Visited` and `DestinationSheet · Planned/Wishlist`
- * panels (`1e` / `1f`): a bottom sheet carrying name, location, dates, status, and — **only when
- * `status === "visited"`** — a photo gallery and a note (FR-009, INV-3: the gate is a display
- * rule, not something the API withholds). Planned and Wishlist pins get neither section, matching
- * `1f`'s own note: "No gallery and no note field on Planned or Wishlist — neither exists yet to
- * show."
+ * panels (`1e` / `1f`): a bottom sheet carrying name, location, dates and status — the
+ * **editable-fields** portion, common to every status until `004`'s User Story 6 (T026) branches
+ * it too — plus, below that, whatever this Destination's own **saved** status calls for (FR-009).
+ *
+ * ## The status branch reads `detail.status`, never `draft.status`
+ *
+ * Deliberate, and easy to get backwards: what content panel renders is a fact about the
+ * Destination as it actually is, not a live preview of what the status control is being dragged
+ * toward mid-edit. `VisitedPanel` (T013) is `detail.status === "visited"`'s content; `PlannedPanel`
+ * (`004` US4) and `WishlistPanel` (`004` US5) are the other two statuses' own content, added in
+ * their own phases. **Until all three exist, every non-Visited status keeps today's bare
+ * editable-fields form as an explicit, temporary fallback** — there is deliberately no Planned or
+ * Wishlist content section yet. What the *editing form itself* asks for as the status control
+ * changes (US6, T026) is a separate branch, on `draft.status`, and belongs to a later phase.
  *
  * ## Opens on an id, fetches its own detail
  *
@@ -47,17 +56,10 @@ import { cn } from "@/lib/utils";
  * a bare `destinationId` and fetches fresh on every open, the same "detail is not derived from the
  * list" split the contract itself draws (`GET /destinations` vs `GET /destinations/{id}`).
  *
- * ## Two independent drafts, two independent saves
- *
- * Unlike `ItemSheet`'s one draft/one save, this sheet has two things that change at different
- * rates and for different reasons: the **fields** (name, dates, status — `SAVE`) and the **note**
- * (`SAVE NOTE`, T031). Photos attach individually and immediately (T030) rather than joining
- * either draft — there is nothing to "discard" about a photo that has already reached R2.
- *
  * ## The photo upload never touches this backend (FR-023)
  *
  * `createPhotoUploadUrl` mints a presigned PUT; the browser `PUT`s the file bytes **directly to
- * R2**; only the resulting `object_key` is sent to `createPhotograph`. This component's own
+ * R2**; only the resulting `object_key` is sent to `createPhotograph`. `VisitedPanel`'s own
  * `fetch` to `upload_url` is therefore the one request in this whole product that intentionally
  * bypasses `lib/api.ts`'s `request()` helper — that helper always targets this app's own `/api`
  * proxy, and a presigned R2 URL is a different origin entirely.
@@ -81,8 +83,6 @@ export function DestinationSheet({
   const nameId = useId();
   const startDateId = useId();
   const endDateId = useId();
-  const noteId = useId();
-  const photoInputId = useId();
 
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DestinationDetail | null>(null);
@@ -98,13 +98,6 @@ export function DestinationSheet({
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  const [noteDraft, setNoteDraft] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-  const [noteError, setNoteError] = useState<string | null>(null);
-
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -144,7 +137,6 @@ export function DestinationSheet({
           end_date: fetched.end_date,
           status: fetched.status,
         });
-        setNoteDraft(fetched.note ?? "");
       })
       .catch((error: unknown) => {
         if (current) setLoadError({ id: destinationId, message: messageFor(error) });
@@ -158,8 +150,6 @@ export function DestinationSheet({
   function resetOnClose(next: boolean): void {
     if (!next) {
       setSaveError(null);
-      setNoteError(null);
-      setUploadError(null);
       setDeleteError(null);
       setConfirmingDelete(false);
     }
@@ -189,83 +179,6 @@ export function DestinationSheet({
     }
   }
 
-  async function saveNote(): Promise<void> {
-    if (detail === null || savingNote) return;
-
-    setSavingNote(true);
-    setNoteError(null);
-    try {
-      const updated = await updateDestination(detail.id, {
-        note: noteDraft === "" ? null : noteDraft,
-      });
-      playCue("save");
-      setDetail((previous) =>
-        previous === null ? previous : { ...previous, note: noteDraft === "" ? null : noteDraft },
-      );
-      onUpdated(updated);
-    } catch (error: unknown) {
-      playCue("refuse");
-      setNoteError(messageFor(error));
-    } finally {
-      setSavingNote(false);
-    }
-  }
-
-  async function attachPhoto(file: File): Promise<void> {
-    if (detail === null || uploading) return;
-
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const { upload_url, object_key } = await createPhotoUploadUrl(detail.id);
-
-      // Direct to R2, never through this app's own `/api` proxy (FR-023) — see the module
-      // docstring for why this is the one `fetch` in the product that is not `lib/api.ts`'s
-      // `request()`.
-      const putResponse = await fetch(upload_url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
-      if (!putResponse.ok) {
-        throw new Error(`Upload failed (${putResponse.status}). Try again.`);
-      }
-
-      const photograph = await createPhotograph(detail.id, { object_key });
-      playCue("save");
-      setDetail((previous) =>
-        previous === null
-          ? previous
-          : { ...previous, photographs: [...previous.photographs, photograph] },
-      );
-    } catch (error: unknown) {
-      playCue("refuse");
-      setUploadError(
-        error instanceof ApiError || error instanceof Error
-          ? error.message || messageFor(error)
-          : "Could not attach that photo. Try again.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function removePhoto(photoId: number): Promise<void> {
-    if (detail === null) return;
-    try {
-      await deletePhotograph(detail.id, photoId);
-      playCue("delete");
-      setDetail((previous) =>
-        previous === null
-          ? previous
-          : { ...previous, photographs: previous.photographs.filter((p) => p.id !== photoId) },
-      );
-    } catch (error: unknown) {
-      playCue("refuse");
-      setUploadError(messageFor(error));
-    }
-  }
-
   async function confirmDelete(): Promise<void> {
     if (detail === null || deleting) return;
 
@@ -290,7 +203,6 @@ export function DestinationSheet({
     detail !== null && draft !== null
       ? isCurrentlyTraveling({ ...detail, ...draft }, today)
       : false;
-  const visited = draft?.status === "visited";
 
   return (
     <Sheet open={open} onOpenChange={resetOnClose}>
@@ -438,94 +350,12 @@ export function DestinationSheet({
               {saving ? "Saving…" : "Save"}
             </button>
 
-            {/* FR-009, INV-3: gallery and note exist only for a Visited place — nothing to show
-                yet on Planned or Wishlist (`1f`'s own note in the design export). */}
-            {visited ? (
-              <>
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="font-display text-ink text-base">Photos</span>
-                    <span className="text-ink-lo text-xs">{detail.photographs.length}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {detail.photographs.map((photo) => (
-                      <div key={photo.id} className="group relative aspect-square">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- a presigned,
-                            expiring R2 URL; Next's image optimiser cannot cache a URL that dies
-                            on its own within minutes. */}
-                        <img
-                          src={photo.url}
-                          alt=""
-                          className="h-full w-full rounded-sm object-cover"
-                          data-testid="destination-photo"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void removePhoto(photo.id)}
-                          className="bg-surface-0/80 text-ink focus-ring absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-xs"
-                          aria-label="Remove photo"
-                          data-testid="destination-photo-remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <label
-                      htmlFor={photoInputId}
-                      className="border-hairline text-ink-mid focus-ring flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border border-dashed text-[10px] tracking-[0.06em] uppercase"
-                      data-testid="destination-photo-attach"
-                    >
-                      <span className="text-lg leading-none">+</span>
-                      {uploading ? "Uploading…" : "Attach"}
-                    </label>
-                    <input
-                      id={photoInputId}
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      disabled={uploading}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = "";
-                        if (file !== undefined) void attachPhoto(file);
-                      }}
-                      data-testid="destination-photo-input"
-                    />
-                  </div>
-                  {uploadError !== null ? (
-                    <p role="alert" className="text-danger-hi mt-1.5 text-xs">
-                      {uploadError}
-                    </p>
-                  ) : null}
-                </div>
-
-                <Field label="Note" htmlFor={noteId}>
-                  <textarea
-                    id={noteId}
-                    value={noteDraft}
-                    onChange={(event) => setNoteDraft(event.target.value)}
-                    rows={3}
-                    className="border-hairline bg-surface-3 text-ink focus-ring w-full resize-none rounded-sm border p-3 text-sm leading-relaxed"
-                    data-testid="destination-note-input"
-                  />
-                </Field>
-
-                {noteError !== null ? (
-                  <p role="alert" className="text-danger-hi text-xs">
-                    {noteError}
-                  </p>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => void saveNote()}
-                  disabled={savingNote}
-                  className="border-hairline text-ink focus-ring h-11 w-full rounded-sm border text-xs font-semibold tracking-[0.1em] uppercase disabled:opacity-50"
-                  data-testid="destination-save-note"
-                >
-                  {savingNote ? "Saving…" : "Save note"}
-                </button>
-              </>
+            {/* FR-009: content below this point is determined by the Destination's own *saved*
+                status, not the draft being edited above — see the module docstring for why. Every
+                status but Visited keeps no content section yet (`PlannedPanel`/`WishlistPanel` are
+                later `004` phases), which is this shell's explicit, temporary fallback. */}
+            {detail.status === "visited" ? (
+              <VisitedPanel key={detail.id} detail={detail} setDetail={setDetail} onUpdated={onUpdated} />
             ) : null}
           </div>
         )}
