@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-import { DESTINATION_STATUSES, type Destination } from "@/lib/api";
+import { DESTINATION_STATUSES, type Destination, type DestinationDetail, type Trip } from "@/lib/api";
 import {
   DESTINATION_PIN_TREATMENTS,
   boundsForDestinations,
   disambiguateCoincidentPins,
   isCurrentlyTraveling,
   pinTreatment,
+  plannedPlaceContext,
   resolveOverlap,
   selectByStatus,
 } from "@/lib/map";
@@ -35,6 +36,23 @@ function destination(overrides: Partial<Destination> = {}): Destination {
     created_at: "2026-08-14T00:00:00Z",
     updated_at: "2026-08-14T00:00:00Z",
     outside_trip_range: false,
+    ...overrides,
+  };
+}
+
+function detail(overrides: Partial<DestinationDetail> = {}): DestinationDetail {
+  return { ...destination(overrides), note: null, photographs: [], ...overrides };
+}
+
+function trip(overrides: Partial<Trip> = {}): Trip {
+  return {
+    id: 1,
+    name: "Japan 2026",
+    start_date: "2026-09-01",
+    end_date: "2026-09-14",
+    status: "wishlist",
+    created_at: "2026-08-14T00:00:00Z",
+    updated_at: "2026-08-14T00:00:00Z",
     ...overrides,
   };
 }
@@ -322,5 +340,76 @@ test.describe("selectByStatus", () => {
   test("an empty list stays empty for every selection", () => {
     expect(selectByStatus([], null)).toEqual([]);
     expect(selectByStatus([], "visited")).toEqual([]);
+  });
+});
+
+test.describe("plannedPlaceContext", () => {
+  test("finds the matching Trip and its siblings, excluding the place itself", () => {
+    const japanTrip = trip({ id: 10, name: "Japan 2026" });
+    const kyoto = detail({ id: 1, trip_id: 10, status: "planned" });
+    const osaka = destination({ id: 2, trip_id: 10, name: "Osaka", status: "planned" });
+    const notInTrip = destination({ id: 3, trip_id: null, name: "Lisbon", status: "wishlist" });
+
+    const context = plannedPlaceContext(kyoto, [kyoto, osaka, notInTrip], [japanTrip], null);
+
+    expect(context.trip).toEqual(japanTrip);
+    expect(context.siblings).toEqual([osaka]);
+  });
+
+  test("no trip_id means no Trip and no siblings — the FR-014 attach-offer case", () => {
+    const kyoto = detail({ id: 1, trip_id: null, status: "planned" });
+    const osaka = destination({ id: 2, trip_id: null, name: "Osaka", status: "planned" });
+
+    const context = plannedPlaceContext(kyoto, [kyoto, osaka], [], null);
+
+    expect(context.trip).toBeNull();
+    expect(context.siblings).toEqual([]);
+  });
+
+  test("a trip_id naming a Trip that no longer exists is treated the same as no trip_id", () => {
+    // Deleted out from under an open sheet, or a detail loaded a moment before a delete
+    // elsewhere reconciles — this function does not throw or surface a broken reference.
+    const kyoto = detail({ id: 1, trip_id: 999, status: "planned" });
+
+    const context = plannedPlaceContext(kyoto, [kyoto], [trip({ id: 10 })], null);
+
+    expect(context.trip).toBeNull();
+    expect(context.siblings).toEqual([]);
+  });
+
+  test("outsideTripRange passes the Destination's own flag through unchanged", () => {
+    const outside = detail({ id: 1, trip_id: 10, status: "planned", outside_trip_range: true });
+
+    const context = plannedPlaceContext(outside, [outside], [trip({ id: 10 })], null);
+
+    expect(context.outsideTripRange).toBe(true);
+  });
+
+  test("currentlyTraveling matches isCurrentlyTraveling exactly — same function, not a second copy", () => {
+    const traveling = detail({
+      id: 1,
+      trip_id: 10,
+      status: "planned",
+      start_date: "2026-09-01",
+      end_date: "2026-09-14",
+    });
+    const today = "2026-09-05";
+
+    const context = plannedPlaceContext(traveling, [traveling], [trip({ id: 10 })], today);
+
+    expect(context.currentlyTraveling).toBe(isCurrentlyTraveling(traveling, today));
+    expect(context.currentlyTraveling).toBe(true);
+  });
+
+  test("does not mutate the lists it was given", () => {
+    const kyoto = detail({ id: 1, trip_id: 10, status: "planned" });
+    const osaka = destination({ id: 2, trip_id: 10, name: "Osaka", status: "planned" });
+    const allDestinations = [kyoto, osaka];
+    const allTrips = [trip({ id: 10 })];
+
+    plannedPlaceContext(kyoto, allDestinations, allTrips, null);
+
+    expect(allDestinations).toEqual([kyoto, osaka]);
+    expect(allTrips).toEqual([trip({ id: 10 })]);
   });
 });

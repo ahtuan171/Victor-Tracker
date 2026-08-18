@@ -26,7 +26,7 @@
  * than a call this module makes for itself.
  */
 
-import type { Destination, DestinationStatus } from "./api";
+import type { Destination, DestinationDetail, DestinationStatus, Trip } from "./api";
 import { isBeforeDateOnly, type DateOnly } from "./dates";
 
 /** One status's pin encoding. Everything `DestinationPin` needs except how big it draws. */
@@ -109,6 +109,65 @@ export function isCurrentlyTraveling(destination: Destination, today: DateOnly |
   if (destination.start_date === null || destination.end_date === null) return false;
 
   return !isBeforeDateOnly(today, destination.start_date) && !isBeforeDateOnly(destination.end_date, today);
+}
+
+// --- A Planned place's own context (004, T017, User Story 4, FR-011–FR-014) ---------------------
+
+/** `data-model.md`'s `PlannedPlaceContext` — everything a Planned place's detail panel shows
+ * beyond its own name and dates. */
+export interface PlannedPlaceContext {
+  /** `null` → FR-014's "offer to attach a Trip", rather than an empty Trip section. */
+  readonly trip: Trip | null;
+  /** Other Destinations sharing this place's `trip_id`, excluding this place itself (FR-011). */
+  readonly siblings: readonly Destination[];
+  /** `Destination.outside_trip_range`, passed through unchanged (FR-012) — already computed by the
+   * backend on every response; this function invents no second copy of that rule. */
+  readonly outsideTripRange: boolean;
+  /** `isCurrentlyTraveling()`, unchanged (FR-013) — the same function the pin's own overlay reads,
+   * so a Planned place's detail can never disagree with its own pin about today. */
+  readonly currentlyTraveling: boolean;
+}
+
+/**
+ * Compose a Planned place's Trip context from already-loaded state — no fetch, no new request
+ * (R-003): `MapShell` already loads every Destination and every Trip once each (T016's lift-up),
+ * and this is a pure read over both, the same "load once, narrow/compose in memory" shape
+ * `selectByStatus` and `disambiguateCoincidentPins` already use in this module.
+ *
+ * `today` is a parameter for the identical reason `isCurrentlyTraveling` itself takes one:
+ * `dates.today()` throws outside the browser (research.md R-006 addendum), so this function must
+ * not be the thing that calls it.
+ *
+ * A `trip_id` naming a Trip that no longer exists (deleted out from under an open sheet, or a
+ * detail loaded a moment before a delete elsewhere reconciles) is treated identically to no
+ * `trip_id` at all — `trip: null`, no siblings, offer to attach one — rather than throwing or
+ * showing a broken reference. The place's own `outside_trip_range`/`currently_traveling` flags
+ * still pass through unchanged either way; they describe this place, not the Trip lookup.
+ */
+export function plannedPlaceContext(
+  destination: DestinationDetail,
+  allDestinations: readonly Destination[],
+  allTrips: readonly Trip[],
+  today: DateOnly | null,
+): PlannedPlaceContext {
+  const trip =
+    destination.trip_id === null
+      ? null
+      : (allTrips.find((candidate) => candidate.id === destination.trip_id) ?? null);
+
+  const siblings =
+    destination.trip_id === null || trip === null
+      ? []
+      : allDestinations.filter(
+          (candidate) => candidate.trip_id === destination.trip_id && candidate.id !== destination.id,
+        );
+
+  return {
+    trip,
+    siblings,
+    outsideTripRange: destination.outside_trip_range,
+    currentlyTraveling: isCurrentlyTraveling(destination, today),
+  };
 }
 
 // --- Filtering by status (T053, User Story 5, FR-010) -------------------------------------------
