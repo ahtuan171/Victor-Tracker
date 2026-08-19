@@ -351,14 +351,21 @@ delivered.
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] Extend `frontend/tests/e2e/viewport-audit.spec.ts` with a `/map` block: the existing
+- [x] T029 [P] Extend `frontend/tests/e2e/viewport-audit.spec.ts` with a `/map` block: the existing
       map surfaces `003` never added (`MapView`, `DestinationStrip`, `TripPanel`, `QuickAdd`,
       `StatusFilter`, `LocationSearch`) plus this iteration's four new ones (`PlaceConfirm`,
       `VisitedPanel`, `PlannedPanel`, `WishlistPanel`) — FR-021, SC-005. Found by this iteration's
       `/speckit-analyze` pass: the file is hand-maintained per-surface, not an automatic sweep, and
       `/map` was never in it even before this iteration
-- [ ] T030 [P] Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix anything either flags
+      **Implementation note**: found two real gaps in the audit itself while building this block, not
+      in the app. `DestinationStrip`'s `overflow-x-auto` list and `MapView`'s pinned markers are both
+      their own scrolling/pannable containers — the same class of exemption the peek-list already had
+      — and a `PlaceConfirm` popup is anchored to a pin still mid-`easeTo`, so it needs the same
+      "poll until the camera settles" pattern `place-selection.spec.ts` already uses, not an
+      instantaneous read. Three exemptions/waits added, all with a stated reason at the call site.
+- [x] T030 [P] Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix anything either flags
       across every file this iteration touched
+      **Verification note**: both clean, no fixes needed.
 - [ ] T031 Hand-walk `quickstart.md`'s V1–V6 at 375px against a real backend (`pnpm build && pnpm
       start`, matching `frontend/AGENTS.md`'s hand-walk setup) — the same discipline every prior
       iteration's Final Phase used, and the one check no automated suite structurally can (`.claude/

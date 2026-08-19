@@ -147,14 +147,30 @@ async function controlsOutsideViewport(page: Page): Promise<string[]> {
       if (style.visibility === "hidden" || style.display === "none") continue;
 
       /*
-       * The one exemption, and it is a design decision with a stated compensation rather than a
-       * tolerance. The backlog peek strip is a single clipped line by design — `overflow-hidden`, not
-       * a scroller — because it is a *glance* and the expanded drawer is how the backlog is browsed
-       * (R-003a, and the note in `BacklogDrawer.tsx`). So its last chip can be half off the edge on a
-       * full backlog, and every one of them is reachable at full size one tap away in the expanded
-       * drawer, which this file audits separately.
+       * Three exemptions, each a design decision with a stated compensation rather than a tolerance.
        */
+
+      // The backlog peek strip is a single clipped line by design — `overflow-hidden`, not a
+      // scroller — because it is a *glance* and the expanded drawer is how the backlog is browsed
+      // (R-003a, and the note in `BacklogDrawer.tsx`). So its last chip can be half off the edge on a
+      // full backlog, and every one of them is reachable at full size one tap away in the expanded
+      // drawer, which this file audits separately.
       if (el.closest('[data-testid="backlog-peek-list"]') !== null) continue;
+
+      // `DestinationStrip`'s list is the same shape as the peek strip, one layer more forgiving: it
+      // is a real `overflow-x-auto` scroller (`DestinationStrip.tsx`'s own docstring — ".claude/
+      // rules/design.md`'s prescribed answer for wide content), so a card past the fold is reachable
+      // by scrolling the strip itself, not only by a second surface.
+      if (el.closest('[data-testid="destination-strip-list"]') !== null) continue;
+
+      // A pin lives inside a pannable, zoomable map canvas — the map *is* its own scrolling
+      // container, the same category as the two rows above. Selecting a place eases the camera
+      // toward it (`MapView.tsx`'s `easeToDestination`), which is precisely why an *unselected* pin
+      // can land far outside 375px once the camera settles at street-level zoom: it is off the
+      // visible map area, reachable by panning or zooming back out, not a broken control. Narrowly
+      // scoped to the marker itself (`data-testid`, not `closest`) so `map-canvas`'s other children —
+      // the attribution control, any zoom UI — stay audited.
+      if (el.getAttribute("data-testid") === "destination-pin") continue;
 
       // Half a pixel of subpixel rounding is not a layout defect. Anything a creator could notice is.
       if (rect.left < -0.5 || rect.right > width + 0.5) {
@@ -167,6 +183,24 @@ async function controlsOutsideViewport(page: Page): Promise<string[]> {
 
     return escaped;
   });
+}
+
+/**
+ * Waits until a locator's own bounding box stops changing between two consecutive reads — a
+ * DOM-observable consequence of an animation (a map camera easing, in this file's case) having
+ * settled, the same shape `place-selection.spec.ts`'s `waitUntilSeparated` already uses.
+ */
+async function waitUntilStable(locator: ReturnType<Page["locator"]>): Promise<void> {
+  let previous: string | null = null;
+  await expect
+    .poll(async () => {
+      const box = await locator.boundingBox();
+      const current = box === null ? null : `${box.x},${box.y},${box.width},${box.height}`;
+      const stable = current !== null && current === previous;
+      previous = current;
+      return stable;
+    })
+    .toBe(true);
 }
 
 /** The check every other file in this suite uses. Kept, because it catches the other half. */
@@ -374,6 +408,190 @@ test.describe("the overlay surfaces", () => {
     await expect(page.getByTestId("delete-confirm")).toBeVisible();
 
     await auditSurface(page, "delete confirmation");
+  });
+});
+
+/**
+ * `/map` and its overlays (T029, FR-021, SC-005) — found missing by this iteration's own
+ * `/speckit-analyze` pass: this whole file is hand-maintained per-surface, not an automatic sweep,
+ * and `/map` was never added even before `004`, so `MapView`, `DestinationStrip`, `TripPanel`,
+ * `QuickAdd`, `StatusFilter` and `LocationSearch` (`003`) carried no viewport-audit coverage at
+ * all — and `004`'s own four new surfaces (`PlaceConfirm`, `VisitedPanel`, `PlannedPanel`,
+ * `WishlistPanel`) would have shipped the same way if this gap had not been caught first.
+ */
+test.describe("/map", () => {
+  const KYOTO = { name: "Kyoto", address: "Kyoto Prefecture, Japan", latitude: 35.0116, longitude: 135.7681 };
+
+  function destination(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1,
+      trip_id: null,
+      name: "Porto",
+      latitude: 41.1579,
+      longitude: -8.6291,
+      start_date: null,
+      end_date: null,
+      status: "wishlist",
+      note: null,
+      photographs: [],
+      created_at: "2026-08-01T09:00:00Z",
+      updated_at: "2026-08-01T09:00:00Z",
+      outside_trip_range: false,
+      ...overrides,
+    };
+  }
+
+  function trip(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 10,
+      name: "A rather long trip name that pushes the panel's width to its limit",
+      start_date: "2026-09-01",
+      end_date: "2026-09-14",
+      status: "planned",
+      created_at: "2026-08-01T09:00:00Z",
+      updated_at: "2026-08-01T09:00:00Z",
+      ...overrides,
+    };
+  }
+
+  const VISITED = destination({
+    id: 1,
+    name: "Porto",
+    status: "visited",
+    note: "Rain the whole time, worth it for the bookshop.",
+    photographs: [
+      { id: 1, url: "https://stub-r2.example.com/photo-1.jpg", created_at: "2026-08-01T09:00:00Z" },
+    ],
+  });
+  const PLANNED = destination({
+    id: 2,
+    name: "Kyoto",
+    latitude: 35.0116,
+    longitude: 135.7681,
+    status: "planned",
+    trip_id: 10,
+    start_date: "2026-09-05",
+    end_date: "2026-09-08",
+  });
+  const WISHLIST = destination({ id: 3, name: "Reykjavik", latitude: 64.1466, longitude: -21.9426 });
+  const LIST = [VISITED, PLANNED, WISHLIST].map((d) => ({ ...d, note: undefined, photographs: undefined }));
+  const TRIP = trip();
+
+  async function openMap(page: Page, baseURL: string | undefined): Promise<void> {
+    await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
+    await page.route("**/api/destinations", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(LIST) });
+    });
+    for (const detail of [VISITED, PLANNED, WISHLIST]) {
+      await page.route(new RegExp(`/api/destinations/${detail.id}$`), async (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detail) });
+      });
+    }
+    await page.route("**/api/trips", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([TRIP]) });
+    });
+    await page.route(new RegExp(`/api/trips/${TRIP.id}$`), async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(TRIP) });
+    });
+    await page.route("**/api/locations/search*", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([KYOTO]) });
+    });
+
+    await page.goto("/map");
+    await page.getByTestId("map-canvas").waitFor();
+  }
+
+  test("the map, populated — MapView, DestinationStrip, StatusFilter, QuickAdd", async ({
+    page,
+    baseURL,
+  }) => {
+    await openMap(page, baseURL);
+    await expect(page.getByTestId("destination-strip-list")).toBeVisible();
+    await expect(page.getByTestId("status-filter")).toBeVisible();
+
+    await auditSurface(page, "/map populated");
+  });
+
+  test("QuickAdd's LocationSearch, results", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId("quick-add-search-input").fill("Kyoto");
+    await page.getByTestId("quick-add-search-input").press("Enter");
+    await expect(page.getByTestId("quick-add-search-results")).toBeVisible();
+
+    await auditSurface(page, "QuickAdd search results");
+  });
+
+  test("QuickAdd's status step", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId("quick-add-search-input").fill("Kyoto");
+    await page.getByTestId("quick-add-search-input").press("Enter");
+    await page.getByTestId("quick-add-search-add").first().click();
+    await expect(page.getByTestId("quick-add-status-step")).toBeVisible();
+
+    await auditSurface(page, "QuickAdd status step");
+  });
+
+  test("TripPanel, open", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId("open-trips").click();
+    await expect(page.getByTestId("trip-panel")).toBeVisible();
+
+    await auditSurface(page, "TripPanel");
+  });
+
+  test("PlaceConfirm", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.locator('[data-testid="destination-pin"][aria-label*="Porto"]').click();
+    const dismiss = page.getByTestId("place-confirm-dismiss");
+    await expect(dismiss).toBeVisible();
+
+    // `PlaceConfirm` is a MapLibre popup anchored to the selected pin, and selecting a place eases
+    // the camera toward it (`MapView.tsx`'s `easeToDestination`) — so the popup keeps repositioning
+    // itself, mid-animation, until the camera settles. Auditing before then reads a transient
+    // in-flight position, not the one the owner would ever actually see. `waitUntilStable` is the
+    // same "poll a DOM-observable consequence of the camera settling" shape `place-selection.spec.ts`
+    // already uses for the same reason.
+    await waitUntilStable(dismiss);
+
+    await auditSurface(page, "PlaceConfirm");
+  });
+
+  test("DestinationSheet — VisitedPanel", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId(`destination-card-${VISITED.id}`).click();
+    await expect(page.getByTestId("destination-sheet-close")).toBeVisible();
+    await expect(page.getByTestId("destination-photo")).toBeVisible();
+
+    await auditSurface(page, "DestinationSheet, VisitedPanel");
+  });
+
+  test("DestinationSheet — PlannedPanel", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId(`destination-card-${PLANNED.id}`).click();
+    await expect(page.getByTestId("destination-sheet-close")).toBeVisible();
+    await expect(page.getByTestId("destination-planned-trip-name")).toBeVisible();
+
+    await auditSurface(page, "DestinationSheet, PlannedPanel");
+  });
+
+  test("DestinationSheet — WishlistPanel", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId(`destination-card-${WISHLIST.id}`).click();
+    await expect(page.getByTestId("destination-sheet-close")).toBeVisible();
+    await expect(page.getByTestId("destination-wishlist-empty")).toBeVisible();
+
+    await auditSurface(page, "DestinationSheet, WishlistPanel");
   });
 });
   });
