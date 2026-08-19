@@ -14,6 +14,7 @@ import { DestinationStrip } from "./DestinationStrip";
 import { MapView, type MapViewHandle } from "./MapView";
 import { QuickAdd } from "./QuickAdd";
 import { StatusFilter } from "./StatusFilter";
+import { TravelLogDrawer } from "./TravelLogDrawer";
 import { TripPanel } from "./TripPanel";
 
 /**
@@ -39,6 +40,7 @@ export function MapShell() {
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
   const [openDestinationId, setOpenDestinationId] = useState<number | null>(null);
   const [tripsOpen, setTripsOpen] = useState(false);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DestinationStatus | null>(null);
   /**
    * The one place `MapView` draws as selected and centres its camera on (004, T003/T004, FR-002,
@@ -156,6 +158,14 @@ export function MapShell() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setIsLogOpen(true)}
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-3 text-xs font-semibold tracking-[0.1em] uppercase"
+            data-testid="open-travel-log"
+          >
+            Log
+          </button>
+          <button
+            type="button"
             onClick={() => setTripsOpen(true)}
             className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-3 text-xs font-semibold tracking-[0.1em] uppercase"
             data-testid="open-trips"
@@ -258,6 +268,19 @@ export function MapShell() {
         status={tripsStore.status}
         error={tripsStore.error}
         reload={tripsStore.reload}
+      />
+
+      <TravelLogDrawer
+        isOpen={isLogOpen}
+        onClose={() => setIsLogOpen(false)}
+        destinations={destinations}
+        trips={tripsStore.trips}
+        onSelectDestination={(id) => {
+          const dest = destinations.find((d) => d.id === id);
+          if (dest) {
+            openDestination(dest);
+          }
+        }}
       />
     </div>
   );
