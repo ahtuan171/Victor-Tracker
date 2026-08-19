@@ -139,35 +139,35 @@ export function MapShell() {
 
   return (
     <div className="bg-surface-0 text-ink relative flex h-full flex-col overflow-hidden">
-      <header className="border-hairline web-grain flex items-center justify-between gap-2 border-b px-3 pt-5 pb-3">
+      <header className="border-hairline web-grain flex items-center justify-between gap-1.5 border-b px-2.5 pt-4 pb-2.5">
         <div>
           <p
-            className="text-brand mb-1.5 text-xs leading-none font-semibold tracking-[0.24em] uppercase"
+            className="text-brand mb-1 text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
             data-testid="map-eyebrow"
           >
             Victor Tracker
           </p>
           <h1
-            className="font-display text-[27px] leading-none font-bold tracking-wide uppercase"
+            className="font-display text-xl leading-none font-bold tracking-wide uppercase"
             data-testid="map-title"
           >
             Travel Map
           </h1>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setIsLogOpen(true)}
-            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2.5 text-xs font-semibold tracking-[0.1em] uppercase"
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-[11px] font-semibold tracking-[0.05em] uppercase"
             data-testid="open-travel-log"
           >
-            Log
+            Collection
           </button>
           <button
             type="button"
             onClick={() => setTripsOpen(true)}
-            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2.5 text-xs font-semibold tracking-[0.1em] uppercase"
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-[11px] font-semibold tracking-[0.05em] uppercase"
             data-testid="open-trips"
           >
             Trips
