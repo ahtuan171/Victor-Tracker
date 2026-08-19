@@ -56,7 +56,7 @@ export function TravelLogDrawer({
         className="fixed inset-0 -z-10 w-full h-full cursor-default"
         onClick={onClose}
         tabIndex={-1}
-        aria-label="Close travel log"
+        aria-label="Close travel collection"
       />
 
       <div className="w-full max-h-[85dvh] bg-background border-t border-border rounded-t-xl flex flex-col overflow-hidden shadow-2xl">
@@ -64,13 +64,13 @@ export function TravelLogDrawer({
         <div className="p-4 border-b border-border flex items-center justify-between gap-2 shrink-0">
           <div>
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <span>Travel Log</span>
+              <span>Travel Collection</span>
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground" data-testid="log-count">
                 {filteredEntries.length}
               </span>
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Chronological timeline of your travel memory
+              Chronological collection of your travel memory
             </p>
           </div>
           <button
@@ -78,7 +78,7 @@ export function TravelLogDrawer({
             onClick={onClose}
             data-testid="travel-log-close-btn"
             className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground focus-ring rounded-lg"
-            aria-label="Close Travel Log"
+            aria-label="Close Travel Collection"
           >
             ✕
           </button>
