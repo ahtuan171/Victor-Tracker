@@ -38,20 +38,28 @@ import { WishlistPanel } from "./WishlistPanel";
  *
  * Built from the export's `DestinationSheet · Visited` and `DestinationSheet · Planned/Wishlist`
  * panels (`1e` / `1f`): a bottom sheet carrying name, location, dates and status — the
- * **editable-fields** portion, common to every status until `004`'s User Story 6 (T026) branches
- * it too — plus, below that, whatever this Destination's own **saved** status calls for (FR-009).
+ * **editable-fields** portion — plus, below that, whatever this Destination's own **saved**
+ * status calls for (FR-009).
  *
- * ## The status branch reads `detail.status`, never `draft.status`
+ * ## Two branches, on two different variables, in the same file
  *
- * Deliberate, and easy to get backwards: what content panel renders is a fact about the
- * Destination as it actually is, not a live preview of what the status control is being dragged
- * toward mid-edit. `VisitedPanel` (T013) is `detail.status === "visited"`'s content; `PlannedPanel`
- * (T019–T021) is Planned's own — its own dates, the Trip it belongs to (or an offer to attach
- * one), and the sibling places in that Trip. `WishlistPanel` (`004` T023–T024) is the remaining
- * status's content — an honest empty state, no gallery, no note, no blank date fields. This is
- * what retires the last of the shell's temporary unconditional-form fallback. What the *editing
- * form itself* asks for as the status control changes (US6, T026) is a separate branch, on
- * `draft.status`, and belongs to a later phase.
+ * Deliberate, and easy to get backwards. The **content** section (below the Save button) reads
+ * `detail.status`, never `draft.status`: what it renders is a fact about the Destination as it
+ * actually is, not a live preview of what the status control is being dragged toward mid-edit.
+ * `VisitedPanel` (T013) is `detail.status === "visited"`'s content; `PlannedPanel` (T019–T021) is
+ * Planned's own — its own dates, the Trip it belongs to (or an offer to attach one), and the
+ * sibling places in that Trip; `WishlistPanel` (T023–T024) is the remaining status's content, an
+ * honest empty state.
+ *
+ * The **editable-fields** section (above the Save button, T026) reads `draft.status` instead —
+ * FR-017–FR-019, what the status control *changing* asks for. The Dates input is shown whenever
+ * `draft.status === "planned"`, transition or not (the shell's pre-T026 behaviour, just narrowed
+ * off Wishlist/Visited). Asking for a Trip and asking for impressions/photographs are each done
+ * by **reusing `PlannedPanel`/`VisitedPanel` themselves** — but only while the content section
+ * below is not already showing the same panel (`detail.status !== draft.status`), so the two
+ * branches never render the same panel twice at once even though both read the same
+ * `detail`/`setDetail`. Once Save lands, `detail.status` catches up, this transitional copy
+ * unmounts, and the content section is the only place those fields live from then on.
  *
  * ## Opens on an id, fetches its own detail
  *
@@ -275,41 +283,75 @@ export function DestinationSheet({
               </p>
             ) : null}
 
-            <div className="flex flex-col gap-2">
-              <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.1em] uppercase">
-                Dates
-              </span>
-              <div className="flex gap-2">
-                <input
-                  id={startDateId}
-                  type="date"
-                  value={draft.start_date ?? ""}
-                  onChange={(event) =>
-                    setDraft((previous) =>
-                      previous === null
-                        ? previous
-                        : { ...previous, start_date: event.target.value === "" ? null : event.target.value },
-                    )
-                  }
-                  className="border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-sm"
-                  data-testid="destination-start-date-input"
-                />
-                <input
-                  id={endDateId}
-                  type="date"
-                  value={draft.end_date ?? ""}
-                  onChange={(event) =>
-                    setDraft((previous) =>
-                      previous === null
-                        ? previous
-                        : { ...previous, end_date: event.target.value === "" ? null : event.target.value },
-                    )
-                  }
-                  className="border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-sm"
-                  data-testid="destination-end-date-input"
-                />
+            {/* FR-017, FR-018: dates are what Planned makes meaningful — asked for whenever the
+                draft's own status is Planned, whether that is a fresh transition or an already-
+                Planned place reopened (unchanged from the shell's pre-T026 behaviour, just no
+                longer shown for Wishlist/Visited too). */}
+            {draft.status === "planned" ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.1em] uppercase">
+                  Dates
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    id={startDateId}
+                    type="date"
+                    value={draft.start_date ?? ""}
+                    onChange={(event) =>
+                      setDraft((previous) =>
+                        previous === null
+                          ? previous
+                          : { ...previous, start_date: event.target.value === "" ? null : event.target.value },
+                      )
+                    }
+                    className="border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-sm"
+                    data-testid="destination-start-date-input"
+                  />
+                  <input
+                    id={endDateId}
+                    type="date"
+                    value={draft.end_date ?? ""}
+                    onChange={(event) =>
+                      setDraft((previous) =>
+                        previous === null
+                          ? previous
+                          : { ...previous, end_date: event.target.value === "" ? null : event.target.value },
+                      )
+                    }
+                    className="border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-sm"
+                    data-testid="destination-end-date-input"
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {/* FR-018's other half — a Trip — and FR-019's impressions/photographs: asked for by
+                reusing `PlannedPanel`/`VisitedPanel` themselves, **only while the content section
+                below is not already showing the same panel** (`detail.status` has not caught up
+                with `draft.status` yet). Once Save lands, `detail.status` catches up, this section
+                unmounts, and the content section below is the only place these fields live —
+                so the two branches are never both showing the same panel at once, even though
+                both read from the same `detail`/`setDetail`. */}
+            {draft.status === "planned" && detail.status !== "planned" ? (
+              <PlannedPanel
+                key={`draft-planned-${detail.id}`}
+                detail={detail}
+                allDestinations={allDestinations}
+                trips={trips}
+                today={today}
+                setDetail={setDetail}
+                onUpdated={onUpdated}
+              />
+            ) : null}
+
+            {draft.status === "visited" && detail.status !== "visited" ? (
+              <VisitedPanel
+                key={`draft-visited-${detail.id}`}
+                detail={detail}
+                setDetail={setDetail}
+                onUpdated={onUpdated}
+              />
+            ) : null}
 
             <div className="flex flex-col gap-2">
               <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.1em] uppercase">
