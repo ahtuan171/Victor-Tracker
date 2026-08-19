@@ -296,6 +296,36 @@ where the backend file does not load.
 
 ## Deferred
 
+**2026-08-19 — a full competing product spec pasted verbatim ("Spidey Travel Tracker"), assessed and
+recorded rather than implemented.** `drafts/spidey-travel-tracker.spec.draft.md` holds it in full,
+with the reasoning; the short version, so a future session does not have to re-derive it:
+
+- **Its visual-identity direction (§2, §8) is the standing Spider-Man/Spider-Verse IP exclusion**,
+  restated in different words — "Into the Spider-Verse" identity, halftone/web details, "my personal
+  Spider-Verse travel archive" as the product's own self-description. Same exclusion as the
+  2026-08-14 entry below, same answer: it cannot be waived by asking again, in this document or the
+  next one. Do not build any part of this visual language.
+- **§2 retargets Content Calendar to trip itinerary** — the constitution names this "MUST NOT be
+  attempted as a side effect", and the 2026-08-05 entry below already covers it with its own unmet
+  trigger. This draft's §2 is that same deferred item, not new work.
+- **§1/§3/§6/§7 collapse `Trip` and `Destination` into one entity and add fields no trigger has
+  fired for** (country, city, budget, companions, accommodation, transportation, rating, review,
+  favourite moment) — `004-place-detail-panel`'s own `spec.md`, closed this same session, explicitly
+  decided *against* merging Trip into Place, for stated reasons. Most of the new fields duplicate
+  existing Deferred entries below (Budget, Transportation, Accommodation, companions); a few (rating,
+  review, favourite moment) are new asks with no prior discussion.
+- **One separable, genuinely small item**: §1 asks the pin-tap zoom to be *less* aggressive than
+  street-level — the opposite of what `004`'s own T009 follow-up shipped this same session
+  (`MINIMUM_SELECTION_ZOOM` raised 14→16, at the owner's own explicit request against reference
+  images). Worth a direct confirmation before touching it again, since it reverses a same-session
+  decision — not blocked by any of the three conflicts above, just needs the owner to say which
+  preference is current.
+
+**Trigger to pick up anything beyond the zoom item**: none of the three conflicts resolve themselves
+with time passing — each needs an explicit owner decision (drop the visual-identity language
+entirely; treat the Calendar retarget and the Trip/Place merge as their own iterations, each with its
+own `spec.md`; let each new field wait for its own already-recorded trigger). Not scheduled.
+
 **2026-08-15 — the reference product's remaining surfaces, triaged against this spec.** The owner
 shared four screenshots of the real Spidey Tracker and asked which of its features are worth
 building here. The triage below is the answer, and the point of writing it down is that **three of
