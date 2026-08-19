@@ -293,13 +293,13 @@ the next step, with no blank photo grid and no empty date fields presented as co
 
 **Depends on US3** (T012's shell). Independent of US4 — can be built in parallel once US3 lands.
 
-- [ ] T023 [US5] Add `frontend/components/map/WishlistPanel.tsx` — the empty-state message inviting
+- [x] T023 [US5] Add `frontend/components/map/WishlistPanel.tsx` — the empty-state message inviting
       the owner to plan the place; no photo gallery, no note section, no blank date fields (FR-015,
       FR-016)
-- [ ] T024 [US5] Wire `DestinationSheet.tsx`'s shell (T012) to render `WishlistPanel` for
+- [x] T024 [US5] Wire `DestinationSheet.tsx`'s shell (T012) to render `WishlistPanel` for
       `status === "wishlist"`, which is also what removes the last of T012's temporary unconditional
       fallback (depends on T012, T023)
-- [ ] T025 [P] [US5] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V5: the empty state's message
+- [x] T025 [P] [US5] `frontend/tests/e2e/place-detail.spec.ts` (extend) — V5: the empty state's message
       and offer, and — FR-016 — no `destination-photo`/`destination-note-input` testid present on a
       Wishlist place's panel (depends on T024)
 

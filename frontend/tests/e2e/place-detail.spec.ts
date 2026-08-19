@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * A place's detail is content determined by its status (004, T015/T022, User Stories 3 and 4,
- * V3/V4 in quickstart.md) — FR-009, FR-010, FR-011–FR-014, FR-016.
+ * A place's detail is content determined by its status (004, T015/T022/T025, User Stories 3, 4
+ * and 5, V3/V4/V5 in quickstart.md) — FR-009, FR-010, FR-011–FR-016.
  *
  * `photo-upload.spec.ts` already proves the gallery/note render and that a non-Visited place gets
  * neither (carried over from `003`'s T035) — this file is `004`'s own coverage, added by the
- * `VisitedPanel`/`PlannedPanel` restructuring: the empty-state invitation (FR-010 scenario 2) and
- * everything about a Planned place's Trip context have no coverage anywhere else.
+ * `VisitedPanel`/`PlannedPanel`/`WishlistPanel` restructuring: the empty-state invitation (FR-010
+ * scenario 2), everything about a Planned place's Trip context, and a Wishlist place's own honest
+ * empty state have no coverage anywhere else.
  *
  * The proxy is stubbed, matching every other file here.
  */
@@ -319,4 +320,32 @@ test("a Planned place with no Trip offers to attach one, and choosing a Trip act
   await expect(page.getByTestId("destination-planned-trip-name")).toHaveText("Japan 2026");
   await expect(page.getByTestId("destination-planned-no-trip")).toHaveCount(0);
   expect(patchedTripId).toBe(10);
+});
+
+test("a Wishlist place is an honest empty state, with no blank fields presented as content (V5, FR-015, FR-016)", async ({
+  page,
+  baseURL,
+}) => {
+  const wishlist = destination({ id: 1, name: "Reykjavik", status: "wishlist" });
+  await openMapWithDetail(
+    page,
+    baseURL,
+    [destination({ id: 1, name: "Reykjavik", status: "wishlist" })],
+    wishlist,
+  );
+
+  await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
+  await page.getByTestId("destination-sheet-close").waitFor();
+
+  await expect(page.getByTestId("destination-wishlist-empty")).toBeVisible();
+  await expect(page.getByTestId("destination-wishlist-empty")).toContainText("Nothing planned yet");
+
+  // FR-016: no photograph gallery, no note section, on a place that is not Visited.
+  await expect(page.getByTestId("destination-photo")).toHaveCount(0);
+  await expect(page.getByTestId("destination-note-input")).toHaveCount(0);
+  await expect(page.getByTestId("destination-photo-attach")).toHaveCount(0);
+  // FR-015: no blank date fields presented as this panel's content (the shell's own editable date
+  // inputs above are a separate concern — T012's structure note — and are unaffected by this test).
+  await expect(page.getByTestId("destination-planned-dates")).toHaveCount(0);
 });
