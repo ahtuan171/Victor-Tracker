@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 
 import { PlannedPanel } from "./PlannedPanel";
 import { VisitedPanel } from "./VisitedPanel";
+import { WishlistPanel } from "./WishlistPanel";
 
 /**
  * The single editing surface for one Destination (T029–T032, User Story 2 of `003`;
@@ -46,11 +47,11 @@ import { VisitedPanel } from "./VisitedPanel";
  * Destination as it actually is, not a live preview of what the status control is being dragged
  * toward mid-edit. `VisitedPanel` (T013) is `detail.status === "visited"`'s content; `PlannedPanel`
  * (T019–T021) is Planned's own — its own dates, the Trip it belongs to (or an offer to attach
- * one), and the sibling places in that Trip. `WishlistPanel` (`004` US5) is the remaining status's
- * content, not yet built — **a Wishlist place keeps today's bare editable-fields form as an
- * explicit, temporary fallback** until it lands. What the *editing form itself* asks for as the
- * status control changes (US6, T026) is a separate branch, on `draft.status`, and belongs to a
- * later phase.
+ * one), and the sibling places in that Trip. `WishlistPanel` (`004` T023–T024) is the remaining
+ * status's content — an honest empty state, no gallery, no note, no blank date fields. This is
+ * what retires the last of the shell's temporary unconditional-form fallback. What the *editing
+ * form itself* asks for as the status control changes (US6, T026) is a separate branch, on
+ * `draft.status`, and belongs to a later phase.
  *
  * ## Opens on an id, fetches its own detail
  *
@@ -363,9 +364,7 @@ export function DestinationSheet({
             </button>
 
             {/* FR-009: content below this point is determined by the Destination's own *saved*
-                status, not the draft being edited above — see the module docstring for why. A
-                Wishlist place keeps no content section yet (`WishlistPanel` is a later `004`
-                phase), which is this shell's explicit, temporary fallback for that one status. */}
+                status, not the draft being edited above — see the module docstring for why. */}
             {detail.status === "visited" ? (
               <VisitedPanel key={detail.id} detail={detail} setDetail={setDetail} onUpdated={onUpdated} />
             ) : detail.status === "planned" ? (
@@ -378,7 +377,9 @@ export function DestinationSheet({
                 setDetail={setDetail}
                 onUpdated={onUpdated}
               />
-            ) : null}
+            ) : (
+              <WishlistPanel key={detail.id} />
+            )}
           </div>
         )}
 
