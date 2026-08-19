@@ -321,16 +321,24 @@ empty and confirm the save still succeeds.
 one T012 introduces. Touches the editing-fields half of the shell rather than the display panels US4/
 US5 own, so it can be built in parallel with either once US3 lands.
 
-- [ ] T026 [US6] Restructure the editable-fields portion of `DestinationSheet.tsx`'s shell (name,
+- [x] T026 [US6] Restructure the editable-fields portion of `DestinationSheet.tsx`'s shell (name,
       dates, status control, save) to branch what it asks for on the **draft's own**, not-yet-saved
       status: moving to `"planned"` additionally shows date and Trip inputs (FR-018); moving to
       `"visited"` additionally shows impressions and photo inputs (FR-019); `"wishlist"` asks for
       neither (FR-017) (depends on T012)
-- [ ] T027 [US6] Confirm the save path never withholds a save when a newly-asked field is left empty
+- [x] T027 [US6] Confirm the save path never withholds a save when a newly-asked field is left empty
       (FR-020) — `PATCH /destinations/{id}` already accepts partial/empty fields with no backend
       validation (R-004), so this is a verification pass over T026's new branches, adding a guard only
       if one is found missing (depends on T026)
-- [ ] T028 [P] [US6] `frontend/tests/e2e/place-status-form.spec.ts` — V6: each status transition asks
+      **Verification note**: no guard was missing. `saveFields()` sends `name`/`start_date`/
+      `end_date`/`status` unconditionally regardless of which editable-fields section T026 is
+      currently showing — a hidden Dates block simply means `draft.start_date`/`end_date` keep
+      whatever value they last held, still sent as-is. The Trip and impressions/photograph fields
+      T026 asks for during a transition are never part of this PATCH at all — `PlannedPanel`'s Trip
+      attach and `VisitedPanel`'s note/photo actions are each their own independent request,
+      decoupled from the status Save button — so FR-020's guarantee holds for them by construction,
+      not by a guard that could be missing. Confirmed by T028's own save-then-assert test.
+- [x] T028 [P] [US6] `frontend/tests/e2e/place-status-form.spec.ts` — V6: each status transition asks
       for the right fields, every direction is accepted, and the FR-020 case — change status, leave a
       newly-asked field empty, save, confirm it saves and the field stays unset. Closes the
       automated-coverage gap `003`'s retro left open for the status control (`plan.md`'s Project
