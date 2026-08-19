@@ -160,12 +160,27 @@ export function DestinationSheet({
         });
       })
       .catch((error: unknown) => {
-        if (current) setLoadError({ id: destinationId, message: messageFor(error) });
+        if (!current) return;
+        // FR-009's Edge Cases: opened here, deleted elsewhere — the panel closes rather than
+        // presenting a place that cannot be saved, matching `deleteItem`'s own "a 404 describes a
+        // screen the creator already agrees is gone" reading (`frontend/AGENTS.md`). Any other
+        // failure (network, 5xx) is not that — it stays an in-sheet, retryable error, unchanged.
+        if (error instanceof ApiError && error.status === 404) {
+          onOpenChange(false);
+          return;
+        }
+        setLoadError({ id: destinationId, message: messageFor(error) });
       });
 
     return () => {
       current = false;
     };
+    // `onOpenChange` is intentionally not a dependency: `MapShell` passes a fresh closure every
+    // render, and this effect must key on `destinationId`/`loadedId` alone (the fetch-once-per-id
+    // guard above) — including `onOpenChange` would re-run it on every unrelated `MapShell`
+    // re-render. Safe to omit: the closure only ever calls `setOpenDestinationId(null)`, which is
+    // itself stable across renders regardless of which render's closure is invoked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destinationId, loadedId]);
 
   function resetOnClose(next: boolean): void {

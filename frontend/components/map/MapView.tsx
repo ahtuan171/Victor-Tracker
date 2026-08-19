@@ -532,17 +532,19 @@ function easeToDestination(
 }
 
 /**
- * A close, street-level zoom — individual streets legible and named, buildings beginning to
- * separate — close enough that "bring the map to that place" (FR-001) reads as an actual approach
- * rather than a recentre at whatever zoom the owner happened to be at.
+ * A neighbourhood/district-block zoom — close enough that "bring the map to that place" (FR-001)
+ * reads as an actual approach rather than a recentre at whatever zoom the owner happened to be at,
+ * while keeping the surrounding city/area legible so the selected place still reads in its
+ * geographic context, not in isolation.
  *
- * **Raised from 14 to 16** (004, T009 follow-up): the owner's own reference images for this
- * confirmation-callout redesign both showed a tighter, street-level view than 14 (a
- * neighbourhood/district-block view) produces — see this file's module docstring and
- * `PlaceConfirm.tsx` for the rest of that change. `resolveOverlap` is untouched, so its own
- * exact-value tests (`tests/client/map.spec.ts`, T006) still hold unaffected.
+ * **Lowered back from 16 to 14** (004, second owner-requested revision, same session as the T009
+ * follow-up that raised it): street-level (16) turned out to be tighter than wanted in practice —
+ * individual street names visible, no sense of the surrounding area. 14 is this constant's original
+ * value; the T009 follow-up's own docstring already named it "a neighbourhood/district-block view",
+ * which is exactly the target this reversal asks for. `resolveOverlap` is untouched either way, so
+ * its own exact-value tests (`tests/client/map.spec.ts`, T006) hold unaffected by either value.
  */
-const MINIMUM_SELECTION_ZOOM = 16;
+const MINIMUM_SELECTION_ZOOM = 14;
 
 /** Fit the view to every Destination, once, the first time the list is non-empty (T019). */
 function fitBoundsOnce(

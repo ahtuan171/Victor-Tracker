@@ -385,7 +385,28 @@ delivered.
       three separate times before this was diagnosed. Fixed with a `zoomInUntilSeparated` helper
       (scroll-zoom centred on the pins' own midpoint, not the viewport's) and by never seeding a
       scenario's own fixtures until the ones from the *previous* scenario are out of the way.
-- [ ] T032 Run `/speckit-analyze` against spec.md/plan.md/tasks.md before merge (constitution Stage 6)
+- [x] T032 Run `/speckit-analyze` against spec.md/plan.md/tasks.md before merge (constitution Stage 6)
+      **Findings**: two HIGH, no CRITICAL, constitution alignment clean, 100% FR coverage. Both HIGH
+      findings are `spec.md`'s own Edge Cases stating a plain behavioural resolution that the shipped
+      code did not implement, with no task addressing either: **E1** — a place deleted elsewhere
+      while its sheet is open; `spec.md` says "the panel closes", the code showed an in-sheet error
+      and stayed open. **E2** — the selected place gets filtered out by the status filter; `spec.md`
+      says "the selection is cleared", `MapShell.tsx`'s `selectedId` was independent of
+      `statusFilter`/`visible` entirely. Both fixed at **T034**, below.
+- [x] T034 Fix E1 and E2 from T032's `/speckit-analyze` pass, plus one owner-requested reversal found
+      in the same session: **E1** — `DestinationSheet.tsx`'s detail-fetch `.catch()` now calls
+      `onOpenChange(false)` on a 404 specifically (matching `deleteItem`'s own "a 404 describes a
+      screen the creator already agrees is gone" reading, `frontend/AGENTS.md`), leaving every other
+      failure (network, 5xx) as the existing in-sheet, retryable error. **E2** — `MapShell.tsx` gains
+      `changeStatusFilter`, wrapping `setStatusFilter`: if the currently selected place's status no
+      longer matches the new filter, `selectedId`/`confirmingId` clear too, the same shape
+      `dismissConfirmation` already is for FR-004. **`MINIMUM_SELECTION_ZOOM` lowered back 16 → 14**
+      (`MapView.tsx`) — a second, same-session owner reversal of T009's own follow-up: street-level
+      (16) read as tighter than wanted once seen in practice; 14 is this constant's original value,
+      already documented as "a neighbourhood/district-block view", which is exactly what was asked
+      for. Four new tests (`place-detail.spec.ts` ×2, `place-selection.spec.ts` ×2). Full map-related
+      suite (100 tests) passing with the known real-backend-left-running trap (`frontend/AGENTS.md`)
+      worked around — `docker compose stop backend` before the local run, `start` after.
 - [ ] T033 Run the `reviewer` agent against the full branch diff before merge, per this project's
       standing checkpoint practice (constitution principles II, III, IV, VII as the recurring
       offenders)

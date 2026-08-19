@@ -71,6 +71,27 @@ export function MapShell() {
   const visible = selectByStatus(destinations, statusFilter);
 
   /**
+   * spec.md's own Edge Cases (004): "What happens when the selected place is filtered out by the
+   * active status filter? The selection is cleared, because a panel describing a pin the owner
+   * cannot see is a surface with no context." `setStatusFilter` alone does not discharge that —
+   * `selectedId`/`confirmingId` are independent state, so a place could stay visually "selected"
+   * (and the map still centred on it) with no pin left on screen to relate it to. This wrapper is
+   * the one place that guarantee is actually kept, the same shape `dismissConfirmation` already is
+   * for FR-004. `openDestinationId` is deliberately untouched here — same reasoning as `visible`
+   * above: a sheet stays open on a place the owner has just filtered away rather than closing
+   * itself mid-edit.
+   */
+  function changeStatusFilter(next: DestinationStatus | null): void {
+    setStatusFilter(next);
+    if (selectedId === null) return;
+    const selected = destinations.find((d) => d.id === selectedId);
+    if (next !== null && (selected === undefined || selected.status !== next)) {
+      setSelectedId(null);
+      setConfirmingId(null);
+    }
+  }
+
+  /**
    * `DestinationStrip`'s own tap handler (004, T010) — a strip card is already unambiguous
    * (R-001), so unlike a pin tap it skips `confirmingId` and opens the full detail directly. It
    * still selects the place and moves the camera to it (via `mapViewRef`), so the pin the owner
@@ -188,7 +209,7 @@ export function MapShell() {
       {/* T052: below the map and above the strip — the bottom portion of a 375x667 screen, which
           is what `.claude/rules/design.md` means by thumb reach, and the same departure from where
           a design draws a filter that `PlatformFilter` already makes on the calendar. */}
-      <StatusFilter status={statusFilter} onChange={setStatusFilter} />
+      <StatusFilter status={statusFilter} onChange={changeStatusFilter} />
 
       <DestinationStrip
         destinations={visible}

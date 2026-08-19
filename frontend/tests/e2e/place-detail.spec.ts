@@ -349,3 +349,70 @@ test("a Wishlist place is an honest empty state, with no blank fields presented 
   // inputs above are a separate concern — T012's structure note — and are unaffected by this test).
   await expect(page.getByTestId("destination-planned-dates")).toHaveCount(0);
 });
+
+test("a place deleted elsewhere closes the sheet rather than presenting one that cannot be saved (spec.md's Edge Cases)", async ({
+  page,
+  baseURL,
+}) => {
+  const list = [destination({ id: 1, name: "Porto", status: "wishlist" })];
+  await page.route("**/api/destinations", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(list) });
+  });
+  await page.route("**/api/destinations/1", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "No such destination." }),
+    });
+  });
+  await page.route("**/api/trips", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
+  await page.goto("/map");
+  await page.getByTestId("map-canvas").waitFor();
+
+  await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
+
+  await expect(page.getByTestId("destination-sheet-close")).toHaveCount(0);
+  // No in-sheet error message either — the panel is gone, not showing a message on a place that
+  // cannot be saved.
+  await expect(page.getByText("No such destination.")).toHaveCount(0);
+});
+
+test("a load failure that is not the place being gone stays an in-sheet, retryable error", async ({
+  page,
+  baseURL,
+}) => {
+  const list = [destination({ id: 1, name: "Porto", status: "wishlist" })];
+  await page.route("**/api/destinations", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(list) });
+  });
+  await page.route("**/api/destinations/1", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Something went wrong on our end." }),
+    });
+  });
+  await page.route("**/api/trips", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
+  await page.goto("/map");
+  await page.getByTestId("map-canvas").waitFor();
+
+  await page.getByTestId("destination-pin").click();
+  await page.getByTestId("place-confirm-open").click();
+
+  // Unlike a 404, this stays open with the error shown — a transient failure the owner might retry.
+  await expect(page.getByTestId("destination-sheet-close")).toBeVisible();
+  await expect(page.getByText("Something went wrong on our end.")).toBeVisible();
+});

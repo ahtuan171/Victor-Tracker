@@ -286,3 +286,42 @@ test("a strip tap opens the full detail directly, skipping the confirmation step
   // directly rather than through the confirmation step.
   await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
 });
+
+test("changing the status filter past the selected place clears the selection (spec.md's Edge Cases)", async ({
+  page,
+  baseURL,
+}) => {
+  await openMap(page, baseURL, [
+    destination({ id: 1, name: "Kyoto", status: "visited" }),
+    destination({ id: 2, name: "Osaka", latitude: 34.6937, longitude: 135.5023, status: "wishlist" }),
+  ]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+  await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
+
+  // Narrow to a status Kyoto (visited) does not have — the pin the owner just selected is no
+  // longer on screen for it to describe.
+  await page.getByTestId("status-filter-wishlist").click();
+
+  await expect(page.getByTestId("place-confirm")).toHaveCount(0);
+  await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+  await expect(page.getByTestId("destination-pin")).not.toHaveAttribute("aria-pressed", "true");
+});
+
+test("changing the filter to a status the selected place still has leaves the selection alone", async ({
+  page,
+  baseURL,
+}) => {
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+  await page.getByTestId("status-filter-visited").click();
+
+  // Kyoto is visited — the filter narrows to exactly the status it already has, so nothing about
+  // the selection needed to change.
+  await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+});
