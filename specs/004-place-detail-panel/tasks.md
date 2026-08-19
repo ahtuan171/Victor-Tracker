@@ -407,9 +407,20 @@ delivered.
       for. Four new tests (`place-detail.spec.ts` ×2, `place-selection.spec.ts` ×2). Full map-related
       suite (100 tests) passing with the known real-backend-left-running trap (`frontend/AGENTS.md`)
       worked around — `docker compose stop backend` before the local run, `start` after.
-- [ ] T033 Run the `reviewer` agent against the full branch diff before merge, per this project's
+- [x] T033 Run the `reviewer` agent against the full branch diff before merge, per this project's
       standing checkpoint practice (constitution principles II, III, IV, VII as the recurring
       offenders)
+      **Findings**: one real bug, caught before merge — T034's own E1 fix was **incomplete**. Closing
+      the sheet on a 404 (`onOpenChange(false)`) never reloaded `MapShell`'s destination list and
+      never cleared `selectedId`/`confirmingId`, so a deleted-elsewhere place's pin stayed on the
+      map, still rendered as selected, indefinitely. Fixed in the same MR (!120, second commit): the
+      404 path now calls the existing `onDeleted` callback instead — the same reconciliation an
+      explicit delete already triggers (reload + clear the selection if it named this id) — because
+      a 404-on-load and a confirmed delete are the same event to the map. The test that shipped with
+      the first version of the fix only asserted the sheet closed, never that the pin/selection
+      actually cleared; tightened with a mutable list fixture so the gap could not pass by accident
+      a second time. No other findings — constitution alignment (II, III, IV, VII) clean, 100% of the
+      iteration's own stated scope verified against `spec.md`/`tasks.md`.
 
 ---
 
