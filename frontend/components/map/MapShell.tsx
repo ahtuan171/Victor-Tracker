@@ -233,8 +233,16 @@ export function MapShell() {
           if (!open) setOpenDestinationId(null);
         }}
         onUpdated={() => reload()}
-        onDeleted={() => {
+        onDeleted={(id) => {
           setOpenDestinationId(null);
+          // A deleted Destination — whether confirmed in this sheet or discovered as a 404 on its
+          // own load (004, T034's E1 fix) — should not keep reading as "selected": a ring and a
+          // scale-up around a pin that no longer exists is a ghost, not a place the owner can act
+          // on. The same guard `changeStatusFilter` above already uses for the filtered-out case.
+          if (selectedId === id) {
+            setSelectedId(null);
+            setConfirmingId(null);
+          }
           reload();
         }}
       />

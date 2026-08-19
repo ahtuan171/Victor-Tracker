@@ -350,17 +350,23 @@ test("a Wishlist place is an honest empty state, with no blank fields presented 
   await expect(page.getByTestId("destination-planned-dates")).toHaveCount(0);
 });
 
-test("a place deleted elsewhere closes the sheet rather than presenting one that cannot be saved (spec.md's Edge Cases)", async ({
+test("a place deleted elsewhere closes the sheet, clears the selection, and removes the pin — not only the panel (spec.md's Edge Cases)", async ({
   page,
   baseURL,
 }) => {
-  const list = [destination({ id: 1, name: "Porto", status: "wishlist" })];
+  // Mutable: the first `GET /destinations` still has the place (so there is a pin to tap), the
+  // reload `onDeleted` triggers no longer does — the real backend's own answer once the place is
+  // actually gone. A response that never changed would let the ghost-pin regression (found in this
+  // iteration's own reviewer pass) pass silently, since `reload()`'s effect would be invisible.
+  let gone = false;
   await page.route("**/api/destinations", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
+    const list = gone ? [] : [destination({ id: 1, name: "Porto", status: "wishlist" })];
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(list) });
   });
   await page.route("**/api/destinations/1", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
+    gone = true;
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -375,13 +381,19 @@ test("a place deleted elsewhere closes the sheet rather than presenting one that
   await page.goto("/map");
   await page.getByTestId("map-canvas").waitFor();
 
-  await page.getByTestId("destination-pin").click();
+  const porto = page.getByTestId("destination-pin");
+  await porto.click();
+  await expect(porto).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("place-confirm-open").click();
 
   await expect(page.getByTestId("destination-sheet-close")).toHaveCount(0);
   // No in-sheet error message either — the panel is gone, not showing a message on a place that
   // cannot be saved.
   await expect(page.getByText("No such destination.")).toHaveCount(0);
+  // The reviewer's own finding on the first version of this fix: the sheet closing is not enough
+  // on its own — the pin must stop existing (the reloaded list no longer has it) and must not keep
+  // reading as "selected" in the meantime.
+  await expect(page.getByTestId("destination-pin")).toHaveCount(0);
 });
 
 test("a load failure that is not the place being gone stays an in-sheet, retryable error", async ({

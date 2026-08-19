@@ -98,7 +98,9 @@ export function DestinationSheet({
   readonly onOpenChange: (open: boolean) => void;
   /** Called after a successful field/status save, so `MapView`'s list stays in sync. */
   readonly onUpdated: (destination: Destination) => void;
-  /** Called after a successful delete, so `MapView` removes the pin. */
+  /** Called after a successful delete **and** after a 404 on this sheet's own detail fetch — both
+   * mean the same thing to the map: this Destination is gone. `MapShell` reconciles both the same
+   * way (close the sheet, reload the list, clear the selection if it named this id). */
   readonly onDeleted: (destinationId: number) => void;
 }) {
   const nameId = useId();
@@ -163,10 +165,15 @@ export function DestinationSheet({
         if (!current) return;
         // FR-009's Edge Cases: opened here, deleted elsewhere — the panel closes rather than
         // presenting a place that cannot be saved, matching `deleteItem`'s own "a 404 describes a
-        // screen the creator already agrees is gone" reading (`frontend/AGENTS.md`). Any other
+        // screen the creator already agrees is gone" reading (`frontend/AGENTS.md`). Routed through
+        // `onDeleted`, not a bare `onOpenChange(false)`: "gone" is exactly what `onDeleted` already
+        // means to `MapShell` (close the sheet, reload the list, clear the selection if it named
+        // this id) — a 404 on load and a delete confirmed in this same sheet are the same event
+        // from the map's point of view, and reusing the one callback is what makes that reconciliation
+        // happen for both instead of only for the path that happened to be built first. Any other
         // failure (network, 5xx) is not that — it stays an in-sheet, retryable error, unchanged.
         if (error instanceof ApiError && error.status === 404) {
-          onOpenChange(false);
+          onDeleted(destinationId);
           return;
         }
         setLoadError({ id: destinationId, message: messageFor(error) });
