@@ -366,10 +366,25 @@ delivered.
 - [x] T030 [P] Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix anything either flags
       across every file this iteration touched
       **Verification note**: both clean, no fixes needed.
-- [ ] T031 Hand-walk `quickstart.md`'s V1–V6 at 375px against a real backend (`pnpm build && pnpm
+- [x] T031 Hand-walk `quickstart.md`'s V1–V6 at 375px against a real backend (`pnpm build && pnpm
       start`, matching `frontend/AGENTS.md`'s hand-walk setup) — the same discipline every prior
       iteration's Final Phase used, and the one check no automated suite structurally can (`.claude/
       memory.md`'s Traps)
+      **Walk note**: `frontend/scripts/t031-walk.mjs` (004's counterpart of `003`'s `t056-walk.mjs`),
+      run twice for stability, **19/19 scenarios passing** against the real dev Postgres and the real
+      production bundle. Auth via a minted token (no seed password needed), fixtures prefixed `T031`
+      and swept on every run's start and end — verified empty afterward, only the owner's own six
+      real Destinations and three Trips remain. **Known, accepted gap carried over from `003`**: R2
+      is still unprovisioned, so V3 scenario 1's "at least one photograph" is walked with a note only
+      (the photo-grid rendering itself stays covered by the stubbed `photo-upload.spec.ts`).
+      **One real finding, in the walk script itself, not the app**: the dev database already carries
+      the owner's own real Destinations spanning nearly the whole globe, so `fitBoundsOnce`'s initial
+      camera sits at a near-world zoom regardless of where this walk's own fixtures land — two
+      markers genuinely far apart in the real world can still render within a few screen pixels of
+      each other, and a naive `{force: true}` click at that zoom silently selected the *wrong* pin
+      three separate times before this was diagnosed. Fixed with a `zoomInUntilSeparated` helper
+      (scroll-zoom centred on the pins' own midpoint, not the viewport's) and by never seeding a
+      scenario's own fixtures until the ones from the *previous* scenario are out of the way.
 - [ ] T032 Run `/speckit-analyze` against spec.md/plan.md/tasks.md before merge (constitution Stage 6)
 - [ ] T033 Run the `reviewer` agent against the full branch diff before merge, per this project's
       standing checkpoint practice (constitution principles II, III, IV, VII as the recurring
