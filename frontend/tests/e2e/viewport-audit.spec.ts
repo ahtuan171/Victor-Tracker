@@ -593,6 +593,15 @@ test.describe("/map", () => {
 
     await auditSurface(page, "DestinationSheet, WishlistPanel");
   });
+
+  test("TravelLogDrawer", async ({ page, baseURL }) => {
+    await openMap(page, baseURL);
+
+    await page.getByTestId("open-travel-log").click();
+    await expect(page.getByTestId("travel-log-drawer")).toBeVisible();
+
+    await auditSurface(page, "TravelLogDrawer");
+  });
 });
   });
 }
