@@ -629,9 +629,11 @@ to reread both in full:
 - **`005` is the iteration to name as a gap, not to imitate.** The entire spec and implementation
   landed in one merge request — the spec never merged to `main` before code, breaking
   `.claude/rules/workflow.md`'s Branch strategy outright rather than merely bundling tasks the way
-  `003` did. No `reviewer` pass is on file. **No hand-walk of `quickstart.md` V1–V4 exists at all** —
-  the first iteration since `003`'s retro said "run all three gates, every time" to run none of them
-  with surviving evidence. Nothing broke in practice; the gap is still owed, not excused by that.
+  `003` did. No `reviewer` pass is on file, and this half of the gap is **not** closed. The hand-walk
+  half **is**: `frontend/scripts/005-walk.mjs` (T014, added retroactively 2026-08-21) ran V1–V4,
+  9/9 walkable scenarios passing; V4 (empty state) could not be walked without deleting the owner's
+  real data, since every status already has a real Destination, and is recorded as a known gap
+  rather than faked.
 - **The two-day lag itself is the reusable lesson.** A status file that says "nothing built yet" needs
   to be falsifiable in one command (`git log --oneline main | grep 004`), not trusted on its own prose
   — the same "executable artifact outranks prose" rule this file already states elsewhere for a

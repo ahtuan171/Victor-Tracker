@@ -25,16 +25,18 @@ real production build, **19/19 scenarios passing** (`frontend/scripts/t031-walk.
 pre-implementation and a pre-merge `/speckit-analyze` pass ran, plus a `reviewer` pass that caught an
 incomplete fix inside the same MR that introduced it — full detail in `docs/retro-04.md`.
 
-**`005-travel-log` — all 13 tasks done, tagged `v0.5.0` at `726927b` (current `main` HEAD).** A
-reverse-chronological timeline of the same Destinations the map already draws (UI label: **Collection**,
-after a same-day wording pass — the spec and directory name still say "Travel Log"), filterable by
-status, tapping an entry opens `DestinationSheet` and focuses the pin. No database change. **This
-iteration is the process finding `docs/retro-05.md` exists to record**: the entire spec, plan and
-implementation landed in one merge request rather than the spec merging to `main` before code as
-`.claude/rules/workflow.md` requires, no `reviewer` pass is on file, and **no hand-walk of
-`quickstart.md` V1–V4 exists** — the first iteration since `003`'s retro said "run all three gates,
-every time" to run none of them with surviving evidence. Nothing broke; the automated suite is green.
-The gap is recorded as owed, not fixed by this paragraph — walking V1–V4 by hand is still to be done.
+**`005-travel-log` — all 13 tasks done (T001–T014 including a retroactive hand-walk task), tagged
+`v0.5.0` at `726927b`.** A reverse-chronological timeline of the same Destinations the map already
+draws (UI label: **Collection**, after a same-day wording pass — the spec and directory name still
+say "Travel Log"), filterable by status, tapping an entry opens `DestinationSheet` and focuses the
+pin. No database change. **This iteration is the process finding `docs/retro-05.md` exists to
+record**: the entire spec, plan and implementation landed in one merge request rather than the spec
+merging to `main` before code as `.claude/rules/workflow.md` requires, and no `reviewer` pass is on
+file. **The hand-walk gap, closed same-session**: T014 (added 2026-08-21) ran
+`frontend/scripts/005-walk.mjs` against a real production build — **9/9 walkable scenarios pass**.
+V4 (the empty-state scenario) could not be walked without deleting the owner's real data, since every
+status already has a real Destination — recorded as a known gap rather than faked, same treatment as
+`003`'s R2 gap.
 
 **On `main` now: 413 backend tests, 640 frontend tests across four Playwright projects, none skipped**
 (`pnpm lint` and `pnpm exec tsc --noEmit` both silent). The frontend test count grew from 572 to 640
@@ -282,7 +284,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `specs/002-pixel-arcade-skin/` | **All 53 tasks done (T001–T053), on `main`** via MR !63, tagged `v0.2.0`. `spec.md` (34 FR, 15 SC, 4 stories), `plan.md`, `research.md` (R-001…R-009), `data-model.md`, `contracts/openapi.yaml` (`GET`/`PATCH /preferences`), `quickstart.md` (V1…V11), `tasks.md`. Full detail — including a further "comic-tech" visual refinement sub-phase (T048–T053) done inside this same iteration's Phase 7 — is in the status section at the top of this file; the rest of this table below still describes the presentation layer as it stood **before** this branch merged, since rewriting every row for the re-skin is the next iteration's job, not a retrofit. |
 | `specs/003-travel-map/` | **All 62 tasks done (T001–T062), on `main`**, tagged `v0.3.0`. `spec.md` (28 FR, 6 SC, 5 stories, 5 clarifications), `plan.md`, `research.md` (R-001…R-004), `data-model.md` (3 tables, INV-1…INV-3), `contracts/openapi.yaml` (14 operations across `/trips`, `/destinations`, `/locations/search` and the per-destination photograph routes), `quickstart.md` (V1…V9), `tasks.md`, `checklists/requirements.md` (16/16). Two `/speckit-analyze` passes **before** implementation took the task count 57 → 60 → 62 as full renumbers (nothing was built yet, so no issue references could drift). The Final Phase's own three gates found six more — recorded under T056 (the hand-walk, including the R2 gap), T057 (`/speckit-analyze`) and T058 (`reviewer`) in `tasks.md`. **The one thing this row must not be read as claiming: photograph upload is not verified end to end** — see the status section at the top. |
 | `specs/004-place-detail-panel/` | **All 34 tasks done (T001–T034), on `main`**, tagged `v0.4.0`. `spec.md` (24 FR, 7 SC, 6 stories, 5 clarifications), `plan.md`, `research.md`, `data-model.md` (no new entities — reads what `003` already recorded), `quickstart.md` (V1…V6), `tasks.md`, `checklists/requirements.md` (16/16). No backend or database change. Two `/speckit-analyze` passes (one pre-implementation, one pre-merge at T032) plus a `reviewer` pass (T033) that caught an incomplete fix inside the same MR that introduced it. Full detail in `docs/retro-04.md`. |
-| `specs/005-travel-log/` | **All 13 tasks done (T001–T013), on `main`**, tagged `v0.5.0`. `spec.md` (7 FR, 4 SC, 3 stories), `plan.md`, `research.md`, `data-model.md`, `quickstart.md` (V1…V4 — **never hand-walked**, see the status section at the top), `tasks.md`, `checklists/requirements.md` (11/11). No backend or database change. **This row's iteration is the one `docs/retro-05.md` names as a process gap**: the entire spec and implementation landed in a single merge request rather than the spec merging to `main` before code, and no `reviewer` pass is on file. |
+| `specs/005-travel-log/` | **All 14 tasks done (T001–T014, T014 added retroactively), on `main`**, tagged `v0.5.0`. `spec.md` (7 FR, 4 SC, 3 stories), `plan.md`, `research.md`, `data-model.md`, `quickstart.md` (V1…V4 — hand-walked 2026-08-21, 9/9 walkable scenarios pass; V4 not walkable without deleting real owner data, recorded as a known gap), `tasks.md`, `checklists/requirements.md` (11/11). No backend or database change. **This row's iteration is the one `docs/retro-05.md` names as a process gap**: the entire spec and implementation landed in a single merge request rather than the spec merging to `main` before code, and no `reviewer` pass is on file — the hand-walk gap alone was closed same-session. |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |

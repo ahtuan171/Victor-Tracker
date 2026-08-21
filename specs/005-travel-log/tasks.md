@@ -47,3 +47,25 @@
 - [x] T011 Extend `frontend/tests/e2e/viewport-audit.spec.ts` to include `TravelLogDrawer` and `TravelLogCard` under 375px viewport floor checks.
 - [x] T012 Run `pnpm lint && pnpm exec tsc --noEmit` from `frontend/` and fix any flagged issues.
 - [x] T013 Run `/speckit-analyze` against `spec.md`/`plan.md`/`tasks.md` before implementation.
+- [x] T014 **Added retroactively, 2026-08-21** — hand-walk `quickstart.md`'s V1–V4 at 375px against
+      a real production build (`pnpm build && pnpm start`, matching `frontend/AGENTS.md`'s hand-walk
+      setup), the discipline every prior iteration's Final Phase had and this one's originally did
+      not (`docs/retro-05.md` §2.2). `frontend/scripts/005-walk.mjs`.
+      **Walk note**: run 2026-08-21, **9/9 walkable scenarios passing** (V1.1–V1.3, the undated-entry
+      edge case, V2.1–V2.3, V3.1). Fixtures prefixed `IT005`, swept on every run's start and end —
+      verified empty afterward, only the owner's own six real Destinations remain.
+      **V4 (empty state) could not be walked**: the real dev database already holds at least one
+      Destination in every one of the three statuses (`{visited: 3, planned: 1, wishlist: 2}` at
+      run time), so no status filter can be made to show zero real matches without deleting the
+      owner's own data, which this script must never do. Recorded as a known gap rather than faked
+      — the same treatment `003`'s R2 gap and `004`'s photo-upload-under-Visited gap already use.
+      `TravelLogDrawer`'s empty-state branch itself is still covered by the stubbed
+      `travel-log.spec.ts` (V4), so this is a gap in *this hand-walk's* coverage, not in the
+      feature's automated coverage.
+      **One finding, in the walk script's own first draft, not the app**: an initial assertion
+      claimed an undated entry always sorts last in the Travel Log. `compareLogOrder`
+      (`lib/log.ts`) actually falls back to comparing a bare `YYYY-MM-DD` `start_date` against a
+      full ISO `created_at` timestamp as plain strings — which sorts an undated (recently-created)
+      entry *between* a dated entry in a later month and one in an earlier year, never simply
+      "last". Corrected to assert the documented relative ordering instead of an invented absolute
+      one — the same class of walk-script bug `003`'s T056 and `004`'s T031 each found once.

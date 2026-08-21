@@ -4,6 +4,14 @@
 this iteration, run essentially from scratch after the fact — see §2) · **Not deployed** — same
 standing policy as every prior iteration.
 
+**Addendum, same day, later**: the hand-walk this retro's §1 and §3 both name as missing has been
+run — `frontend/scripts/005-walk.mjs`, T014 in `tasks.md`, **9/9 walkable scenarios passing**. V4
+(the empty-state scenario) could not be walked without deleting the owner's real data (every status
+already has at least one real Destination) and is recorded as a known gap rather than faked, the
+same treatment `003`'s R2 gap uses. The body of this retro below is left as written — it is an
+accurate account of the state at the time it was written, and the gap it describes was real for the
+two days it existed. Do not read §1's "no hand-walk script exists for `005`" as still true.
+
 13 tasks (T001–T013 as ticked in `tasks.md`), 3 phases plus a Final Phase, **2 merge requests total**.
 This is the smallest iteration by task count so far — no backend changes, no new columns, exactly the
 scope `.claude/memory.md`'s Deferred section predicted when it ranked this item first: "re-presents
