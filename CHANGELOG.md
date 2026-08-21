@@ -17,6 +17,79 @@ deliberately — they are a record, not a rename target.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-19
+
+**Travel Log — a reverse-chronological timeline of the same Destinations the map already draws.**
+13 tasks, 3 phases, frontend-only, no database schema change. Full detail in
+[`docs/retro-05.md`](docs/retro-05.md), including a process finding this retro states plainly: the
+whole iteration landed in a single merge request (spec and implementation together), no hand-walk of
+`quickstart.md` was recorded, and no `reviewer` pass is on file — a departure from every prior
+iteration's Final Phase, named as such rather than left implicit.
+
+### Added
+
+- **Travel Log** (UI label: **Collection**) — a slide-over timeline listing every Destination in
+  reverse-chronological order (`start_date DESC`, then `created_at DESC`), each entry showing its
+  status cue, name, formatted date range and attached Trip name.
+- **Status filter** inside the Travel Log (`All` / `Visited` / `Planned` / `Wishlist`), narrowing the
+  already-loaded list client-side — the same pattern the map's own `StatusFilter` already uses.
+- **Tapping a log entry** opens that place's `DestinationSheet` and eases the map camera to its pin,
+  reusing the selection seam `004` built.
+
+### Known gap
+
+- **No hand-walk of `quickstart.md` V1–V4 exists for this iteration** — every prior iteration's Final
+  Phase includes one; this one's did not. The automated Playwright suite is green, but per this
+  project's own standing rule (`.claude/memory.md`), a green suite that stubs the proxy is evidence
+  about the frontend in isolation, never about the browser → proxy → API seam. Owed, recorded rather
+  than quietly dropped.
+
+## [0.4.0] — 2026-08-19
+
+**Opening a place stopped being a disappointment for two of the map's three pin statuses.** Selecting
+a pin now brings the map to it and marks it selected; a one-tap confirmation names the place before
+the full detail opens, so a mis-tap on a crowded map costs a glance rather than a screen. What the
+detail shows is chosen by status — Visited opens to photographs and impressions, Planned opens to its
+Trip context (with a plain statement when its dates fall outside that Trip's range, or when today
+falls inside them), Wishlist opens to an honest invitation to plan rather than blank fields. The
+status control now asks progressively for what each destination status makes meaningful. 34 tasks, 8
+phases, roughly 20 merge requests. Full detail in [`docs/retro-04.md`](docs/retro-04.md).
+
+**T031 hand-walked `quickstart.md` V1–V6 twice against a real production build, 19/19 scenarios
+passing.** Re-runnable as `frontend/scripts/t031-walk.mjs`. All seven success criteria hold, with the
+same R2 caveat `v0.3.0` already carries: the Visited gallery's "at least one photograph" scenario is
+walked with a note only, since no photograph has ever reached real object storage.
+
+### Added
+
+- **Selection** — tapping a pin eases the map camera to centre it and marks it visibly selected
+  (shape, not colour alone); at most one place selected at a time; dismissing a selection leaves the
+  map where it is; overlapping pins at the current zoom separate on tap.
+- **A confirmation step** between selecting a pin and opening its detail, naming the place and its
+  status, dismissible with nothing changed.
+- **`VisitedPanel`, `PlannedPanel`, `WishlistPanel`** — three distinct detail presentations chosen by
+  the place's status, replacing the single near-empty sheet every non-Visited place opened to before.
+- **Status-progressive editing** — moving a place to Planned asks for its dates and Trip; moving it to
+  Visited asks for impressions and photographs; a status change always saves even when a newly-asked
+  field is left empty, preserving `003`'s FR-028 guarantee unnarrowed.
+
+### Fixed
+
+- **Two edge cases `spec.md` already described but the shipped code did not honour**, found by a
+  pre-merge `/speckit-analyze` pass: a place deleted elsewhere while its sheet was open now closes the
+  sheet instead of showing a stuck in-sheet error; the selected place's pin and detail now clear when
+  the active status filter no longer includes it, instead of leaving a selection the owner can no
+  longer see on the map.
+- **The first fix for the deletion case was itself incomplete** — closing the sheet never reloaded the
+  destination list or cleared the map's own selection state, leaving a deleted pin visibly selected
+  indefinitely. Caught by a `reviewer` pass before merge and fixed in the same MR.
+
+### Deliberately not built
+
+Total cost, who the owner travelled with, a scheduled hour-by-hour itinerary, and merging Trip into a
+place are all named out of scope in `spec.md`'s own "Why this iteration" section, each with a stated
+reason, and none of them appeared in the 34 tasks.
+
 ## [0.3.0] — 2026-08-17
 
 **The Travel Map — the constitution's named core capability, and the reason the 2.0.0 amendment
