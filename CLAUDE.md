@@ -2,6 +2,55 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Status as of 2026-08-21: **`004-place-detail-panel` and `005-travel-log` both shipped on
+2026-08-19; `v0.4.0` and `v0.5.0` are tagged now, two days late.**
+
+**Read this paragraph before every other "Status as of" section below it, including the 2026-08-17
+one immediately after it.** That section still describes `003` accurately, but its final paragraph —
+"the next substantive action is the owner's choice of a `004` subject" — describes a decision that was
+already made and fully built out by the time this file was next read. **This is the finding, not just
+the correction**: `CLAUDE.local.md`'s own "Current focus" section asserted for two full sessions that
+`004` was "Stage 1 (Plan), nothing built yet" while `main` carried a fully shipped, fully tested `004`
+*and* a fully shipped `005` on top of it. Neither iteration's Ship or Reflect stage had run, so nothing
+forced a second look. Full account in `docs/retro-04.md` and `docs/retro-05.md`.
+
+**`004-place-detail-panel` — all 34 tasks done, all 8 phases closed, tagged `v0.4.0` at `c1afe25`.**
+Selecting a pin now brings the map to it and marks it selected; a one-tap confirmation names the place
+before the full detail opens. What the detail shows is chosen by status: Visited opens to photographs
+and impressions, Planned opens to its Trip context (stating plainly when dates fall outside that
+Trip's range, or when today falls inside them), Wishlist opens to an honest invitation to plan. The
+status control now asks progressively for what each status makes meaningful, without narrowing `003`'s
+FR-028 "any direction, always saves" guarantee. T031 hand-walked `quickstart.md` V1–V6 twice against a
+real production build, **19/19 scenarios passing** (`frontend/scripts/t031-walk.mjs`). Both a
+pre-implementation and a pre-merge `/speckit-analyze` pass ran, plus a `reviewer` pass that caught an
+incomplete fix inside the same MR that introduced it — full detail in `docs/retro-04.md`.
+
+**`005-travel-log` — all 13 tasks done, tagged `v0.5.0` at `726927b` (current `main` HEAD).** A
+reverse-chronological timeline of the same Destinations the map already draws (UI label: **Collection**,
+after a same-day wording pass — the spec and directory name still say "Travel Log"), filterable by
+status, tapping an entry opens `DestinationSheet` and focuses the pin. No database change. **This
+iteration is the process finding `docs/retro-05.md` exists to record**: the entire spec, plan and
+implementation landed in one merge request rather than the spec merging to `main` before code as
+`.claude/rules/workflow.md` requires, no `reviewer` pass is on file, and **no hand-walk of
+`quickstart.md` V1–V4 exists** — the first iteration since `003`'s retro said "run all three gates,
+every time" to run none of them with surviving evidence. Nothing broke; the automated suite is green.
+The gap is recorded as owed, not fixed by this paragraph — walking V1–V4 by hand is still to be done.
+
+**On `main` now: 413 backend tests, 640 frontend tests across four Playwright projects, none skipped**
+(`pnpm lint` and `pnpm exec tsc --noEmit` both silent). The frontend test count grew from 572 to 640
+across both iterations; the backend count is unchanged, since neither iteration touched the backend.
+
+**GitLab/CI note as of this session**: the local runner is offline (last contact 2026-08-19) and
+Docker Desktop was not running when this session started — both need restarting before any pipeline
+can run. The last three pipelines on `main` all failed, and all three failures traced to transient
+`uv`/`npm` registry timeouts (the documented pattern in `CLAUDE.local.md`), not application defects.
+
+**The next substantive action is still the owner's choice of a `004`-numbered — now effectively
+`006`-numbered — subject.** `.claude/memory.md`'s Deferred shortlist had Travel Log first; it is built.
+The full-screen photo viewer is next on that list, followed by Destination category/priority. Nothing
+on it is scheduled and nothing gets built without its own `spec.md` — non-negotiable 3 is unchanged.
+Provisioning R2 and rotating `SEED_CREATOR_PASSWORD` both still survive, unchanged.
+
 ## Status as of 2026-08-17: **`003-travel-map` is done and `v0.3.0` is tagged. The map is real.**
 
 **Read this paragraph before every other "Status as of" section below it.** Those sections are still
@@ -232,6 +281,8 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `specs/001-content-calendar/` | **Complete and on `main`**: `spec.md` (34 FR, 12 SC, 5 stories), `plan.md`, `research.md` (R-001…R-008), `data-model.md` (2 tables, INV-1…INV-4), `contracts/openapi.yaml` (8 operations), `quickstart.md` (V1…V9), `tasks.md` (**77 tasks, 8 phases; T001–T070 plus T073, T075 and T077 ticked — Phases 3–7 all closed with their checkpoints. T077 was *added* at the Phase 7 checkpoint**), `checklists/requirements.md` (16/16). Two amendments recorded under Phase 2, both now discharged — T024 lost its cookie-clearing half to T022, T027 lost its re-assert half to T033. **The Phase 3 amendment now reaches all three artifacts** — `tasks.md`, `contracts/openapi.yaml` and `research.md` R-007 — after the Phase 4 checkpoint found the last two still asserting the opposite. |
 | `specs/002-pixel-arcade-skin/` | **All 53 tasks done (T001–T053), on `main`** via MR !63, tagged `v0.2.0`. `spec.md` (34 FR, 15 SC, 4 stories), `plan.md`, `research.md` (R-001…R-009), `data-model.md`, `contracts/openapi.yaml` (`GET`/`PATCH /preferences`), `quickstart.md` (V1…V11), `tasks.md`. Full detail — including a further "comic-tech" visual refinement sub-phase (T048–T053) done inside this same iteration's Phase 7 — is in the status section at the top of this file; the rest of this table below still describes the presentation layer as it stood **before** this branch merged, since rewriting every row for the re-skin is the next iteration's job, not a retrofit. |
 | `specs/003-travel-map/` | **All 62 tasks done (T001–T062), on `main`**, tagged `v0.3.0`. `spec.md` (28 FR, 6 SC, 5 stories, 5 clarifications), `plan.md`, `research.md` (R-001…R-004), `data-model.md` (3 tables, INV-1…INV-3), `contracts/openapi.yaml` (14 operations across `/trips`, `/destinations`, `/locations/search` and the per-destination photograph routes), `quickstart.md` (V1…V9), `tasks.md`, `checklists/requirements.md` (16/16). Two `/speckit-analyze` passes **before** implementation took the task count 57 → 60 → 62 as full renumbers (nothing was built yet, so no issue references could drift). The Final Phase's own three gates found six more — recorded under T056 (the hand-walk, including the R2 gap), T057 (`/speckit-analyze`) and T058 (`reviewer`) in `tasks.md`. **The one thing this row must not be read as claiming: photograph upload is not verified end to end** — see the status section at the top. |
+| `specs/004-place-detail-panel/` | **All 34 tasks done (T001–T034), on `main`**, tagged `v0.4.0`. `spec.md` (24 FR, 7 SC, 6 stories, 5 clarifications), `plan.md`, `research.md`, `data-model.md` (no new entities — reads what `003` already recorded), `quickstart.md` (V1…V6), `tasks.md`, `checklists/requirements.md` (16/16). No backend or database change. Two `/speckit-analyze` passes (one pre-implementation, one pre-merge at T032) plus a `reviewer` pass (T033) that caught an incomplete fix inside the same MR that introduced it. Full detail in `docs/retro-04.md`. |
+| `specs/005-travel-log/` | **All 13 tasks done (T001–T013), on `main`**, tagged `v0.5.0`. `spec.md` (7 FR, 4 SC, 3 stories), `plan.md`, `research.md`, `data-model.md`, `quickstart.md` (V1…V4 — **never hand-walked**, see the status section at the top), `tasks.md`, `checklists/requirements.md` (11/11). No backend or database change. **This row's iteration is the one `docs/retro-05.md` names as a process gap**: the entire spec and implementation landed in a single merge request rather than the spec merging to `main` before code, and no `reviewer` pass is on file. |
 | `backend/app/` | `config.py`, `db.py`, `models.py`, `auth.py`, `schemas.py`, `main.py`, `api/auth.py`, `api/content_items.py` (T030–T031 create and list, T037 date range), `scripts/seed_user.py`. All five routes exist as of T049–T050. **The single creator is seeded** — one row, one real email; do not seed a second. |
 | `backend/alembic/` | One revision, `9483af05dd5b`, **applied to both `creatorhub` and `creatorhub_test`**. `alembic check` clean. |
 | `backend/tests/` | `conftest.py` (the T017 harness), `test_harness.py`, `test_config.py`, `test_auth_core.py`, `test_auth.py` (T018), `test_schema.py` (T019), `test_errors.py` (T020), `test_content_items.py` (T029, the date range at T036, partial update and delete at T048/T050 — further extensions at T059, T063), `test_transitions.py` (T046–T047, INV-1 in both directions and the lossless reversal), plus the platform filter (T059) and the published link (T063). **271 passing.** |
@@ -241,7 +292,7 @@ Slash commands use hyphens: `/speckit-specify`, not `/speckit.specify`. The cons
 | `drafts/` | `content-calendar.spec.draft.md` — superseded by `spec.md`. Kept for provenance; do not edit. |
 | `design/` | **Stage 2 is done for both `content-calendar/` and `003-travel-map/`.** `content-calendar/` holds `BRIEF.md` (brief + **audit findings, result CLEAN**), `DESIGN-PROMPT.md`, the export `VictorHub-Content-Calendar.dc.html` + `support.js`, and screenshots — including the greyscale acceptance test and the implemented `/login`. All eleven surfaces designed at 375px, dark (`1a`–`1l`) and light (`2a`–`2l`). `003-travel-map/` holds the same shape: `BRIEF.md` (**audit findings, result ONE finding, resolved** — `TripStatus`'s display words don't match `data-model.md`'s ratified enum and the export invents a seventh "Abandoned" value; implementation uses the ratified six, not the export's wording), `DESIGN-PROMPT.md`, the export `Victor-Tracker-Map.dc.html` + `support.js` + `image-slot.js`, and three screenshots. All twelve surfaces (`1a`–`1l`) designed at 375px, dark only (this product ships no light mode at v0.2). The pin encoding — a shield silhouette, outline→half→solid fill progression, its own colour set distinct from Content Calendar's status palette — is recorded in `1d` and in `BRIEF.md`. |
 | Claude Design | The export lives in project **`32445b82-32e5-4ac4-86d3-4fcc885a5484`** ("Thiết kế v0.1 hoàn thành") — a **regular** project, not the design-system one. `DesignSync` reads it fine; only pushing a component library back would need the design-system type. The `VictorHub Design System` project (`756a66ad-4f2e-42ff-9513-48b969855d40`) was never used and is **still empty** — ignore it unless a library push is ever wanted. |
-| `docs/` | Does not exist. Correct — **T076** creates it (`retro-01.md`). `CHANGELOG.md` (T074) is at the repo root, not here. |
+| `docs/` | `retro-01.md` through `retro-05.md`, one per shipped iteration. `CHANGELOG.md` is at the repo root, not here. |
 | GitLab / remote | **Exists, builds, and gates.** `origin` = `gitlab.com/ahtuan1701/creator-hub`, private. `main` protected with push access **no one** and `only_allow_merge_if_pipeline_succeeds` **`true`** — both verified against the API, not assumed. **Every task since T025 has merged through an MR behind a green pipeline — !1 through !50**, covering T025–T070 plus T073, T075, T077, the phase checkpoints and the docs sweeps. **Pipelines run on a project-owned runner** since 2026-08-03, after the free-tier quota ran out; the gate was never relaxed. Still open: no issues imported. |
 | `glab` | **Installed and authenticated** as `ahtuan1701`. 1.110.0, via `winget install --id GLab.GLab`. Not in `Program Files` — see `CLAUDE.local.md` for the path. |
 | Local tooling | `uv` 0.11.32, `pnpm` 11.17.0, Python 3.13.5, Node **24.12.0**, Docker 29.3.1 — the daemon does not survive a reboot, so start Docker Desktop first every session. |

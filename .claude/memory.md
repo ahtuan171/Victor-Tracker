@@ -598,8 +598,10 @@ provider, which costs an API key and a new disclosure to solve a caching problem
 **2026-08-15 — If 004 needs a subject, this is the shortlist in order.** Ranked by value against
 cost, so that whoever opens the next iteration does not re-derive the ordering:
 
-1. **Travel Log** and the **full-screen photo viewer** — the reference-product triage entry. Neither
-   needs a new column; both re-present data the surfaces already load.
+1. ~~**Travel Log**~~ and the **full-screen photo viewer** — the reference-product triage entry.
+   Neither needs a new column; both re-present data the surfaces already load. **Travel Log is
+   done as of `005-travel-log`, tagged `v0.5.0` (2026-08-19)** — see the Decisions entry below and
+   `docs/retro-05.md`. The full-screen photo viewer remains open and is now first on this list.
 2. **Destination category and priority** — two columns, one filter dimension, one spec question.
 3. **Route, straight-line only** — one ordering column and a line layer. Explicitly *not* a routing
    provider; see the Route entry for why that distinction is load-bearing.
@@ -611,3 +613,26 @@ cost, so that whoever opens the next iteration does not re-derive the ordering:
 **This is a ranking, not a plan.** Nothing here is scheduled and nothing here gets built until it has
 its own `spec.md` — the third non-negotiable is unchanged. Items 1–3 are each small enough that a
 single iteration could reasonably carry two of them; items 4 and 5 are each a full iteration alone.
+
+**2026-08-19, closed 2026-08-21 — `004-place-detail-panel` and `005-travel-log` both shipped, and both
+Ship/Reflect stages ran two days late.** `004` (opening a place: selection, confirmation, and a
+status-branched detail panel) and `005` (Travel Log, UI-labelled "Collection") both merged to `main` on
+2026-08-19, but neither was tagged, retro'd, or reflected in `CLAUDE.md`/`CLAUDE.local.md` until this
+session on 2026-08-21 — `v0.4.0` and `v0.5.0` are both cut now, at `c1afe25` and `726927b`. Full detail
+in `docs/retro-04.md` and `docs/retro-05.md`; the short version, since a future session should not have
+to reread both in full:
+
+- **`004` is the iteration to imitate.** Two `/speckit-analyze` passes, a `reviewer` pass that caught
+  a genuinely incomplete fix inside the same task that introduced it, a hand-walk (19/19,
+  `frontend/scripts/t031-walk.mjs`), and MR granularity that held closer to one-task-one-MR than `003`
+  managed.
+- **`005` is the iteration to name as a gap, not to imitate.** The entire spec and implementation
+  landed in one merge request — the spec never merged to `main` before code, breaking
+  `.claude/rules/workflow.md`'s Branch strategy outright rather than merely bundling tasks the way
+  `003` did. No `reviewer` pass is on file. **No hand-walk of `quickstart.md` V1–V4 exists at all** —
+  the first iteration since `003`'s retro said "run all three gates, every time" to run none of them
+  with surviving evidence. Nothing broke in practice; the gap is still owed, not excused by that.
+- **The two-day lag itself is the reusable lesson.** A status file that says "nothing built yet" needs
+  to be falsifiable in one command (`git log --oneline main | grep 004`), not trusted on its own prose
+  — the same "executable artifact outranks prose" rule this file already states elsewhere for a
+  different kind of drift, now shown to apply to this file's own status claims about itself.
