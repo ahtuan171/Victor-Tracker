@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 /**
  * Where a signed-in creator lands (SC-001's "landing screen").
  *
- * `/calendar` does not exist until T033, so between T026 and then this is honestly a 404 — recorded
- * as an intended intermediate state in tasks.md's Phase 2 amendment note, and explicitly not a
- * reason to build the calendar page early.
+ * Was `/calendar` until 2026-08-21; changed to `/map` in the same pass as `app/page.tsx`'s root
+ * redirect when Content Calendar came out of navigation — the two are the product's only two
+ * post-auth landing points and had to move together.
  */
-const LANDING_PATH = "/calendar";
+const LANDING_PATH = "/map";
 
 /**
  * The error region's id, referenced by both fields through `aria-describedby`.
@@ -138,9 +138,9 @@ export function LoginForm() {
           </div>
 
           <h1 className="font-display text-ink text-[34px] leading-[0.95] font-bold tracking-[0.03em] uppercase skew-x-[-5deg]">
-            Content
+            Travel
             <br />
-            Calendar
+            Tracker
           </h1>
         </div>
 

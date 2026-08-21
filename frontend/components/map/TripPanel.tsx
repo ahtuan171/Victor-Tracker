@@ -137,7 +137,10 @@ export function TripPanel({
       >
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
-          <SheetTitle>{openTrip?.name ?? "Trips"}</SheetTitle>
+          {/* font-sans, not the default font-display — see DestinationSheet.tsx's identical
+              override for why: a trip name is content the owner typed, and Silkscreen has no
+              Vietnamese glyphs. */}
+          <SheetTitle className="font-sans">{openTrip?.name ?? "Trips"}</SheetTitle>
           <span className="flex-1" />
           <button
             type="button"

@@ -131,8 +131,10 @@ test("a successful sign-in sends the credentials and leaves for the landing scre
 
   // Since T033 this lands on a real, guarded page rather than a 404 — which is why `stubLogin` now
   // sets the session cookie as well as returning the body.
-  await page.waitForURL("**/calendar");
-  expect(new URL(page.url()).pathname).toBe("/calendar");
+  // Was `/calendar` until 2026-08-21 — `LANDING_PATH` in `login-form.tsx` moved to `/map` when
+  // Content Calendar came out of navigation.
+  await page.waitForURL("**/map");
+  expect(new URL(page.url()).pathname).toBe("/map");
 
   expect(stub.requests).toEqual([{ email: "creator@example.com", password: "hunter2" }]);
 });
@@ -142,7 +144,7 @@ test("signing in does not put a token anywhere the browser can read", async ({ p
 
   await page.goto("/login");
   await signIn(page, "creator@example.com", "hunter2");
-  await page.waitForURL("**/calendar");
+  await page.waitForURL("**/map");
 
   // R-001 in one assertion. The proxy is what strips the token in production; this guards the other
   // end — that the *page* never copies a credential into storage even when handed one. A future

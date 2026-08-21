@@ -374,11 +374,15 @@ export function NavDrawer() {
 }
 
 /**
- * FR-015's screen list, in the order they were built. Content Calendar first — it is this
- * product's original surface and the one a returning creator expects at the top.
+ * FR-015's screen list.
+ *
+ * Content Calendar is deliberately **not** listed here (2026-08-21, owner decision): the product
+ * has pivoted fully to the travel tracker, and Content Calendar has no link pointing at it
+ * anywhere in the app any more. Its route, backend and tests are all untouched — this is a
+ * navigation decision, not a removal, and it is reversible by adding one line back. See
+ * `.claude/memory.md` for the reasoning against actually deleting it.
  */
 const SCREENS: ReadonlyArray<{ readonly href: string; readonly slug: string; readonly label: string }> = [
-  { href: "/calendar", slug: "calendar", label: "Content Calendar" },
   { href: "/map", slug: "map", label: "Travel Map" },
 ];
 

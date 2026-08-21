@@ -123,9 +123,14 @@ interface MapViewProps {
  * the identical camera-move `buildOnOpen` uses (`easeToDestination` below), so a strip tap and a
  * pin tap bring the map to the same place the same way — only whether `PlaceConfirm` appears
  * differs, and that is `MapShell`'s decision (T009 vs. T010), not this component's.
+ *
+ * `resetView` is the same shape for the opposite direction (2026-08-21, owner-requested): a
+ * one-tap way back to the world view after zooming into a place, rather than scrolling/pinching
+ * out by hand.
  */
 export interface MapViewHandle {
   focusDestination(destinationId: number): void;
+  resetView(): void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
@@ -158,6 +163,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const target = placed.find((destination) => destination.id === destinationId);
         if (target === undefined) return;
         easeToDestination(map, target, placed);
+      },
+      resetView() {
+        const map = mapRef.current;
+        if (map === null) return;
+        map.easeTo({
+          center: [DEFAULT_MAP_VIEW.center[0], DEFAULT_MAP_VIEW.center[1]],
+          zoom: DEFAULT_MAP_VIEW.zoom,
+        });
       },
     }),
     [destinations],
@@ -532,19 +545,19 @@ function easeToDestination(
 }
 
 /**
- * A neighbourhood/district-block zoom — close enough that "bring the map to that place" (FR-001)
- * reads as an actual approach rather than a recentre at whatever zoom the owner happened to be at,
- * while keeping the surrounding city/area legible so the selected place still reads in its
- * geographic context, not in isolation.
+ * The zoom "bring the map to that place" (FR-001) settles on — close enough to read as an actual
+ * approach rather than a recentre at whatever zoom the owner happened to be at, while keeping
+ * enough of the surrounding area legible that the selected place still reads in context.
  *
- * **Lowered back from 16 to 14** (004, second owner-requested revision, same session as the T009
- * follow-up that raised it): street-level (16) turned out to be tighter than wanted in practice —
- * individual street names visible, no sense of the surrounding area. 14 is this constant's original
- * value; the T009 follow-up's own docstring already named it "a neighbourhood/district-block view",
- * which is exactly the target this reversal asks for. `resolveOverlap` is untouched either way, so
- * its own exact-value tests (`tests/client/map.spec.ts`, T006) hold unaffected by either value.
+ * **Moved several times on real owner feedback against real places** (004's T009 follow-up first
+ * raised it to 16 for a genuine "approach" feel; it read as street-level-tight in practice and
+ * came back to 14; 14 still read close in a dense delta region and came down to 10; 10 was still
+ * closer than wanted and this landed on **7**, a wide-country/multi-province view, 2026-08-21).
+ * `resolveOverlap` is untouched by any of this — its own exact-value tests
+ * (`tests/client/map.spec.ts`, T006) hold regardless of this constant's value. See git blame for
+ * the full history if this needs tuning again.
  */
-const MINIMUM_SELECTION_ZOOM = 14;
+const MINIMUM_SELECTION_ZOOM = 7;
 
 /** Fit the view to every Destination, once, the first time the list is non-empty (T019). */
 function fitBoundsOnce(

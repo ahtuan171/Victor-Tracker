@@ -256,7 +256,12 @@ export function DestinationSheet({
       >
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
-          <SheetTitle>{detail?.name ?? "Destination"}</SheetTitle>
+          {/* font-sans (VT323), not the default font-display (Silkscreen) — this title renders a
+              place name the owner typed, which is content, not chrome, and Silkscreen has no
+              Vietnamese glyphs (globals.css's own font-role rule; Silkscreen's Google Fonts
+              metadata excludes the "vietnamese" subset, VT323 includes it). Left as Silkscreen
+              this rendered as broken diacritics on any accented name, e.g. "Tỉnh Đồng Tháp". */}
+          <SheetTitle className="font-sans">{detail?.name ?? "Destination"}</SheetTitle>
           <span className="flex-1" />
           <button
             type="button"

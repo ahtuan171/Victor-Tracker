@@ -36,7 +36,7 @@ test("the redirect is served as a redirect, before any markup exists", async ({ 
   expect(response.headers()["location"]).toContain("/login");
 });
 
-test("a visitor holding a session cookie is sent to the calendar", async ({
+test("a visitor holding a session cookie is sent to the travel map", async ({
   page,
   context,
   baseURL,
@@ -54,8 +54,9 @@ test("a visitor holding a session cookie is sent to the calendar", async ({
 
   await page.goto("/");
 
-  // `/calendar` does not exist until T033, so this asserts the destination, not a rendered page.
-  expect(new URL(page.url()).pathname).toBe("/calendar");
+  // Was `/calendar` until 2026-08-21 — `app/page.tsx`'s own note on why the landing route moved
+  // to `/map` when Content Calendar came out of navigation.
+  expect(new URL(page.url()).pathname).toBe("/map");
 });
 
 test("an empty session cookie is not a session", async ({ page, context, baseURL }) => {
