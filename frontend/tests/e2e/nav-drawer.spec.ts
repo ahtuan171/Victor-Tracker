@@ -48,23 +48,34 @@ test("the drawer is reachable from the calendar in a single tap", async ({ page,
   await expect(page.getByTestId("nav-drawer-panel")).toBeVisible();
 });
 
-test("every screen the product has is listed (FR-015)", async ({ page, baseURL }) => {
+test("every screen the product has is listed, and the current one is marked (FR-015, SC-007)", async ({
+  page,
+  baseURL,
+}) => {
   await openCalendar(page, baseURL);
   await page.getByTestId("nav-drawer-trigger").click();
 
-  // Down to one as of 2026-08-21 — Content Calendar came out of navigation when the product
-  // pivoted fully to the travel tracker (`NavDrawer.tsx`'s own note on `SCREENS`). Its route is
-  // still real, which is why `openCalendar` above can still reach it directly by URL; it just has
-  // no link pointing at it any more, so SC-007's "reachable from any other screen" no longer has
-  // a second screen to be reachable *from*.
+  // Travel Map is listed **first** as of 2026-08-21 — the product's primary surface now — but
+  // Content Calendar stays listed as a secondary screen rather than coming out of navigation
+  // entirely (`NavDrawer.tsx`'s own note on `SCREENS`). SC-007 asks every screen be reachable in
+  // at most two interactions from any other: opening the drawer (one interaction) plus tapping
+  // the other screen's link (a second) reaches it, which is the ceiling SC-007 sets.
   const screens = page.getByTestId("nav-drawer-screens").getByRole("listitem");
-  await expect(screens).toHaveCount(1);
+  await expect(screens).toHaveCount(2);
 
-  const map = page.getByTestId("nav-drawer-screen-map");
-  await expect(map).toHaveText("Travel Map");
+  const current = page.getByTestId("nav-drawer-screen-calendar");
+  await expect(current).toHaveText("Content Calendar");
+  await expect(current).toHaveAttribute("aria-current", "page");
+
+  const other = page.getByTestId("nav-drawer-screen-map");
+  await expect(other).toHaveText("Travel Map");
+  await expect(other).not.toHaveAttribute("aria-current");
 });
 
-test("the map link navigates there and is marked current once active", async ({ page, baseURL }) => {
+test("the other screen's link is reachable in two interactions and lands there marked current (SC-007)", async ({
+  page,
+  baseURL,
+}) => {
   await openCalendar(page, baseURL);
   await page.getByTestId("nav-drawer-trigger").click();
 
@@ -76,7 +87,9 @@ test("the map link navigates there and is marked current once active", async ({ 
   await expect(page).toHaveURL(/\/map$/);
 
   await page.getByTestId("nav-drawer-trigger").click();
-  await expect(page.getByTestId("nav-drawer-screen-map")).toHaveAttribute("aria-current", "page");
+  const current = page.getByTestId("nav-drawer-screen-map");
+  await expect(current).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("nav-drawer-screen-calendar")).not.toHaveAttribute("aria-current");
 });
 
 test("dismissing the drawer over an open capture sheet keeps the typed text (FR-018)", async ({

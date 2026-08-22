@@ -376,14 +376,16 @@ export function NavDrawer() {
 /**
  * FR-015's screen list.
  *
- * Content Calendar is deliberately **not** listed here (2026-08-21, owner decision): the product
- * has pivoted fully to the travel tracker, and Content Calendar has no link pointing at it
- * anywhere in the app any more. Its route, backend and tests are all untouched — this is a
- * navigation decision, not a removal, and it is reversible by adding one line back. See
- * `.claude/memory.md` for the reasoning against actually deleting it.
+ * Travel Map first (2026-08-21, owner decision): the product has pivoted to the travel tracker as
+ * its primary surface — `/` and post-login both land there (`app/page.tsx`,
+ * `login-form.tsx`'s `LANDING_PATH`) — but Content Calendar stays **listed**, reachable as a
+ * secondary screen rather than removed. It was briefly taken out of this list entirely the same
+ * day; the owner's follow-up correction was "only change what the primary feature is, keep it
+ * reachable as a secondary one" — so unlike the redirect targets, this list keeps both.
  */
 const SCREENS: ReadonlyArray<{ readonly href: string; readonly slug: string; readonly label: string }> = [
   { href: "/map", slug: "map", label: "Travel Map" },
+  { href: "/calendar", slug: "calendar", label: "Content Calendar" },
 ];
 
 /** The two options, in the order the toggle group draws them. Dark first — it is FR-012's default. */
