@@ -230,8 +230,14 @@ export function NavDrawer() {
             data-testid="nav-drawer-panel"
           >
             <header className="border-hairline flex items-center justify-between gap-2 border-b px-4 pt-5 pb-3">
-              <span className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
-                Menu
+              <span className="flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same
+                    reasoning as `IntelConsole.tsx`. Decorative only (`alt=""`); the drawer opening
+                    from the side is why this one hangs rather than stands. */}
+                <img src="/mascot/mascot-hanging.svg" alt="" width={28} height={16} />
+                <span className="text-ink text-xs leading-none font-semibold tracking-[0.18em] uppercase">
+                  Menu
+                </span>
               </span>
               <button
                 type="button"
@@ -350,9 +356,13 @@ export function NavDrawer() {
                 type="button"
                 onClick={() => void signOut()}
                 disabled={signingOut}
-                className="border-hairline bg-surface-2 text-ink-mid focus-ring h-11 w-full flex-none rounded-sm border text-xs font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
+                className="border-hairline bg-surface-2 text-ink-mid focus-ring inline-flex h-11 w-full flex-none items-center justify-center gap-2 rounded-sm border text-xs font-semibold tracking-[0.14em] whitespace-nowrap uppercase disabled:opacity-40"
                 data-testid="sign-out-action"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same
+                    reasoning as `IntelConsole.tsx`. `alt=""` so it never joins the button's
+                    accessible name — `sign-out.spec.ts` asserts that name is exactly "Sign out". */}
+                <img src="/mascot/mascot-asleep.svg" alt="" width={24} height={14} />
                 {signingOut ? "Signing out…" : "Sign out"}
               </button>
 
