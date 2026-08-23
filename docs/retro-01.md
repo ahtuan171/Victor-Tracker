@@ -1,7 +1,7 @@
 # Retro 01 — Content Calendar (v0.1)
 
 **Feature**: `specs/001-content-calendar` · **Written**: 2026-08-05 (workflow.md stage 8) ·
-**Shipped**: [creator-hub-hazel.vercel.app](https://creator-hub-hazel.vercel.app), backend on Render,
+**Shipped**: [victor-tracker-at.vercel.app](https://victor-tracker-at.vercel.app), backend on Render,
 database on Neon.
 
 77 tasks, 8 phases, 55 merge requests, 271 backend and 432 frontend tests. One module of four.

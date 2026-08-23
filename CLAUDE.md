@@ -196,7 +196,7 @@ behind a three-tap confirmation, and sign out. What no surface does: anything be
 three modules.
 
 **Deployed 2026-08-04 (T071).** Backend `creator-hub-1dgs.onrender.com`, frontend
-`creator-hub-hazel.vercel.app`, database **Neon** — a stack substitution stated in `plan.md` as the
+`victor-tracker-at.vercel.app`, database **Neon** — a stack substitution stated in `plan.md` as the
 constitution requires, with `tech-defaults.md`'s DB row amended in the same MR. `RENDER_DEPLOY_HOOK_URL`
 and `VERCEL_DEPLOY_HOOK_URL` are set and both hooks have fired for real. The deploy jobs stay `manual`
 and still **fail loudly when a hook variable is missing** — that guard is as load-bearing now as it was
@@ -482,7 +482,7 @@ walked (see the status section at the top). **`003`'s surfaces have not been wal
 backend, real CARTO tiles and real Nominatim, which is stronger than the suite and weaker than
 `001`'s T072. And `docker compose up frontend` has still never been run.
 
-**Live URLs**: frontend `https://creator-hub-hazel.vercel.app`, backend
+**Live URLs**: frontend `https://victor-tracker-at.vercel.app`, backend
 `https://creator-hub-1dgs.onrender.com`. Render appends a **random suffix** to service hostnames —
 `creator-hub.onrender.com` is a different service, and Render answers an unknown host with
 `404 text/plain "Not Found"` that is byte-identical to what the proxy returns when `API_BASE_URL` is

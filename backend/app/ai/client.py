@@ -9,6 +9,7 @@ Async because a model round trip is seconds, not milliseconds, and a sync call w
 threadpool worker for the whole of it.
 """
 
+import re
 from typing import Any
 
 import httpx2 as httpx
@@ -78,26 +79,29 @@ def _extract_content(payload: Any) -> str:
     message = choices[0].get("message") if isinstance(choices[0], dict) else None
     content = message.get("content") if isinstance(message, dict) else None
 
+    if isinstance(content, str):
+        # Strip internal <think>...</think> tags if the provider includes them inside content
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
     if not isinstance(content, str) or not content.strip():
-        # Measured 2026-08-22: every Qwen3 model on the router runs with thinking mode on and no
-        # way to turn it off from the request — `chat_template_kwargs: {enable_thinking: false}`
-        # is accepted and ignored. The reasoning lands in `reasoning_content` and eats the token
-        # budget, so a short `max_tokens` returns a completion whose visible half is empty. Saying
-        # that outright beats "empty completion", which sends the reader looking at the prompt.
-        reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
+        # Measured 2026-08-22: Qwen / thinking models run with reasoning mode on.
+        # The reasoning lands in `reasoning` or `reasoning_content` and eats the token budget.
+        reasoning = (
+            message.get("reasoning_content") or message.get("reasoning")
+            if isinstance(message, dict)
+            else None
+        )
         if isinstance(reasoning, str) and reasoning.strip():
             raise AIError(
                 "The model spent its whole token budget on internal reasoning and returned no "
-                "answer. This model runs in thinking mode. Set HF_MODEL to a non-thinking model "
-                "(Qwen/Qwen2.5-72B-Instruct or meta-llama/Llama-3.1-8B-Instruct), or raise "
-                "max_tokens."
+                "answer. Set AI_MODEL to a non-thinking model or raise max_tokens."
             )
         raise AIError("The model returned an empty completion.")
 
     return content.strip()
 
 
-async def complete(messages: list[dict[str, str]], *, max_tokens: int = 800) -> str:
+async def complete(messages: list[dict[str, str]], *, max_tokens: int = 2048) -> str:
     """Send a conversation, return the assistant's reply as text.
 
     `messages` is already in provider shape — `{"role": ..., "content": ...}` — because the caller
