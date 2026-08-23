@@ -217,7 +217,7 @@ export function MapShell() {
        * rule, one level down).
        */}
       <main className="relative min-h-0 flex-1 px-3 pt-3 pb-2" aria-busy={status === "loading"}>
-        <div className="border-hairline notch-card h-full overflow-hidden border shadow-e1">
+        <div className="border-hairline notch-card relative h-full overflow-hidden border shadow-e1">
           <MapView
             ref={mapViewRef}
             destinations={visible}
@@ -228,6 +228,19 @@ export function MapShell() {
             onOpenConfirmed={openConfirmedDestination}
             onDismissConfirmation={dismissConfirmation}
           />
+
+          {/* One tap back to the world view (2026-08-21, owner-requested) — the alternative is
+              scrolling/pinching back out by hand after a selection zooms in. Top-right, clear of
+              `QuickAdd`'s own floating panel along the bottom edge. */}
+          <button
+            type="button"
+            onClick={() => mapViewRef.current?.resetView()}
+            className="border-hairline bg-surface-0/90 text-ink-mid focus-ring absolute top-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-sm border text-lg shadow-e1"
+            aria-label="Reset to world view"
+            data-testid="map-reset-view"
+          >
+            ⌂
+          </button>
         </div>
 
         {/* T049-T050, User Story 4. Anchored over the map's lower edge: `MapView` installs no
