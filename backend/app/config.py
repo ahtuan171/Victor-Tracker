@@ -8,7 +8,7 @@ The names match `.env.example` at the repository root; that file is the document
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,10 @@ class Settings(BaseSettings):
         # about. Rejecting them would make the backend refuse to boot over a Next.js setting.
         extra="ignore",
         case_sensitive=False,
+        # The AI settings below accept two spellings each (see their AliasChoices). Without this,
+        # pydantic's mypy plugin reports them as "required dynamic aliases" even though all three
+        # carry defaults.
+        populate_by_name=True,
     )
 
     database_url: str = Field(
@@ -84,16 +88,38 @@ class Settings(BaseSettings):
         "section.",
     )
 
-    hf_token: str = Field(
-        default="",
-        description="Hugging Face access token for Travel Intelligence inference. Empty means the "
-        "AI module answers with a message naming this variable rather than failing obscurely.",
+    # ---------------------------------------------------------------------------
+    # Travel Intelligence (Module 03)
+    # ---------------------------------------------------------------------------
+    # Three provider-neutral names, each accepting its original HF_-prefixed spelling as well, so an
+    # existing .env keeps working. `AliasChoices` is what makes that true rather than a migration
+    # note nobody reads.
+    #
+    # Neutral because `app/ai/client.py` speaks the OpenAI chat-completions shape, which many
+    # providers implement — Hugging Face's router, Groq, OpenRouter, a local llama.cpp or Ollama
+    # server. Switching between them is meant to be two lines of .env, not a code change. That
+    # became concrete on 2026-08-23, when this account's Hugging Face inference credits ran out
+    # mid-project and the endpoint was hardcoded.
+
+    ai_base_url: str = Field(
+        default="https://router.huggingface.co/v1/chat/completions",
+        validation_alias=AliasChoices("ai_base_url", "hf_router_url"),
+        description="Full chat-completions endpoint URL. Must be OpenAI-compatible — it receives "
+        "{model, messages, max_tokens, temperature} and must answer with `choices[0].message`.",
     )
 
-    hf_model: str = Field(
-        default="Qwen/Qwen2.5-7B-Instruct",
-        description="Model id sent to the Hugging Face router. Must be served by at least one "
-        "inference provider; a model with none answers 404.",
+    ai_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("ai_api_key", "hf_token"),
+        description="Bearer token for the provider above. Empty means the AI module answers with a "
+        "message naming this variable rather than failing obscurely.",
+    )
+
+    ai_model: str = Field(
+        default="Qwen/Qwen2.5-72B-Instruct",
+        validation_alias=AliasChoices("ai_model", "hf_model"),
+        description="Model id sent to the provider. Must be one that provider actually serves, and "
+        "preferably one without a forced reasoning mode — see app/ai/client.py.",
     )
 
 

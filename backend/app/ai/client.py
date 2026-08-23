@@ -15,8 +15,9 @@ import httpx2 as httpx
 
 from app.config import get_settings
 
-# Hugging Face Inference Providers, OpenAI-compatible surface.
-HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions"
+# The endpoint, the key and the model all come from settings — see `app/config.py` for why they are
+# provider-neutral rather than Hugging Face specific. Anything speaking the OpenAI chat-completions
+# shape works here: HF's router, Groq, OpenRouter, a local llama.cpp or Ollama server.
 
 # Generous: a cold provider plus a long generation. The frontend shows a working state for the
 # duration, so the cost of waiting is visible rather than mysterious.
@@ -33,8 +34,8 @@ class AIError(Exception):
     """
 
 
-def _require_config() -> tuple[str, str]:
-    """Token and model, or a message naming exactly what is missing.
+def _require_config() -> tuple[str, str, str]:
+    """Key, model and endpoint, or a message naming exactly what is missing.
 
     The same shape as the R2 settings check: an unconfigured provider fails with an instruction,
     not with a stack trace from inside an HTTP library.
@@ -42,7 +43,11 @@ def _require_config() -> tuple[str, str]:
     settings = get_settings()
     missing = [
         name
-        for name, value in (("HF_TOKEN", settings.hf_token), ("HF_MODEL", settings.hf_model))
+        for name, value in (
+            ("AI_API_KEY", settings.ai_api_key),
+            ("AI_MODEL", settings.ai_model),
+            ("AI_BASE_URL", settings.ai_base_url),
+        )
         if not value.strip()
     ]
     if missing:
@@ -51,7 +56,7 @@ def _require_config() -> tuple[str, str]:
             + " and ".join(missing)
             + " in the repository .env, then restart the backend."
         )
-    return settings.hf_token, settings.hf_model
+    return settings.ai_api_key, settings.ai_model, settings.ai_base_url
 
 
 def _extract_content(payload: Any) -> str:
@@ -99,12 +104,12 @@ async def complete(messages: list[dict[str, str]], *, max_tokens: int = 800) -> 
     is the only place that decides what a conversation contains, and translating twice would put
     that decision in two files.
     """
-    token, model = _require_config()
+    token, model, base_url = _require_config()
 
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS) as client:
             response = await client.post(
-                HF_ROUTER_URL,
+                base_url,
                 headers={"Authorization": f"Bearer {token}"},
                 json={
                     "model": model,
@@ -123,11 +128,13 @@ async def complete(messages: list[dict[str, str]], *, max_tokens: int = 800) -> 
         raise AIError(f"Could not reach the model provider: {exc}") from exc
 
     if response.status_code == 401:
-        raise AIError("Hugging Face rejected HF_TOKEN. Check the token and its permissions.")
+        raise AIError(
+            f"{base_url} rejected AI_API_KEY. Check the key and its permissions."
+        )
     if response.status_code == 404:
         raise AIError(
-            f"No provider serves '{model}'. Pick a different HF_MODEL — check the model page on "
-            "huggingface.co for which inference providers are available."
+            f"The provider at {base_url} does not serve '{model}'. Pick a different AI_MODEL, or "
+            "point AI_BASE_URL at a provider that has it."
         )
     if response.status_code >= 400:
         raise AIError(f"The model provider answered {response.status_code}: {response.text[:300]}")
