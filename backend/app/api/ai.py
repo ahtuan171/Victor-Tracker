@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.ai.client import AIError, complete
 from app.ai.context import build_travel_context
-from app.ai.prompts import SYSTEM_PROMPT
+from app.ai.prompts import compose_system_prompt
 from app.auth import CurrentCreator
 from app.db import SessionDep
 from app.schemas import ErrorResponse
@@ -75,8 +75,7 @@ async def chat(body: ChatRequest, session: SessionDep, _creator: CurrentCreator)
     token - and hiding that behind "Bad Gateway" would mean reading server logs to configure a
     personal tool.
     """
-    profile = build_travel_context(session)
-    system_prompt = "\n\n".join([SYSTEM_PROMPT, profile]) if profile else SYSTEM_PROMPT
+    system_prompt = compose_system_prompt(build_travel_context(session))
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)

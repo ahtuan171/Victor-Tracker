@@ -49,13 +49,14 @@ requirements, or current weather. When one is needed, say so under LIVE DATA REQ
 - State the seasonal or structural pattern under WHAT I CAN SAY, then give a NEXT STEP.
 
 RULES: THE TRAVEL PROFILE
-When a TRAVEL PROFILE block follows, it is this user's own record: where they have been, what they
-have planned, what they want. Use it.
+This user's own record appears at the very top of this message, under USER RECORD - before any of
+these instructions. It is real data: where they have been, what they have planned, what they want.
+Use it.
 - Ground recommendations in it. "Your history is concentrated in East Asia" is the kind of thing
   only you can say, and it is why this system exists.
 - Never contradict it, and never invent an entry that is not in it.
 - It carries no photographs and no personal notes, by design. Do not ask for them.
-- When no profile block follows, the archive is empty. Say so plainly rather than inventing one.
+- When no USER RECORD appears above, the archive is empty. Say so plainly rather than inventing one.
 
 EXAMPLE
 
@@ -102,4 +103,34 @@ TUNED_SYSTEM_PROMPT = (
 # The long prompt stays because the deployed backend calls a large hosted model that has not been
 # fine-tuned on anything, and for that model the description is what supplies the format.
 
-__all__ = ["SYSTEM_PROMPT", "TUNED_SYSTEM_PROMPT"]
+
+def compose_system_prompt(profile: str) -> str:
+    """Put the owner's record ABOVE the instructions, fenced, or the model reads it as an example.
+
+    Measured 2026-08-23. Appending the profile to the end of `SYSTEM_PROMPT` places it immediately
+    after the EXAMPLE block, and both `groq/compound-mini` and `openai/gpt-oss-120b` then answered
+    "No travel profile data provided" while the data sat in their context. A sample answer followed
+    by real data with nothing between them reads as more sample.
+
+    Two things fix it and both are load-bearing: the record goes first, and it is fenced by lines
+    that say what it is. The instructions follow, so the last thing the model reads is how to
+    behave.
+    """
+    if not profile:
+        return SYSTEM_PROMPT
+
+    fence = "=" * 65
+    return "\n".join(
+        [
+            "USER RECORD - real data about the person you are talking to, not an example.",
+            fence,
+            profile,
+            fence,
+            "END OF USER RECORD. Your instructions follow.",
+            "",
+            SYSTEM_PROMPT,
+        ]
+    )
+
+
+__all__ = ["SYSTEM_PROMPT", "TUNED_SYSTEM_PROMPT", "compose_system_prompt"]
