@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { NavDrawer } from "@/components/arcade/NavDrawer";
+
 /**
  * TRAVEL INTELLIGENCE — the console surface.
  *
@@ -87,16 +89,21 @@ export function IntelConsole() {
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border p-4">
         <h1 className="font-display text-sm tracking-wide">TRAVEL INTELLIGENCE</h1>
-        <span
-          className="flex items-center gap-1.5 text-xs text-muted-foreground"
-          data-testid="intel-status"
-        >
+        {/* Status and the drawer trigger share the right-hand column, the same shape
+            `ScheduleShell` and `MapShell` use: title left, controls right. */}
+        <div className="flex items-center gap-3">
           <span
-            aria-hidden
-            className={`inline-block h-2 w-2 rounded-full bg-primary ${busy ? "animate-pulse" : ""}`}
-          />
-          {busy ? "WORKING" : "ONLINE"}
-        </span>
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            data-testid="intel-status"
+          >
+            <span
+              aria-hidden
+              className={`inline-block h-2 w-2 rounded-full bg-primary ${busy ? "animate-pulse" : ""}`}
+            />
+            {busy ? "WORKING" : "ONLINE"}
+          </span>
+          <NavDrawer />
+        </div>
       </header>
 
       <div ref={logRef} className="flex-1 space-y-4 overflow-y-auto p-4" data-testid="intel-log">

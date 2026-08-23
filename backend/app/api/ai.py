@@ -15,8 +15,10 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.ai.client import AIError, complete
+from app.ai.context import build_travel_context
 from app.ai.prompts import SYSTEM_PROMPT
 from app.auth import CurrentCreator
+from app.db import SessionDep
 from app.schemas import ErrorResponse
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -53,15 +55,30 @@ class ChatResponse(BaseModel):
     },
     summary="Send a conversation, get the analyst's reply",
 )
-async def chat(body: ChatRequest, _creator: CurrentCreator) -> ChatResponse:
-    """Prepend the system prompt, forward, return the text.
+async def chat(body: ChatRequest, session: SessionDep, _creator: CurrentCreator) -> ChatResponse:
+    """Prepend the system prompt and the owner's travel profile, forward, return the text.
+
+    The profile is what separates this from a travel chatbot: without it the model can reason about
+    places in general, and with it the model can answer "where should I go next" against somewhere
+    the owner has actually been.
+
+    **It is rebuilt per request rather than cached.** The data changes whenever a pin is dropped,
+    and a cache would answer tomorrow's question with yesterday's map for no measurable saving -
+    two small queries against a database holding one person's travel.
+
+    **What it may contain is decided in `context.py`, by which columns it selects.** Notes and
+    photographs are never read there, so they cannot reach this string. See that module's docstring
+    for why the exclusion is expressed as a query rather than as a filter.
 
     `AIError` becomes a 502 with its message intact rather than a generic one: every case it
-    covers is something the owner can act on — a missing variable, a wrong model name, a rejected
-    token — and hiding that behind "Bad Gateway" would mean reading server logs to configure a
+    covers is something the owner can act on - a missing variable, a wrong model name, a rejected
+    token - and hiding that behind "Bad Gateway" would mean reading server logs to configure a
     personal tool.
     """
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    profile = build_travel_context(session)
+    system_prompt = "\n\n".join([SYSTEM_PROMPT, profile]) if profile else SYSTEM_PROMPT
+
+    messages = [{"role": "system", "content": system_prompt}]
     messages.extend({"role": m.role, "content": m.content} for m in body.messages)
 
     try:
