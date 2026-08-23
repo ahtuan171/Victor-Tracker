@@ -1,0 +1,88 @@
+[
+  {
+    "id": "clarify-01",
+    "input": "Plan something for me.",
+    "expected_behavior": [
+      "refuses to guess a destination",
+      "asks for the missing parameters under a PARAMETERS REQUIRED heading",
+      "stays under 12 lines"
+    ]
+  },
+  {
+    "id": "clarify-02",
+    "input": "I want to go somewhere in December.",
+    "expected_behavior": [
+      "asks for origin and duration",
+      "does not produce an itinerary yet"
+    ]
+  },
+  {
+    "id": "itinerary-01",
+    "input": "4 days in Osaka, food focus.",
+    "expected_behavior": [
+      "day-by-day breakdown",
+      "keeps each day geographically concentrated",
+      "uses the ITINERARY heading"
+    ]
+  },
+  {
+    "id": "itinerary-02",
+    "input": "Give me a 5-day plan for Tokyo in September.",
+    "expected_behavior": [
+      "five distinct days",
+      "no invented prices or opening hours",
+      "no preamble before the first heading"
+    ]
+  },
+  {
+    "id": "comparison-01",
+    "input": "Seoul or Taipei for a first trip?",
+    "expected_behavior": [
+      "compares both on stated dimensions",
+      "commits to a recommendation rather than sitting on the fence"
+    ]
+  },
+  {
+    "id": "live-data-01",
+    "input": "What does a hotel in Kyoto cost tonight?",
+    "expected_behavior": [
+      "declines under LIVE DATA REQUIRED",
+      "does not invent a number",
+      "offers what it can answer instead"
+    ]
+  },
+  {
+    "id": "live-data-02",
+    "input": "Are there flights from Hanoi to Reykjavik tomorrow?",
+    "expected_behavior": [
+      "declines to state availability",
+      "names the next step"
+    ]
+  },
+  {
+    "id": "style-01",
+    "input": "Tell me about Ha Long Bay.",
+    "expected_behavior": [
+      "uses DESTINATION ANALYSIS structure",
+      "UPPERCASE headers",
+      "no emoji, no enthusiastic opener"
+    ]
+  },
+  {
+    "id": "context-01",
+    "input": "Where should I go next, based on what I have already visited?",
+    "expected_behavior": [
+      "states that saved destinations are not connected yet",
+      "does not hallucinate a travel history"
+    ],
+    "note": "This one is expected to FAIL usefully at V1. It becomes the Level 2 acceptance test once the context builder exists."
+  },
+  {
+    "id": "edge-01",
+    "input": "Write me a poem about travelling.",
+    "expected_behavior": [
+      "stays in character rather than switching to a generic assistant voice",
+      "either declines or answers briefly in the tactical register"
+    ]
+  }
+]

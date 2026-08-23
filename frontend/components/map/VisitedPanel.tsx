@@ -165,19 +165,14 @@ export function VisitedPanel({
               </button>
             </div>
           ))}
-          <label
-            htmlFor={photoInputId}
-            className="border-hairline text-ink-mid focus-ring flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border border-dashed text-[10px] tracking-[0.06em] uppercase"
-            data-testid="destination-photo-attach"
-          >
-            <span className="text-lg leading-none">+</span>
-            {uploading ? "Uploading…" : "Attach"}
-          </label>
+          {/* The input comes immediately before its label — `globals.css`'s `.focus-ring-sibling`
+              needs the adjacency to draw a visible ring on the label when the (invisible, `sr-only`)
+              input itself receives keyboard focus, since a `<label>` is never a native tab stop. */}
           <input
             id={photoInputId}
             type="file"
             accept="image/*"
-            className="sr-only"
+            className="focus-ring sr-only"
             disabled={uploading}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -186,6 +181,14 @@ export function VisitedPanel({
             }}
             data-testid="destination-photo-input"
           />
+          <label
+            htmlFor={photoInputId}
+            className="border-hairline text-ink-mid focus-ring-sibling flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-sm border border-dashed text-xs tracking-[0.06em] uppercase"
+            data-testid="destination-photo-attach"
+          >
+            <span className="text-lg leading-none">+</span>
+            {uploading ? "Uploading…" : "Attach"}
+          </label>
         </div>
         {uploadError !== null ? (
           <p role="alert" className="text-danger-hi mt-1.5 text-xs">

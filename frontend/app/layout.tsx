@@ -60,7 +60,9 @@ const silkscreen = Silkscreen({
 
 export const metadata: Metadata = {
   title: "Victor Tracker",
-  description: "Content calendar for a single creator.",
+  // Was "Content calendar for a single creator." — that surface was removed when Travel Schedule
+  // replaced it, so the description outlived the thing it described.
+  description: "A personal travel map: places visited, places planned, places wanted.",
 };
 
 export default async function RootLayout({

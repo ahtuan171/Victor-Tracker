@@ -14,17 +14,19 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   ApiError,
+  DESTINATION_CATEGORIES,
   DESTINATION_STATUSES,
   deleteDestination,
   getDestination,
   updateDestination,
   type Destination,
+  type DestinationCategory,
   type DestinationDetail,
   type DestinationStatus,
   type Trip,
 } from "@/lib/api";
 import type { DateOnly } from "@/lib/dates";
-import { isCurrentlyTraveling, pinTreatment } from "@/lib/map";
+import { CATEGORY_LABEL, isCurrentlyTraveling, pinTreatment } from "@/lib/map";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +120,7 @@ export function DestinationSheet({
     start_date: string | null;
     end_date: string | null;
     status: DestinationStatus;
+    category: DestinationCategory | null;
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -159,6 +162,7 @@ export function DestinationSheet({
           start_date: fetched.start_date,
           end_date: fetched.end_date,
           status: fetched.status,
+          category: fetched.category,
         });
       })
       .catch((error: unknown) => {
@@ -210,6 +214,7 @@ export function DestinationSheet({
         start_date: draft.start_date,
         end_date: draft.end_date,
         status: draft.status,
+        category: draft.category,
       });
       playCue("save");
       setDetail((previous) => (previous === null ? previous : { ...previous, ...updated }));
@@ -398,13 +403,53 @@ export function DestinationSheet({
                       }
                       data-testid={`destination-status-option-${status}`}
                       className={cn(
-                        "focus-ring flex h-11 flex-1 items-center justify-center gap-1.5 rounded-sm border text-[11px] font-semibold tracking-[0.08em] uppercase",
+                        "focus-ring flex h-11 flex-1 items-center justify-center gap-1.5 rounded-sm border text-xs font-semibold tracking-[0.08em] uppercase",
                         selected
                           ? cn(treatment.borderClass, treatment.textClass, "bg-surface-2")
                           : "border-hairline bg-surface-3 text-ink-mid",
                       )}
                     >
                       {treatment.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Category — added outside the normal spec process, at the owner's explicit
+                instruction (`specs/003-travel-map/spec.md`'s Assumptions section carries the
+                amendment note). Purely descriptive: unlike Status above, it drives no pin
+                encoding, so its options are plain neutral chips rather than each status's own
+                border/text colour. Chip-sized and wrapping (not `flex-1` columns) because
+                "Sightseeing" does not share the other three labels' width at this floor; "None"
+                is the only way to clear an already-set category once a place is created. */}
+            <div className="flex flex-col gap-2">
+              <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.1em] uppercase">
+                Category
+              </span>
+              <div role="radiogroup" data-testid="destination-category-group" className="flex flex-wrap gap-1.5">
+                {([null, ...DESTINATION_CATEGORIES] as const).map((category) => {
+                  const selected = draft.category === category;
+                  return (
+                    <button
+                      key={category ?? "none"}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() =>
+                        setDraft((previous) =>
+                          previous === null ? previous : { ...previous, category },
+                        )
+                      }
+                      data-testid={`destination-category-option-${category ?? "none"}`}
+                      className={cn(
+                        "focus-ring flex h-11 items-center justify-center rounded-sm border px-3 text-xs font-semibold tracking-[0.08em] uppercase",
+                        selected
+                          ? "border-brand text-brand bg-surface-2"
+                          : "border-hairline bg-surface-3 text-ink-mid",
+                      )}
+                    >
+                      {category === null ? "None" : CATEGORY_LABEL[category]}
                     </button>
                   );
                 })}

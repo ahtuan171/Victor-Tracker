@@ -1,8 +1,7 @@
 """List and create, over HTTP, against the real database (T021, User Story 1).
 
-The first file in the suite exercising a Destination route, and the file every later story
-extends the way `test_content_items.py` describes for its own resource — T033 adds the by-id
-three (User Story 2), T045 the FR-017 containment flag (User Story 3).
+The first file in the suite exercising a Destination route — T033 adds the by-id three (User
+Story 2), T045 the FR-017 containment flag (User Story 3).
 
 **INV-1 (coordinates never null on a stored row) has no 409 to test.** Unlike `001`'s INV-1,
 which is a `CHECK` constraint reachable over HTTP, this one is enforced entirely by
@@ -46,12 +45,13 @@ CONTRACTED_DESTINATION_KEYS = {
     "start_date",
     "end_date",
     "status",
+    "category",
     "created_at",
     "updated_at",
     "outside_trip_range",
 }
-"""Every property of the contract's `Destination`, asserted as an exact set — the same "neither
-missing nor uninvited" check `test_content_items.py` runs for `ContentItem`."""
+"""Every property of the contract's `Destination`, asserted as an exact set — neither missing
+nor uninvited."""
 
 
 # --- Create -----------------------------------------------------------------------------------
@@ -90,6 +90,7 @@ def test_create_destination_with_every_field(auth_client: TestClient) -> None:
             "end_date": "2026-09-10",
             "status": "planned",
             "note": "First time back since the trip that started all this.",
+            "category": "food",
         },
     )
 
@@ -101,6 +102,32 @@ def test_create_destination_with_every_field(auth_client: TestClient) -> None:
     assert body["status"] == "planned"
     # `note` is not in the contract's `Destination` — only `DestinationDetail` (T023) carries it.
     assert "note" not in body
+    # `category` is, unlike `note` — it drives Collection filtering from the list response, not
+    # only the detail one (added outside the normal spec process, at the owner's instruction; see
+    # `specs/003-travel-map/spec.md`'s Assumptions section).
+    assert body["category"] == "food"
+
+
+def test_create_destination_with_no_category_defaults_to_null(auth_client: TestClient) -> None:
+    """Most places start uncategorized and are tagged later from the Destination sheet."""
+    response = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    )
+    assert response.status_code == 201
+    assert response.json()["category"] is None
+
+
+def test_create_destination_with_an_invalid_category_is_422(auth_client: TestClient) -> None:
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "category": "shopping",
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_create_destination_requires_coordinates(auth_client: TestClient) -> None:
@@ -329,6 +356,55 @@ def test_update_destination_null_detaches_trip_id(
 
     assert response.status_code == 200
     assert response.json()["trip_id"] is None
+
+
+def test_update_destination_sets_category(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    assert created["category"] is None
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"category": "sightseeing"}
+    )
+    assert response.status_code == 200
+    assert response.json()["category"] == "sightseeing"
+
+
+def test_update_destination_null_clears_category(auth_client: TestClient) -> None:
+    """Nullable on `destination` the same as `note` — an explicit `null` is a real clear, the way
+    the Destination sheet's "None" option removes a category."""
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "category": "nature"},
+    ).json()
+    assert created["category"] == "nature"
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"category": None})
+    assert response.status_code == 200
+    assert response.json()["category"] is None
+
+
+def test_update_destination_omitting_category_leaves_it_untouched(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "category": "stay"},
+    ).json()
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"name": "Osaka"})
+    assert response.status_code == 200
+    assert response.json()["category"] == "stay"
+
+
+def test_update_destination_with_an_invalid_category_is_422(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"category": "shopping"}
+    )
+    assert response.status_code == 422
 
 
 def test_update_destination_requires_a_credential(
@@ -680,12 +756,12 @@ def test_create_destination_with_no_trip_id_at_all_is_unaffected(auth_client: Te
 # `data-model.md`'s INV-2 promises "a test asserts neither `trip`, `destination`, nor
 # `photograph` has a column matching `%user%`, `%owner%`, `%tenant%`, or `%creator%`, and no
 # foreign key to `creator` at all." The `reviewer` pass found that test was never written:
-# `test_schema.py` guards `content_item`'s columns and the *set of table names*, and its own
-# docstring says the table-name allowlist does not duplicate a column review. So constitution
-# VII's regression guard for this iteration's three tables did not exist. It does now.
+# `test_schema.py` guards only the *set of table names*, and its own docstring says the
+# table-name allowlist does not duplicate a column review. So constitution VII's regression guard
+# for this iteration's three tables did not exist. It does now.
 #
 # It lives here rather than in `test_schema.py` because these are 003's tables and this is 003's
-# test file; `test_schema.py` keeps 001's.
+# test file; `test_schema.py` keeps the representative pattern check.
 
 FORBIDDEN_COLUMN_PATTERNS = ("user", "owner", "tenant", "creator", "account", "org")
 """Constitution VII's vocabulary, plus this project's own noun.
@@ -697,7 +773,18 @@ allowlist below is what resolves that, deliberately, rather than loosening the p
 """
 
 ALLOWED_COLUMNS = {
-    "trip": {"id", "name", "start_date", "end_date", "status", "created_at", "updated_at"},
+    "trip": {
+        "id",
+        "name",
+        # Module 02 (Travel Schedule) additions — see `TripRead` in `app/schemas.py`.
+        "destination",
+        "notes",
+        "start_date",
+        "end_date",
+        "status",
+        "created_at",
+        "updated_at",
+    },
     "destination": {
         "id",
         "trip_id",
@@ -708,10 +795,31 @@ ALLOWED_COLUMNS = {
         "end_date",
         "status",
         "note",
+        # Added outside the normal spec process, at the owner's explicit instruction — see
+        # `specs/003-travel-map/spec.md`'s Assumptions section for the amendment note.
+        "category",
         "created_at",
         "updated_at",
     },
     "photograph": {"id", "destination_id", "object_key", "created_at"},
+    # Module 02 (Travel Schedule), built from `Module_02_Travel_Schedule_Spec.md` — see
+    # `TravelEvent` in `app/models.py`.
+    "travel_event": {
+        "id",
+        "trip_id",
+        "event_type",
+        "title",
+        "event_date",
+        "start_time",
+        "location",
+        "from_location",
+        "to_location",
+        "booking_reference",
+        "category",
+        "notes",
+        "created_at",
+        "updated_at",
+    },
 }
 """Every column `data-model.md` describes, and nothing else — written out by hand, because
 deriving it from the models would compare them to themselves and pass whatever either one said.

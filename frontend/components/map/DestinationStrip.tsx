@@ -51,10 +51,10 @@ export function DestinationStrip({
       data-testid="destination-strip"
     >
       <div className="flex items-baseline justify-between">
-        <h2 className="text-ink-mid text-[11px] leading-none font-semibold tracking-[0.18em] uppercase">
+        <h2 className="text-ink-mid text-xs leading-none font-semibold tracking-[0.18em] uppercase">
           Marked places
         </h2>
-        <span className="text-ink-lo text-[11px] leading-none" data-testid="destination-strip-count">
+        <span className="text-ink-lo text-xs leading-none" data-testid="destination-strip-count">
           {destinations.length}
         </span>
       </div>
@@ -103,7 +103,7 @@ export function DestinationStrip({
                   </span>
                   <span
                     className={cn(
-                      "truncate text-[10px] leading-none tracking-[0.08em] uppercase",
+                      "truncate text-xs leading-none tracking-[0.08em] uppercase",
                       traveling ? "text-danger-hi" : "text-ink-lo",
                     )}
                   >

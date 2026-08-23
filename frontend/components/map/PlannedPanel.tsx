@@ -76,7 +76,7 @@ export function PlannedPanel({
           {detail.start_date ?? "No start date"} – {detail.end_date ?? "no end date"}
           {context.currentlyTraveling ? (
             <span
-              className="border-danger text-danger-hi rounded-sm border px-1.5 py-0.5 text-[10px] leading-none font-semibold tracking-[0.08em] uppercase"
+              className="border-danger text-danger-hi rounded-sm border px-1.5 py-0.5 text-xs leading-none font-semibold tracking-[0.08em] uppercase"
               data-testid="destination-planned-traveling"
             >
               Traveling now

@@ -486,6 +486,20 @@
 }
 
 /*
+ * The third and last shape: a native control that is itself `sr-only` (a file input, styled entirely
+ * through an associated `<label>`, since a native file input cannot be restyled directly). A `<label>`
+ * is never in the browser's own tab order, so keyboard focus always lands on the input — but the
+ * input is visually clipped to 1px, so `.focus-ring` on the input paints a ring nobody can see. The
+ * input must come **immediately before** its label in the DOM for the sibling selector below to
+ * reach it (`sr-only` takes it out of flow, so this costs no layout). Put `.focus-ring` on the input
+ * as the marker and `.focus-ring-sibling` on the label that follows it.
+ */
+.focus-ring:focus-visible + .focus-ring-sibling {
+  outline: 2px solid var(--ch-brand-hi);
+  outline-offset: 2px;
+}
+
+/*
  * The "comic panel" treatment (2026-08-11b pass 1, extended at T048) — a double-border effect:
  * `--ch-brand-deep` sits behind the card as an offset shadow layer, like ink under a misregistered
  * print, and the whole card lifts toward it on interaction.

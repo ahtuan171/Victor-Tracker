@@ -141,7 +141,7 @@ function StatusStep({
         <button
           type="button"
           onClick={onCancel}
-          className="border-hairline text-ink-mid focus-ring h-9 shrink-0 rounded-sm border px-3 text-[11px] font-semibold tracking-[0.08em] uppercase"
+          className="border-hairline text-ink-mid focus-ring h-9 shrink-0 rounded-sm border px-3 text-xs font-semibold tracking-[0.08em] uppercase"
           data-testid="quick-add-cancel"
         >
           Back
@@ -151,7 +151,7 @@ function StatusStep({
       {/* FR-021. `TripPanel` already treats `TripStatus` as descriptive text that "drives no pin",
           so a plain select naming each Trip is the whole control this needs. */}
       <label className="flex items-center gap-2">
-        <span className="text-ink-lo flex-none text-[11px] font-semibold tracking-[0.14em] uppercase">
+        <span className="text-ink-lo flex-none text-xs font-semibold tracking-[0.14em] uppercase">
           Trip
         </span>
         <select
@@ -195,7 +195,7 @@ function StatusStep({
               onClick={() => void markAs(status)}
               data-testid={`quick-add-status-${status}`}
               className={cn(
-                "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-[11px] font-semibold tracking-[0.08em] uppercase disabled:opacity-50",
+                "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-xs font-semibold tracking-[0.08em] uppercase disabled:opacity-50",
                 treatment.borderClass,
                 treatment.textClass,
                 "bg-surface-2",

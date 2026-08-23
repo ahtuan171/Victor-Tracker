@@ -49,59 +49,75 @@ test.use({ timezoneId: "Asia/Ho_Chi_Minh" });
 const LONG_TITLE =
   "A rooftop b-roll cutdown with an absurdly long working title that no layout should widen for";
 
-function item(id: number, overrides: Record<string, unknown> = {}) {
+
+async function signedIn(page: Page, baseURL: string | undefined): Promise<void> {
+  await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
+}
+
+/**
+ * Module 02 (Travel Schedule) fixtures — `/schedule` had no viewport-audit coverage of its own
+ * until this rewrite, the same gap `/map`'s own describe block below was added to close for 003/004.
+ */
+function travelEvent(id: number, overrides: Record<string, unknown> = {}) {
   return {
     id,
-    title: `Item ${id}`,
-    hook: null,
-    platform: null,
-    scheduled_date: null,
-    status: "idea",
-    published_url: null,
+    trip_id: 1,
+    event_type: "activity",
+    title: `Event ${id}`,
+    event_date: "2026-03-11",
+    start_time: null,
+    location: null,
+    from_location: null,
+    to_location: null,
+    booking_reference: null,
+    category: null,
+    notes: null,
     created_at: "2026-03-01T09:00:00Z",
     updated_at: "2026-03-01T09:00:00Z",
     ...overrides,
   };
 }
 
-/** A busy month: overdue rows, every platform, every status, and a day holding more than it can show. */
-const BUSY = [
-  item(1, { title: LONG_TITLE, scheduled_date: "2026-03-11", platform: "tiktok", status: "draft" }),
-  item(2, {
-    title: LONG_TITLE,
-    scheduled_date: "2026-03-11",
-    platform: "youtube",
-    status: "posted",
-    published_url: "https://www.youtube.com/watch?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  }),
-  item(3, { scheduled_date: "2026-03-11", platform: "instagram" }),
-  item(4, { scheduled_date: "2026-03-11" }),
-  item(5, { title: LONG_TITLE, scheduled_date: "2026-02-02" }),
-  item(6, { title: LONG_TITLE }),
-  item(7, { platform: "instagram", status: "draft" }),
+const BUSY_SCHEDULE_TRIP = {
+  id: 1,
+  name: LONG_TITLE,
+  destination: LONG_TITLE,
+  start_date: "2026-03-11",
+  end_date: "2026-03-20",
+  status: "planned",
+  notes: null,
+  created_at: "2026-03-01T09:00:00Z",
+  updated_at: "2026-03-01T09:00:00Z",
+};
+
+const BUSY_SCHEDULE_EVENTS = [
+  travelEvent(1, { event_type: "transport", title: LONG_TITLE }),
+  travelEvent(2, { event_type: "stay" }),
+  travelEvent(3, { event_type: "food" }),
 ];
 
-async function signedIn(page: Page, baseURL: string | undefined): Promise<void> {
-  await page.context().addCookies([{ name: SESSION_COOKIE, value: "stub-session", url: baseURL! }]);
-}
-
-async function openCalendar(
+async function openSchedule(
   page: Page,
   baseURL: string | undefined,
-  items: unknown[] = BUSY,
+  { trips = [BUSY_SCHEDULE_TRIP], events = BUSY_SCHEDULE_EVENTS }: {
+    trips?: unknown[];
+    events?: unknown[];
+  } = {},
 ): Promise<void> {
   await signedIn(page, baseURL);
-  await page.route("**/api/content-items*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(items),
-    });
+  await page.route("**/api/trips*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(trips) });
+  });
+  await page.route("**/api/travel-events*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(events) });
+  });
+  await page.route("**/api/destinations*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
 
   await page.clock.setFixedTime(MARCH_2026);
-  await page.goto("/calendar");
-  await expect(page.getByTestId("capture-action")).toBeVisible();
+  await page.goto("/schedule");
+  await expect(page.getByTestId("schedule-shell")).toBeVisible();
 }
 
 /**
@@ -162,6 +178,13 @@ async function controlsOutsideViewport(page: Page): Promise<string[]> {
       // rules/design.md`'s prescribed answer for wide content), so a card past the fold is reachable
       // by scrolling the strip itself, not only by a second surface.
       if (el.closest('[data-testid="destination-strip-list"]') !== null) continue;
+
+      // `ScheduleFilters` is the same shape again: a real `overflow-x-auto` scroller
+      // (`ScheduleFilters.tsx`'s own docstring — "the horizontal scroll ... for when the seven
+      // filters do not fit one row"), so a filter past the fold is reachable by scrolling the row
+      // itself. Seven filters (ALL/TRIPS/FLIGHTS/STAYS/ACTIVITIES/FOOD/NOTES) genuinely do not fit
+      // one 375px row at a 44px-adjacent tap size, which is why the row scrolls rather than wraps.
+      if (el.closest('[data-testid="schedule-filters"]') !== null) continue;
 
       // A pin lives inside a pannable, zoomable map canvas — the map *is* its own scrolling
       // container, the same category as the two rows above. Selecting a place eases the camera
@@ -273,60 +296,39 @@ for (const theme of ["dark", "light"] as const) {
     await auditSurface(page, "/login with an error");
   });
 
-  test("/calendar, month view, busy", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await expect(page.getByTestId("month-grid")).toBeVisible();
+  test("/schedule, month view, busy", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL);
+    await expect(page.getByTestId("schedule-month-grid")).toBeVisible();
 
-    await auditSurface(page, "/calendar month");
+    await auditSurface(page, "/schedule month");
   });
 
-  test("/calendar, month view, a day expanded past its cap", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
+  test("/schedule, a day's entries and Day Detail", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL);
 
-    // The `+N more` control is the one place a day cell is allowed to grow, and it grows *inside* a
-    // ~53px column — the narrowest place in the product a control can be put.
-    await page.getByTestId("day-overflow").first().click();
-    await auditSurface(page, "/calendar month, day expanded");
+    // Three events on one day, against `ScheduleMonthGrid`'s own two-visible cap — the narrowest
+    // place in the product a control (`schedule-day-overflow`) can be put, same shape as the old
+    // calendar's `+N more`. Opening the day (Day Detail) is this surface's own overlay.
+    await page.locator('[data-testid="schedule-day-cell"][data-date="2026-03-11"]').click();
+    await expect(page.getByTestId("day-detail-list")).toBeVisible();
+
+    await auditSurface(page, "/schedule, Day Detail");
   });
 
-  test("/calendar, week view, busy", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("view-week").click();
-    await expect(page.getByTestId("week-list")).toBeVisible();
+  test("/schedule, the filtered-to-nothing state", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL);
+    await page.getByTestId("schedule-filter-note").click();
+    await expect(page.getByTestId("upcoming-empty")).toBeVisible();
 
-    await auditSurface(page, "/calendar week");
+    await auditSurface(page, "/schedule filtered to nothing");
   });
 
-  test("/calendar, a cross-boundary week title", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("view-week").click();
+  test("/schedule, the empty state (no Trips, no events)", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL, { trips: [], events: [] });
+    await expect(page.getByTestId("trip-timeline-empty")).toBeVisible();
+    await expect(page.getByTestId("upcoming-empty")).toBeVisible();
 
-    // `28 Dec 2026 – 3 Jan 2027` is the longest title this product can produce, and it shares the
-    // header row with the nav drawer trigger (T029; it held the sign-out control here until 002
-    // T030 moved that into the drawer itself).
-    await page.clock.setFixedTime(Date.UTC(2026, 11, 30, 3, 0, 0));
-    await page.reload();
-    // The view is client state, so a reload lands back on the month grid.
-    await page.getByTestId("view-week").click();
-    await expect(page.getByTestId("week-list")).toBeVisible();
-    await expect(page.getByTestId("calendar-period")).toContainText("Jan");
-
-    await auditSurface(page, "/calendar week, cross-boundary title");
-  });
-
-  test("/calendar, the filtered empty state", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL, [item(1, { platform: "tiktok" })]);
-    await page.getByTestId("platform-filter-youtube").click();
-    await expect(page.getByTestId("filtered-empty")).toBeVisible();
-
-    await auditSurface(page, "/calendar filtered empty");
-  });
-
-  test("/calendar, the first-run state", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL, []);
-    await expect(page.getByTestId("first-run")).toBeVisible();
-
-    await auditSurface(page, "/calendar first run");
+    await auditSurface(page, "/schedule empty");
   });
 
   /**
@@ -342,72 +344,53 @@ for (const theme of ["dark", "light"] as const) {
 });
 
 test.describe("the overlay surfaces", () => {
-  test("the capture sheet", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("capture-action").click();
+  // Content Calendar's own overlays (capture sheet, backlog drawer, item sheet, delete
+  // confirmation) were removed with the rest of it 2026-08-22, the owner's instruction. Module 02
+  // (Travel Schedule) has its own overlay set and had no viewport-audit coverage of its own until
+  // this rewrite — the same gap `/map`'s describe block below was added to close for 003/004.
 
-    const field = page.getByPlaceholder("Rooftop b-roll cutdown");
-    await expect(field).toBeInViewport();
-    await field.fill(LONG_TITLE);
+  test("the new-entry picker", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL, { trips: [], events: [] });
+    await page.getByTestId("schedule-cta").click();
+    await expect(page.getByTestId("new-entry-trip")).toBeInViewport();
 
-    await auditSurface(page, "capture sheet");
+    await auditSurface(page, "new-entry picker");
   });
 
-  test("the backlog drawer, expanded", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("backlog-toggle").click();
-    await expect(page.getByTestId("backlog-expanded")).toBeVisible();
+  test("the Trip form, every field filled", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL, { trips: [], events: [] });
+    await page.getByTestId("schedule-cta").click();
+    await page.getByTestId("new-entry-trip").click();
+    await expect(page.getByTestId("trip-form-name")).toBeInViewport();
 
-    await auditSurface(page, "backlog drawer expanded");
+    await page.getByTestId("trip-form-name").fill(LONG_TITLE);
+    await page.getByTestId("trip-form-destination").fill(LONG_TITLE);
+
+    await auditSurface(page, "Trip form");
   });
 
-  test("the item sheet, every field filled", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("backlog-toggle").click();
-    await page.getByTestId("backlog-list").getByTestId("item-chip").first().click();
-    await expect(page.getByTestId("item-save")).toBeInViewport();
+  test("the event form, every field filled (transport, the widest type)", async ({
+    page,
+    baseURL,
+  }) => {
+    await openSchedule(page, baseURL, { trips: [], events: [] });
+    await page.getByTestId("schedule-cta").click();
+    await page.getByTestId("new-entry-transport").click();
+    await expect(page.getByTestId("event-form-title")).toBeInViewport();
 
-    // The link row is the widest thing on the sheet, and the column accepts 2048 characters.
-    await page.getByTestId("item-link-input").fill(`https://www.tiktok.com/@creator/video/${"9".repeat(64)}`);
+    await page.getByTestId("event-form-title").fill(LONG_TITLE);
+    await page.getByTestId("event-form-from").fill(LONG_TITLE);
+    await page.getByTestId("event-form-to").fill(LONG_TITLE);
 
-    await auditSurface(page, "item sheet");
+    await auditSurface(page, "event form");
   });
 
-  test("the item sheet carrying a 409 refusal", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.route("**/api/content-items/*", async (route) => {
-      if (route.request().method() !== "PATCH") return route.fallback();
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          code: "platform_required",
-          detail: "An item cannot leave ideas without a platform. Pick one first.",
-        }),
-      });
-    });
+  test("Day Detail, with several events", async ({ page, baseURL }) => {
+    await openSchedule(page, baseURL);
+    await page.locator('[data-testid="schedule-day-cell"][data-date="2026-03-11"]').click();
+    await expect(page.getByTestId("day-detail-list")).toBeInViewport();
 
-    await page.getByTestId("backlog-toggle").click();
-    await page.getByTestId("backlog-list").getByTestId("item-chip").first().click();
-    await expect(page.getByTestId("item-save")).toBeInViewport();
-
-    await page.getByTestId("status-option-draft").click();
-    await page.getByTestId("item-save").click();
-    await expect(page.getByTestId("item-sheet-message")).toBeVisible();
-
-    await auditSurface(page, "item sheet with a 409");
-  });
-
-  test("the delete confirmation", async ({ page, baseURL }) => {
-    await openCalendar(page, baseURL);
-    await page.getByTestId("backlog-toggle").click();
-    await page.getByTestId("backlog-list").getByTestId("item-chip").first().click();
-    await expect(page.getByTestId("item-save")).toBeInViewport();
-
-    await page.getByTestId("item-delete").click();
-    await expect(page.getByTestId("delete-confirm")).toBeVisible();
-
-    await auditSurface(page, "delete confirmation");
+    await auditSurface(page, "Day Detail");
   });
 });
 
@@ -436,6 +419,7 @@ test.describe("/map", () => {
       photographs: [],
       created_at: "2026-08-01T09:00:00Z",
       updated_at: "2026-08-01T09:00:00Z",
+      category: null,
       outside_trip_range: false,
       ...overrides,
     };

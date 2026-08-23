@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { NavDrawer } from "@/components/arcade/NavDrawer";
-import type { Destination, DestinationStatus } from "@/lib/api";
+import { getPreferences, type Destination, type DestinationStatus } from "@/lib/api";
 import { today as readToday } from "@/lib/dates";
 import { useDestinations } from "@/lib/destinations";
 import { selectByStatus } from "@/lib/map";
+import { setSoundEnabled } from "@/lib/sound";
+import { reconcileTheme } from "@/lib/theme";
 import { useTrips } from "@/lib/trips";
 
 import { DestinationSheet } from "./DestinationSheet";
@@ -60,6 +62,27 @@ export function MapShell() {
    * camera the same way a pin tap does, from a caller (`DestinationStrip`) that is `MapView`'s
    * sibling rather than its child. */
   const mapViewRef = useRef<MapViewHandle>(null);
+
+  /**
+   * Mount-time preference reconciliation — `lib/sound.ts` and `lib/theme.ts`'s own docstrings
+   * both point at "`CalendarShell`'s existing reconciliation effect" as the caller, which was
+   * true until Content Calendar was removed entirely (2026-08-22, the owner's instruction) and
+   * left `getPreferences()` with no caller anywhere in the app. `MapShell` is `CalendarShell`'s
+   * successor as the app's shell (this file's own header comment says so), so this is where that
+   * effect belongs now, not a new decision. One `GET /preferences` read reconciles both: the
+   * theme cookie against the account's own value (a no-op when they already agree), and the sound
+   * toggle, which has no cookie at all and starts `false` until this resolves (FR-020). Failures
+   * are swallowed — a preference that fails to load leaves the existing cookie-derived theme and
+   * sound-off default in place, neither of which is wrong, only possibly stale.
+   */
+  useEffect(() => {
+    void getPreferences()
+      .then((preferences) => {
+        reconcileTheme(preferences.theme);
+        setSoundEnabled(preferences.sound_enabled);
+      })
+      .catch(() => {});
+  }, []);
 
   /*
    * T053, User Story 5: the filter narrows the **loaded** list, and both surfaces that draw
@@ -142,7 +165,7 @@ export function MapShell() {
       <header className="border-hairline web-grain flex items-center justify-between gap-1.5 border-b px-2.5 pt-4 pb-2.5">
         <div>
           <p
-            className="text-brand mb-1 text-[10px] leading-none font-semibold tracking-[0.2em] uppercase"
+            className="text-brand mb-1 text-xs leading-none font-semibold tracking-[0.2em] uppercase"
             data-testid="map-eyebrow"
           >
             Victor Tracker
@@ -159,7 +182,7 @@ export function MapShell() {
           <button
             type="button"
             onClick={() => setIsLogOpen(true)}
-            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-[11px] font-semibold tracking-[0.05em] uppercase"
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-xs font-semibold tracking-[0.05em] uppercase"
             data-testid="open-travel-log"
           >
             Collection
@@ -167,7 +190,7 @@ export function MapShell() {
           <button
             type="button"
             onClick={() => setTripsOpen(true)}
-            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-[11px] font-semibold tracking-[0.05em] uppercase"
+            className="border-hairline text-ink-mid focus-ring h-11 rounded-sm border px-2 text-xs font-semibold tracking-[0.05em] uppercase"
             data-testid="open-trips"
           >
             Trips

@@ -497,6 +497,18 @@ components:
         another specific value. "Currently Traveling" is **not** in this enum; it is computed
         client-side from a `planned` Destination's dates (research.md R-004) and never stored.
 
+    DestinationCategory:
+      type: string
+      enum: [food, sightseeing, nature, stay]
+      nullable: true
+      description: |
+        Added outside the normal spec process, at the owner's explicit instruction — this
+        iteration's `spec.md` Assumptions section originally named category out of scope; see
+        that section's amendment note. Purely descriptive: drives no map pin encoding of any
+        kind (`DestinationStatus` keeps sole ownership of that) — used only as a label in the
+        Destination sheet and a filter in the Travel Log/Collection surface. Nullable with no
+        default: most places start uncategorized and are tagged later.
+
     TripStatus:
       type: string
       enum: [wishlist, planned, booked, upcoming, traveling, completed]
@@ -565,7 +577,17 @@ components:
     Destination:
       type: object
       required:
-        [id, name, latitude, longitude, status, created_at, updated_at, outside_trip_range]
+        [
+          id,
+          name,
+          latitude,
+          longitude,
+          status,
+          category,
+          created_at,
+          updated_at,
+          outside_trip_range,
+        ]
       properties:
         id:
           type: integer
@@ -593,6 +615,8 @@ components:
           nullable: true
         status:
           $ref: "#/components/schemas/DestinationStatus"
+        category:
+          $ref: "#/components/schemas/DestinationCategory"
         created_at:
           type: string
           format: date-time
@@ -652,6 +676,8 @@ components:
         note:
           type: string
           nullable: true
+        category:
+          $ref: "#/components/schemas/DestinationCategory"
 
     DestinationUpdate:
       type: object
@@ -684,6 +710,8 @@ components:
         note:
           type: string
           nullable: true
+        category:
+          $ref: "#/components/schemas/DestinationCategory"
 
     LocationCandidate:
       type: object
@@ -774,7 +802,10 @@ components:
   # * No /trips/{id}/route — route display is out of scope for this iteration (spec.md).
   # * No cost/budget fields on Trip or Destination — out of scope for this iteration despite being
   #   constitutionally permitted since the 2.1.0 amendment (spec.md, "Why this iteration…").
-  # * No category/priority fields or category-based filtering on Destination — out of scope
-  #   (spec.md Assumptions).
+  # * No priority field on Destination, and no category-based *pin* encoding or map-level filter —
+  #   still out of scope (spec.md Assumptions). `category` itself was added 2026-08-23, outside the
+  #   normal spec process at the owner's explicit instruction (spec.md Assumptions carries the
+  #   amendment note) — see `DestinationCategory` above. Purely a label/Collection-filter; status
+  #   keeps sole ownership of the pin's shield fill/glyph/colour.
   # * No PUT, only PATCH, for Trip and Destination updates — matching 001's partial-update precedent;
   #   nothing in this spec asks for whole-resource replacement semantics.

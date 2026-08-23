@@ -35,6 +35,7 @@ interface StubDestination {
   start_date: string | null;
   end_date: string | null;
   status: string;
+  category: string | null;
   created_at: string;
   updated_at: string;
   outside_trip_range: boolean;
@@ -161,6 +162,7 @@ async function openMapWithStubs(page: Page, baseURL: string | undefined): Promis
         start_date: body.start_date ?? null,
         end_date: body.end_date ?? null,
         status: "wishlist",
+        category: null,
         created_at: "2026-08-16T09:00:00Z",
         updated_at: "2026-08-16T09:00:00Z",
         outside_trip_range: outsideRange,

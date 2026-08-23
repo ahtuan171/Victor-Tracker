@@ -43,6 +43,17 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       SEED_CREATOR_EMAIL: ${SEED_CREATOR_EMAIL:-}
       SEED_CREATOR_PASSWORD: ${SEED_CREATOR_PASSWORD:-}
+      # Travel Intelligence (Module 03). Listed here for the same reason as everything above it:
+      # only ./backend is bind-mounted, so the repository .env does not exist inside the container
+      # and `app/config.py`'s env_file finds nothing. Compose interpolates these from the host .env.
+      #
+      # Both spellings are passed because config.py accepts either (AliasChoices) — whichever the
+      # .env happens to use, the container gets it.
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_MODEL: ${HF_MODEL:-}
       UV_LINK_MODE: copy
     volumes:
       - ./backend:/app

@@ -38,7 +38,8 @@ tier, or absent from §12, and none of it is needed for the map to be the thing 
 - Trip route display (§8) and any per-trip route ordering control.
 - Budget and every cost field — trip budget, per-activity cost, transportation cost, accommodation
   cost (§1, §9, §10, §13).
-- Destination category and priority (§4), and category-based map filtering.
+- Destination priority (§4), and category-based **map** filtering. (Category itself was later added
+  outside this process — see the Assumptions section below for the amendment note.)
 - Transportation and Accommodation as their own records (§9, §10).
 - Cover image, description, tags, and travel companions on a Trip (§1, §13).
 - **Activity and a dedicated Calendar surface for trip itineraries** (§5, §6) — resolved in
@@ -364,8 +365,14 @@ status's pins remain visible, with a control to return to "all."
 - **Route display, trip budgeting, and all cost fields are out of scope for this iteration**, despite
   being constitutionally permitted since the 2.1.0 amendment — see "Why this iteration, and what it
   deliberately does not build" above. Recorded as a deferred item once this spec is committed.
-- **Destination category and priority are out of scope** for this iteration, for the same reason;
-  the map's filter for this iteration is by status only (Visited/Planned/Wishlist), not category.
+- **Destination priority is out of scope**, for the same reason; the map's own filter stays by
+  status only (Visited/Planned/Wishlist) — category drives no pin encoding or map-level filter.
+  **Destination category itself was added 2026-08-23, outside the normal spec/plan/tasks process,
+  at the owner's explicit instruction** — the same knowing bypass Module 02 (Travel Schedule) used.
+  Four fixed values (food, sightseeing, nature, stay), shown as a label in the Destination sheet and
+  used to filter/group the Travel Log (Collection) surface; see `contracts/openapi.yaml`'s
+  `DestinationCategory` schema for the wire shape. Recorded here rather than left silently
+  contradicting the code, per this project's own recurring "a stale spec gets obeyed" lesson.
 - **A destination's route order, if this were built, is not addressed here** since Route itself is out
   of scope; a later iteration building it starts from a clean question rather than an assumption
   inherited from this one.

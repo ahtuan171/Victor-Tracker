@@ -119,7 +119,7 @@ export function LocationSearch({
               <button
                 type="button"
                 onClick={() => onSelect(candidate)}
-                className="border-hairline text-ink focus-ring h-9 shrink-0 rounded-sm border px-3 text-[11px] font-semibold tracking-[0.08em] uppercase"
+                className="border-hairline text-ink focus-ring h-9 shrink-0 rounded-sm border px-3 text-xs font-semibold tracking-[0.08em] uppercase"
                 data-testid={`${testIdPrefix}-add`}
               >
                 Add

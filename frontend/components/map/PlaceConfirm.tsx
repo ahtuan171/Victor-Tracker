@@ -52,7 +52,7 @@ export function PlaceConfirm({
         </p>
         <p
           className={cn(
-            "truncate text-[11px] leading-none font-semibold tracking-[0.08em] uppercase",
+            "truncate text-xs leading-none font-semibold tracking-[0.08em] uppercase",
             treatment.textClass,
           )}
           data-testid="place-confirm-status"
@@ -65,7 +65,7 @@ export function PlaceConfirm({
         <button
           type="button"
           onClick={onDismiss}
-          className="border-hairline text-ink-mid focus-ring h-11 flex-1 rounded-sm border text-[11px] font-semibold tracking-[0.08em] uppercase"
+          className="border-hairline text-ink-mid focus-ring h-11 flex-1 rounded-sm border text-xs font-semibold tracking-[0.08em] uppercase"
           data-testid="place-confirm-dismiss"
         >
           Dismiss
@@ -74,7 +74,7 @@ export function PlaceConfirm({
         <button
           type="button"
           onClick={onOpen}
-          className="bg-brand font-display focus-ring-inset h-11 flex-1 rounded-sm text-[11px] font-semibold tracking-[0.08em] text-white uppercase shadow-e1"
+          className="bg-brand font-display focus-ring-inset h-11 flex-1 rounded-sm text-xs font-semibold tracking-[0.08em] text-white uppercase shadow-e1"
           data-testid="place-confirm-open"
         >
           Open
