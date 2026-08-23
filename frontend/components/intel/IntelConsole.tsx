@@ -1,3 +1,8 @@
+/* eslint-disable @next/next/no-img-element -- The five images in this file are the mascot: local
+   static SVGs of ~3 KB each. `next/image` optimises raster formats and skips SVG entirely unless
+   `dangerouslyAllowSVG` is set in next.config, and that flag lets any SVG the pipeline touches
+   execute script. Turning it on for three hand-drawn files would buy nothing and widen the attack
+   surface, so plain <img> is the right call here and the rule is off for this file only. */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +23,23 @@ interface Turn {
   readonly role: "user" | "assistant";
   readonly content: string;
 }
+
+/**
+ * The mascot, one file per console state.
+ *
+ * Artwork comes from `assets/` (the owner's own pixel-art set) and is copied into `public/mascot/`
+ * under neutral names. The source names are kept as they are — they are the owner's files — but the
+ * product does not carry them: this project renamed itself to Victor Tracker specifically to stay
+ * clear of Spider-Man's naming, and a mascot called "spidey" inside the app would undo that.
+ *
+ * Served from `public/` rather than inlined: three static SVGs of ~3 KB each, cached by the browser,
+ * against ~40 `<rect>` elements per file if they were React.
+ */
+const MASCOT = {
+  idle: "/mascot/analyst-idle.svg",
+  working: "/mascot/analyst-working.svg",
+  error: "/mascot/analyst-error.svg",
+} as const;
 
 /** Starter commands. They fill the input rather than sending, so nothing is spent by a stray tap. */
 const QUICK_COMMANDS = [
@@ -93,14 +115,26 @@ export function IntelConsole() {
             `ScheduleShell` and `MapShell` use: title left, controls right. */}
         <div className="flex items-center gap-3">
           <span
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            className="flex items-center gap-2 text-xs text-muted-foreground"
             data-testid="intel-status"
           >
-            <span
-              aria-hidden
-              className={`inline-block h-2 w-2 rounded-full bg-primary ${busy ? "animate-pulse" : ""}`}
+            {/* The mascot replaces the status dot rather than sitting beside it: both said the same
+                thing, and two indicators for one state is how they drift apart.
+
+                The word is hidden below `sm` and the mascot carries a real `alt` instead. At 375px
+                the header holds a two-line title, the mascot, the word, and the drawer trigger —
+                measured, the word ends up underneath the MENU button. Nothing overflows the
+                viewport, so a bounding-box audit passes it; the two simply overlap. Dropping the
+                word there costs nothing, because the mascot already says the same thing and now
+                says it to a screen reader too. */}
+            <img
+              src={error !== null ? MASCOT.error : busy ? MASCOT.working : MASCOT.idle}
+              alt={error !== null ? "Error" : busy ? "Working" : "Online"}
+              width={32}
+              height={18}
+              className={busy ? "animate-pulse" : undefined}
             />
-            {busy ? "WORKING" : "ONLINE"}
+            <span className="hidden sm:inline">{busy ? "WORKING" : "ONLINE"}</span>
           </span>
           <NavDrawer />
         </div>
@@ -108,21 +142,26 @@ export function IntelConsole() {
 
       <div ref={logRef} className="flex-1 space-y-4 overflow-y-auto p-4" data-testid="intel-log">
         {turns.length === 0 && (
-          <div className="space-y-2 text-muted-foreground">
+          <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+            <img src={MASCOT.idle} alt="" width={128} height={72} />
             <p className="font-display text-xs">SYSTEM</p>
-            <p className="text-sm">
+            <p className="max-w-sm text-sm">
               Travel Intelligence initialized. Ask about a destination, a route, or a duration.
             </p>
-            <p className="text-xs">
-              No saved destinations are connected yet — this analyst reasons about places, not about
-              your map.
+            {/* This line used to say saved destinations were not connected. They are, since the
+                context builder landed — leaving it would have been the console telling you it knows
+                less than it does. */}
+            <p className="max-w-sm text-xs">
+              This analyst reads your map: where you have been, what is planned, what is on the
+              wishlist. Photographs and personal notes are never sent.
             </p>
           </div>
         )}
 
         {turns.map((turn, index) => (
           <div key={index} data-testid={`intel-turn-${turn.role}`}>
-            <p className="font-display mb-1 text-xs text-muted-foreground">
+            <p className="font-display mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              {turn.role === "assistant" && <img src={MASCOT.idle} alt="" width={24} height={14} />}
               {turn.role === "user" ? "COMMAND" : "ANALYST"}
             </p>
             <p
@@ -138,15 +177,19 @@ export function IntelConsole() {
         ))}
 
         {busy && (
-          <p className="font-display animate-pulse text-xs text-muted-foreground">ANALYSING...</p>
+          <p className="font-display flex items-center gap-1.5 text-xs text-muted-foreground">
+            <img src={MASCOT.working} alt="" width={24} height={14} className="animate-pulse" />
+            <span className="animate-pulse">ANALYSING...</span>
+          </p>
         )}
 
         {error !== null && (
           <p
-            className="border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            className="flex items-start gap-2 border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
             role="alert"
             data-testid="intel-error"
           >
+            <img src={MASCOT.error} alt="" width={32} height={18} className="mt-0.5 shrink-0" />
             {error}
           </p>
         )}
