@@ -6,7 +6,7 @@ ones coming up, and an AI console that can actually answer questions about your 
 it reads the same data the map does.
 
 <p align="center">
-  <img src="docs/screenshots/01-map.png" width="320" alt="The world map, with status-coded pins and a reset-to-world-view control" />
+  <img src="docs/screenshots/01-map.png" width="100%" alt="The world map, with status-coded pins and a reset-to-world-view control" />
 </p>
 
 ## What it does
@@ -18,25 +18,25 @@ Group places into Trips, and a Destination whose dates fall outside its Trip's r
 not silently ignored.
 
 <p align="center">
-  <img src="docs/screenshots/02-map-place-confirm.png" width="320" alt="Tapping a pin brings up a confirmation card before opening the full detail" />
+  <img src="docs/screenshots/02-map-place-confirm.png" width="100%" alt="Tapping a pin brings up a confirmation card before opening the full detail" />
 </p>
 
 **A schedule for what's ahead.** `/schedule` lays Trips and travel events — flights, stays,
-activities, food, notes — onto a real month calendar, with an upcoming list and a per-day detail
+activities, food, notes — onto a real month calendar, with a trip timeline and a per-day detail
 sheet. It's a second view of the same data the map holds, not a separate thing to keep in sync.
 
 <p align="center">
-  <img src="docs/screenshots/03-schedule.png" width="320" alt="The travel schedule calendar with trips and events marked" />
+  <img src="docs/screenshots/03-schedule.png" width="100%" alt="The travel schedule calendar with trips and events marked" />
 </p>
 
 **An AI console that reads your actual trips.** `/intel` is a chat interface backed by any
 OpenAI-compatible provider (Groq, Hugging Face's router, OpenRouter, a local model — swappable in
-two lines of `.env`). It's grounded in your real Trips and Destinations, so it answers "where have
-I been" by naming your actual places, not by guessing.
+two lines of `.env`). It's grounded in your real Trips and Destinations, so it answers "what have I
+marked as visited" by naming your actual places, not by guessing.
 
 <p align="center">
-  <img src="docs/screenshots/04-intel.png" width="320" alt="The Travel Intelligence console, ready for a question" />
-  <img src="docs/screenshots/05-intel-answer.png" width="320" alt="A grounded answer, listing real visited destinations" />
+  <img src="docs/screenshots/04-intel.png" width="49%" alt="The Travel Intelligence console, ready for a question" />
+  <img src="docs/screenshots/05-intel-answer.png" width="49%" alt="A grounded answer, listing real visited destinations" />
 </p>
 
 **One privacy line, drawn on purpose and enforced by tests.** The AI reads everything about your
@@ -44,7 +44,7 @@ destinations and trips *except* photographs and personal notes — those never l
 `backend/tests/test_ai_context.py` asserts the absence, not just the presence, of that boundary.
 
 <p align="center">
-  <img src="docs/screenshots/06-login.png" width="320" alt="The sign-in screen" />
+  <img src="docs/screenshots/06-login.png" width="100%" alt="The sign-in screen" />
 </p>
 
 ## Why it exists
