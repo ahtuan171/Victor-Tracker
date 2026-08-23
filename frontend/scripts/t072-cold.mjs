@@ -14,7 +14,7 @@
 import { chromium } from "@playwright/test";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
-const BASE = "https://creator-hub-hazel.vercel.app";
+const BASE = "https://victor-tracker-at.vercel.app";
 const SHOTS = "scripts/t072-shots";
 mkdirSync(SHOTS, { recursive: true });
 
@@ -32,7 +32,7 @@ const main = async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
   await context.addCookies([
-    { name: "ch_session", value, domain: "creator-hub-hazel.vercel.app", path: "/", secure: true, httpOnly: true },
+    { name: "ch_session", value, domain: "victor-tracker-at.vercel.app", path: "/", secure: true, httpOnly: true },
   ]);
   const page = await context.newPage();
 
