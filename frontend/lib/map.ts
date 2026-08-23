@@ -26,7 +26,7 @@
  * than a call this module makes for itself.
  */
 
-import type { Destination, DestinationDetail, DestinationStatus, Trip } from "./api";
+import type { Destination, DestinationCategory, DestinationDetail, DestinationStatus, Trip } from "./api";
 import { isBeforeDateOnly, type DateOnly } from "./dates";
 
 /** One status's pin encoding. Everything `DestinationPin` needs except how big it draws. */
@@ -84,6 +84,21 @@ export const DESTINATION_PIN_TREATMENTS: Readonly<Record<DestinationStatus, Dest
 export function pinTreatment(status: DestinationStatus): DestinationPinTreatment {
   return DESTINATION_PIN_TREATMENTS[status];
 }
+
+/**
+ * Display text for a Destination's category — a label only, added outside the normal spec
+ * process at the owner's explicit instruction (`specs/003-travel-map/spec.md`'s Assumptions
+ * section carries the amendment note). Deliberately **not** a `DestinationPinTreatment`-shaped
+ * record: category drives no pin encoding of any kind — status keeps sole ownership of the
+ * shield's fill, glyph and colour — so there is no `borderClass`/`fillClass` here to reach for by
+ * mistake.
+ */
+export const CATEGORY_LABEL: Readonly<Record<DestinationCategory, string>> = {
+  food: "Food",
+  sightseeing: "Sightseeing",
+  nature: "Nature",
+  stay: "Stay",
+};
 
 /**
  * Whether a Destination should carry the "Currently Traveling" overlay right now (FR-002,

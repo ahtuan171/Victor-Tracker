@@ -62,6 +62,20 @@ class DestinationStatus(StrEnum):
     WISHLIST = "wishlist"
 
 
+class DestinationCategory(StrEnum):
+    """Added outside the normal spec process, at the owner's explicit instruction — 003-travel-map's
+    own `spec.md` Assumptions and `contracts/openapi.yaml` originally named category out of scope
+    for that iteration. Purely descriptive: drives no pin encoding (status keeps sole ownership of
+    that), and is nullable — most places start uncategorized and are tagged later from the
+    Destination sheet, never as part of QuickAdd's three-interaction create flow.
+    """
+
+    FOOD = "food"
+    SIGHTSEEING = "sightseeing"
+    NATURE = "nature"
+    STAY = "stay"
+
+
 class TripStatus(StrEnum):
     """FR-014 (003-travel-map). Descriptive only — drives no pin, and no requirement in that spec
     depends on its exact values beyond "a status exists" (data-model.md).
@@ -232,6 +246,11 @@ class Destination(SQLModel, table=True):
     )
 
     note: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+
+    category: DestinationCategory | None = Field(
+        default=None,
+        sa_column=Column(_pg_enum(DestinationCategory, "destinationcategory"), nullable=True),
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())

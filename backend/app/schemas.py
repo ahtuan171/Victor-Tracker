@@ -24,7 +24,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models import DestinationStatus, Theme, TravelEventType, TripStatus
+from app.models import DestinationCategory, DestinationStatus, Theme, TravelEventType, TripStatus
 
 
 class ErrorResponse(BaseModel):
@@ -266,6 +266,10 @@ class DestinationCreate(BaseModel):
     end_date: date | None = None
     status: DestinationStatus = DestinationStatus.WISHLIST
     note: str | None = None
+    category: DestinationCategory | None = None
+    """Added outside the normal spec process, at the owner's explicit instruction — see
+    `specs/003-travel-map/spec.md`'s Assumptions section for the amendment note. Nullable, no
+    default: most places start uncategorized and are tagged later from the Destination sheet."""
 
 
 class DestinationUpdate(BaseModel):
@@ -286,6 +290,9 @@ class DestinationUpdate(BaseModel):
     end_date: date | None = None
     status: DestinationStatus | None = None
     note: str | None = None
+    category: DestinationCategory | None = None
+    """Nullable on `destination` (same as `note`) — an explicit `null` clears it, which is how the
+    Destination sheet's "None" option removes a category."""
 
     _NEVER_NULL = ("name", "latitude", "longitude", "status")
 
@@ -324,6 +331,7 @@ class DestinationRead(BaseModel):
     start_date: date | None
     end_date: date | None
     status: DestinationStatus
+    category: DestinationCategory | None
     created_at: datetime
     updated_at: datetime
     outside_trip_range: bool

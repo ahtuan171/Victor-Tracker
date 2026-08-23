@@ -419,6 +419,7 @@ test.describe("/map", () => {
       photographs: [],
       created_at: "2026-08-01T09:00:00Z",
       updated_at: "2026-08-01T09:00:00Z",
+      category: null,
       outside_trip_range: false,
       ...overrides,
     };

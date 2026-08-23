@@ -94,6 +94,16 @@ export const DESTINATION_STATUSES = ["visited", "planned", "wishlist"] as const;
 export type DestinationStatus = (typeof DESTINATION_STATUSES)[number];
 
 /**
+ * `DestinationCategory` in `specs/003-travel-map/contracts/openapi.yaml`. Added outside the normal
+ * spec process, at the owner's explicit instruction — that contract and 003-travel-map's own
+ * `spec.md` originally named category out of scope for that iteration; see the Assumptions section
+ * there for the amendment note. Purely descriptive: drives no pin encoding (status keeps sole
+ * ownership of that) — used only as a label in the Destination sheet and a filter in Collection.
+ */
+export const DESTINATION_CATEGORIES = ["food", "sightseeing", "nature", "stay"] as const;
+export type DestinationCategory = (typeof DESTINATION_CATEGORIES)[number];
+
+/**
  * `TripStatus` in the same contract. FR-014 — descriptive only, drives no pin and nothing here
  * branches on its exact value beyond "a status exists".
  */
@@ -164,6 +174,7 @@ export interface Destination {
   readonly start_date: string | null;
   readonly end_date: string | null;
   readonly status: DestinationStatus;
+  readonly category: DestinationCategory | null;
   readonly created_at: string;
   readonly updated_at: string;
   /**
@@ -197,13 +208,14 @@ export interface DestinationCreate {
   readonly end_date?: string | null;
   readonly status?: DestinationStatus;
   readonly note?: string | null;
+  readonly category?: DestinationCategory | null;
 }
 
 /**
  * `DestinationUpdate` in the contract — a **mixed** null-spelling rule. `trip_id` (FR-020's
- * detach), `start_date`, `end_date` and `note` may be sent as explicit `null` to clear them;
- * `name`, `latitude`, `longitude` and `status` back `NOT NULL` columns and have no null spelling —
- * the backend refuses one with a 422.
+ * detach), `start_date`, `end_date`, `note` and `category` may be sent as explicit `null` to clear
+ * them; `name`, `latitude`, `longitude` and `status` back `NOT NULL` columns and have no null
+ * spelling — the backend refuses one with a 422.
  */
 export interface DestinationUpdate {
   readonly trip_id?: number | null;
@@ -214,6 +226,7 @@ export interface DestinationUpdate {
   readonly end_date?: string | null;
   readonly status?: DestinationStatus;
   readonly note?: string | null;
+  readonly category?: DestinationCategory | null;
 }
 
 /** Query parameters on `GET /destinations`. */
@@ -708,6 +721,7 @@ function toDestination(value: unknown): Destination {
     trip_id: row.trip_id ?? null,
     start_date: row.start_date ?? null,
     end_date: row.end_date ?? null,
+    category: row.category ?? null,
   };
 }
 

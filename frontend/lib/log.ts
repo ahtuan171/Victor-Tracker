@@ -1,4 +1,4 @@
-import type { Destination, DestinationStatus, Trip } from "./api";
+import type { Destination, DestinationCategory, DestinationStatus, Trip } from "./api";
 
 /**
  * A single entry in the Travel Log timeline.
@@ -8,6 +8,9 @@ export interface LogEntry {
   readonly tripName: string | null;
   readonly formattedDateRange: string | null;
   readonly status: DestinationStatus;
+  /** Added outside the normal spec process, at the owner's explicit instruction — see
+   * `specs/003-travel-map/spec.md`'s Assumptions section for the amendment note. */
+  readonly category: DestinationCategory | null;
 }
 
 /**
@@ -59,18 +62,24 @@ export function sortDestinationsForLog(
     tripName: dest.trip_id !== null ? (tripMap.get(dest.trip_id) ?? null) : null,
     formattedDateRange: formatDestinationDateRange(dest),
     status: dest.status,
+    category: dest.category,
   }));
 }
 
 /**
- * Filter log entries by destination status ("all" | DestinationStatus).
+ * Filter log entries by status and category, composed by AND — the same "two narrowings compose
+ * in either order" shape this project's earlier calendar/backlog surfaces already established.
+ * Either filter defaults to `"all"`, so an existing single-argument call site (status only) still
+ * behaves exactly as before.
  */
 export function filterLogEntries(
   entries: readonly LogEntry[],
   statusFilter: "all" | DestinationStatus,
+  categoryFilter: "all" | DestinationCategory = "all",
 ): LogEntry[] {
-  if (statusFilter === "all") {
-    return [...entries];
-  }
-  return entries.filter((entry) => entry.status === statusFilter);
+  return entries.filter(
+    (entry) =>
+      (statusFilter === "all" || entry.status === statusFilter) &&
+      (categoryFilter === "all" || entry.category === categoryFilter),
+  );
 }

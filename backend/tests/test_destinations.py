@@ -45,6 +45,7 @@ CONTRACTED_DESTINATION_KEYS = {
     "start_date",
     "end_date",
     "status",
+    "category",
     "created_at",
     "updated_at",
     "outside_trip_range",
@@ -89,6 +90,7 @@ def test_create_destination_with_every_field(auth_client: TestClient) -> None:
             "end_date": "2026-09-10",
             "status": "planned",
             "note": "First time back since the trip that started all this.",
+            "category": "food",
         },
     )
 
@@ -100,6 +102,32 @@ def test_create_destination_with_every_field(auth_client: TestClient) -> None:
     assert body["status"] == "planned"
     # `note` is not in the contract's `Destination` — only `DestinationDetail` (T023) carries it.
     assert "note" not in body
+    # `category` is, unlike `note` — it drives Collection filtering from the list response, not
+    # only the detail one (added outside the normal spec process, at the owner's instruction; see
+    # `specs/003-travel-map/spec.md`'s Assumptions section).
+    assert body["category"] == "food"
+
+
+def test_create_destination_with_no_category_defaults_to_null(auth_client: TestClient) -> None:
+    """Most places start uncategorized and are tagged later from the Destination sheet."""
+    response = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    )
+    assert response.status_code == 201
+    assert response.json()["category"] is None
+
+
+def test_create_destination_with_an_invalid_category_is_422(auth_client: TestClient) -> None:
+    response = auth_client.post(
+        DESTINATIONS_PATH,
+        json={
+            "name": "Kyoto",
+            "latitude": 35.0116,
+            "longitude": 135.7681,
+            "category": "shopping",
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_create_destination_requires_coordinates(auth_client: TestClient) -> None:
@@ -328,6 +356,55 @@ def test_update_destination_null_detaches_trip_id(
 
     assert response.status_code == 200
     assert response.json()["trip_id"] is None
+
+
+def test_update_destination_sets_category(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+    assert created["category"] is None
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"category": "sightseeing"}
+    )
+    assert response.status_code == 200
+    assert response.json()["category"] == "sightseeing"
+
+
+def test_update_destination_null_clears_category(auth_client: TestClient) -> None:
+    """Nullable on `destination` the same as `note` — an explicit `null` is a real clear, the way
+    the Destination sheet's "None" option removes a category."""
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "category": "nature"},
+    ).json()
+    assert created["category"] == "nature"
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"category": None})
+    assert response.status_code == 200
+    assert response.json()["category"] is None
+
+
+def test_update_destination_omitting_category_leaves_it_untouched(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH,
+        json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681, "category": "stay"},
+    ).json()
+
+    response = auth_client.patch(f"{DESTINATIONS_PATH}/{created['id']}", json={"name": "Osaka"})
+    assert response.status_code == 200
+    assert response.json()["category"] == "stay"
+
+
+def test_update_destination_with_an_invalid_category_is_422(auth_client: TestClient) -> None:
+    created = auth_client.post(
+        DESTINATIONS_PATH, json={"name": "Kyoto", "latitude": 35.0116, "longitude": 135.7681}
+    ).json()
+
+    response = auth_client.patch(
+        f"{DESTINATIONS_PATH}/{created['id']}", json={"category": "shopping"}
+    )
+    assert response.status_code == 422
 
 
 def test_update_destination_requires_a_credential(
@@ -718,6 +795,9 @@ ALLOWED_COLUMNS = {
         "end_date",
         "status",
         "note",
+        # Added outside the normal spec process, at the owner's explicit instruction — see
+        # `specs/003-travel-map/spec.md`'s Assumptions section for the amendment note.
+        "category",
         "created_at",
         "updated_at",
     },

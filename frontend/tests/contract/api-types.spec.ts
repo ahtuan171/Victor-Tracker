@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { parse } from "yaml";
 
-import { DESTINATION_STATUSES, THEMES, TRIP_STATUSES } from "../../lib/api";
+import { DESTINATION_CATEGORIES, DESTINATION_STATUSES, THEMES, TRIP_STATUSES } from "../../lib/api";
 
 /**
  * `lib/api.ts` is hand-written from the contract, so this is what stops it drifting from one.
@@ -53,4 +53,8 @@ test("DestinationStatus matches the 003 contract — FR-002/FR-026's map-pin sta
 
 test("TripStatus matches the 003 contract — FR-014's descriptive six", () => {
   expect([...TRIP_STATUSES]).toEqual(contractEnum("TripStatus", CONTRACT_003));
+});
+
+test("DestinationCategory matches the 003 contract — added 2026-08-23 outside the normal spec process", () => {
+  expect([...DESTINATION_CATEGORIES]).toEqual(contractEnum("DestinationCategory", CONTRACT_003));
 });

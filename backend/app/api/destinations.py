@@ -84,6 +84,7 @@ def _to_destination_read(destination: Destination, trip: Trip | None) -> Destina
         start_date=destination.start_date,
         end_date=destination.end_date,
         status=destination.status,
+        category=destination.category,
         created_at=destination.created_at,
         updated_at=destination.updated_at,
         outside_trip_range=_outside_trip_range(destination, trip),

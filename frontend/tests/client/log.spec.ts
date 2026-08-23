@@ -17,6 +17,7 @@ function mockDestination(overrides: Partial<Destination> = {}): Destination {
     start_date: null,
     end_date: null,
     status: "wishlist",
+    category: null,
     created_at: "2026-08-14T00:00:00Z",
     updated_at: "2026-08-14T00:00:00Z",
     outside_trip_range: false,
@@ -127,5 +128,33 @@ test.describe("filterLogEntries", () => {
     const plannedOnly = filterLogEntries(entries, "planned");
     expect(plannedOnly.length).toBe(1);
     expect(plannedOnly[0]?.destination.id).toBe(2);
+  });
+
+  test("filters entries by matching category, defaulting to 'all' when omitted", () => {
+    const dest1 = mockDestination({ id: 1, category: "food" });
+    const dest2 = mockDestination({ id: 2, category: "nature" });
+    const dest3 = mockDestination({ id: 3, category: null });
+    const entries = sortDestinationsForLog([dest1, dest2, dest3], []);
+
+    expect(filterLogEntries(entries, "all").length).toBe(3);
+
+    const foodOnly = filterLogEntries(entries, "all", "food");
+    expect(foodOnly.length).toBe(1);
+    expect(foodOnly[0]?.destination.id).toBe(1);
+
+    const uncategorised = filterLogEntries(entries, "all", "nature");
+    expect(uncategorised.length).toBe(1);
+    expect(uncategorised[0]?.destination.id).toBe(2);
+  });
+
+  test("composes status and category by AND", () => {
+    const match = mockDestination({ id: 1, status: "visited", category: "stay" });
+    const wrongStatus = mockDestination({ id: 2, status: "planned", category: "stay" });
+    const wrongCategory = mockDestination({ id: 3, status: "visited", category: "food" });
+    const entries = sortDestinationsForLog([match, wrongStatus, wrongCategory], []);
+
+    const both = filterLogEntries(entries, "visited", "stay");
+    expect(both.length).toBe(1);
+    expect(both[0]?.destination.id).toBe(1);
   });
 });
