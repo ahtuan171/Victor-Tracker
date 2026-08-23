@@ -326,3 +326,28 @@ test("changing the filter to a status the selected place still has leaves the se
   await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("place-confirm")).toBeVisible();
 });
+
+test("the reset-to-world-view control is reachable and tapping it does not disturb the selection", async ({
+  page,
+  baseURL,
+}) => {
+  // DOM-only, same as every other test in this file: `MapView`'s own camera state is not exposed
+  // to the page (`research.md` R-002), so `resetView`'s actual effect — the camera easing back to
+  // `DEFAULT_MAP_VIEW` — is not something a browser test can read. What this proves is the wiring:
+  // the control exists, is tappable, and (unlike the status filter above) never touches `selectedId`
+  // or `confirmingId` — it is a camera-only reset, not a "clear what's selected" gesture.
+  await openMap(page, baseURL, [destination({ id: 1, name: "Kyoto", status: "visited" })]);
+
+  const kyotoPin = page.locator('[data-testid="destination-pin"][aria-label*="Kyoto"]');
+  await kyotoPin.click();
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+
+  const resetView = page.getByTestId("map-reset-view");
+  await expect(resetView).toBeVisible();
+  await expect(resetView).toHaveAccessibleName("Reset to world view");
+
+  await resetView.click();
+
+  await expect(kyotoPin).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("place-confirm")).toBeVisible();
+});

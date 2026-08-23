@@ -123,9 +123,14 @@ interface MapViewProps {
  * the identical camera-move `buildOnOpen` uses (`easeToDestination` below), so a strip tap and a
  * pin tap bring the map to the same place the same way — only whether `PlaceConfirm` appears
  * differs, and that is `MapShell`'s decision (T009 vs. T010), not this component's.
+ *
+ * `resetView` is the same shape for the opposite direction (2026-08-21, owner-requested): a
+ * one-tap way back to the world view after zooming into a place, rather than scrolling/pinching
+ * out by hand.
  */
 export interface MapViewHandle {
   focusDestination(destinationId: number): void;
+  resetView(): void;
 }
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
@@ -158,6 +163,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const target = placed.find((destination) => destination.id === destinationId);
         if (target === undefined) return;
         easeToDestination(map, target, placed);
+      },
+      resetView() {
+        const map = mapRef.current;
+        if (map === null) return;
+        map.easeTo({
+          center: [DEFAULT_MAP_VIEW.center[0], DEFAULT_MAP_VIEW.center[1]],
+          zoom: DEFAULT_MAP_VIEW.zoom,
+        });
       },
     }),
     [destinations],
