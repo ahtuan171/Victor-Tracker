@@ -16,7 +16,9 @@
  *      `PATCH` follows without being awaited first — `applyTheme` and `writeThemeCookie` below, called
  *      together from `NavDrawer.tsx` (T034).
  *   3. **On app mount**, the account's own value is read once and, if it disagrees with the cookie,
- *      the account wins and the cookie is rewritten — `reconcileTheme` below (T034 wires the call).
+ *      the account wins and the cookie is rewritten — `reconcileTheme` below, called from
+ *      `MapShell`'s mount effect (`CalendarShell`'s successor as the app's shell, since Content
+ *      Calendar was removed entirely 2026-08-22; T034 wired the original call there).
  *
  * **Deliberately not httpOnly, and holds nothing but one of two words.** The client writes it on
  * every toggle, so it cannot be httpOnly; principle II is untouched because there is no identifier in

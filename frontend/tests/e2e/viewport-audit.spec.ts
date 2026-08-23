@@ -179,6 +179,13 @@ async function controlsOutsideViewport(page: Page): Promise<string[]> {
       // by scrolling the strip itself, not only by a second surface.
       if (el.closest('[data-testid="destination-strip-list"]') !== null) continue;
 
+      // `ScheduleFilters` is the same shape again: a real `overflow-x-auto` scroller
+      // (`ScheduleFilters.tsx`'s own docstring — "the horizontal scroll ... for when the seven
+      // filters do not fit one row"), so a filter past the fold is reachable by scrolling the row
+      // itself. Seven filters (ALL/TRIPS/FLIGHTS/STAYS/ACTIVITIES/FOOD/NOTES) genuinely do not fit
+      // one 375px row at a 44px-adjacent tap size, which is why the row scrolls rather than wraps.
+      if (el.closest('[data-testid="schedule-filters"]') !== null) continue;
+
       // A pin lives inside a pannable, zoomable map canvas — the map *is* its own scrolling
       // container, the same category as the two rows above. Selecting a place eases the camera
       // toward it (`MapView.tsx`'s `easeToDestination`), which is precisely why an *unselected* pin

@@ -8,13 +8,14 @@
  *
  * ## Enabled state lives here, not in a component
  *
- * `CalendarShell` triggers writes (`createItem`, `updateItem`, `deleteItem`) and `NavDrawer` holds
- * the toggle — two different places that both need to know "is sound on right now" with neither
- * owning the other. Rather than thread a boolean through every call site, this module keeps the
- * single cached answer (`enabled`, mirroring `lib/theme.ts`'s cookie-as-cache pattern) and a tiny
- * pub/sub so `NavDrawer`'s toggle re-renders on a change it did not itself cause — the account's own
- * value arriving from `getPreferences()` on mount, in `CalendarShell`'s existing reconciliation
- * effect.
+ * Various write paths (`QuickAdd`, `DestinationSheet`, `TripPanel`, `VisitedPanel`, `PlannedPanel`)
+ * call `playCue`, and `NavDrawer` holds the toggle — many places that all need to know "is sound on
+ * right now" with none of them owning the other. Rather than thread a boolean through every call
+ * site, this module keeps the single cached answer (`enabled`, mirroring `lib/theme.ts`'s
+ * cookie-as-cache pattern) and a tiny pub/sub so `NavDrawer`'s toggle re-renders on a change it did
+ * not itself cause — the account's own value arriving from `getPreferences()` on mount, in
+ * `MapShell`'s reconciliation effect (`CalendarShell`'s successor as the app's shell, since Content
+ * Calendar was removed entirely 2026-08-22).
  *
  * FR-022 gives sound no first-paint obligation (unlike the theme), so unlike `ch_theme` there is no
  * cookie: `enabled` starts `false` — which is also FR-020's default — and is corrected once the
@@ -51,9 +52,9 @@ export function isSoundEnabledOnServer(): boolean {
 
 /**
  * Set the cached enabled state and notify subscribers. Called from two places: `NavDrawer`'s toggle
- * (a tap, applied immediately — T040, "off is immediate") and `CalendarShell`'s mount-time
- * reconciliation of the account's own preference (mirroring `reconcileTheme`, one effect covering
- * both preferences from the one `GET /preferences` read).
+ * (a tap, applied immediately — T040, "off is immediate") and `MapShell`'s mount-time reconciliation
+ * of the account's own preference (mirroring `reconcileTheme`, one effect covering both preferences
+ * from the one `GET /preferences` read).
  */
 export function setSoundEnabled(next: boolean): void {
   if (next === enabled) return;

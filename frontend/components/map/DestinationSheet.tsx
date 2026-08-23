@@ -398,7 +398,7 @@ export function DestinationSheet({
                       }
                       data-testid={`destination-status-option-${status}`}
                       className={cn(
-                        "focus-ring flex h-11 flex-1 items-center justify-center gap-1.5 rounded-sm border text-[11px] font-semibold tracking-[0.08em] uppercase",
+                        "focus-ring flex h-11 flex-1 items-center justify-center gap-1.5 rounded-sm border text-xs font-semibold tracking-[0.08em] uppercase",
                         selected
                           ? cn(treatment.borderClass, treatment.textClass, "bg-surface-2")
                           : "border-hairline bg-surface-3 text-ink-mid",

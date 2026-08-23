@@ -82,7 +82,7 @@ function ScheduleDayCell({
       type="button"
       onClick={() => onOpen(date)}
       className={cn(
-        "border-hairline/60 relative flex min-h-[68px] flex-col gap-[3px] border-r border-b px-[3px] pt-4 pb-[3px] text-left last:border-r-0",
+        "border-hairline/60 focus-ring relative flex min-h-[68px] flex-col gap-[3px] border-r border-b px-[3px] pt-4 pb-[3px] text-left last:border-r-0",
         inPeriod ? "bg-surface-1" : "bg-surface-0",
         isToday && "ring-brand ring-2 ring-inset",
       )}
@@ -103,7 +103,7 @@ function ScheduleDayCell({
       {visible.map((entry) => (
         <span
           key={`${entry.kind}-${entry.refId}`}
-          className="text-ink-mid flex items-center gap-1 truncate text-[10px] leading-tight"
+          className="text-ink-mid flex items-center gap-1 truncate text-xs leading-tight"
         >
           <span aria-hidden="true">{symbolFor(entry)}</span>
           <span className="truncate">{entry.title}</span>
@@ -111,7 +111,7 @@ function ScheduleDayCell({
       ))}
 
       {hidden > 0 ? (
-        <span className="text-ink-lo text-[10px] leading-none font-semibold" data-testid="schedule-day-overflow">
+        <span className="text-ink-lo text-xs leading-none font-semibold" data-testid="schedule-day-overflow">
           +{hidden} more
         </span>
       ) : null}

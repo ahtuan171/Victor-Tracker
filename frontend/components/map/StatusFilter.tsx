@@ -127,7 +127,7 @@ function FilterOption({
       data-testid={testId}
       data-selected={selected ? "" : undefined}
       className={cn(
-        "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-[10px] leading-none font-semibold tracking-[0.1em] uppercase",
+        "focus-ring flex h-11 flex-1 items-center justify-center rounded-sm border text-xs leading-none font-semibold tracking-[0.1em] uppercase",
         selected
           ? "border-brand bg-brand text-void shadow-[2px_2px_0_0_var(--ch-brand-deep)] rounded-tr-none"
           : "border-hairline bg-surface-2 text-ink-mid",

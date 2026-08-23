@@ -337,7 +337,7 @@ function TripList({
                   {trip.start_date} – {trip.end_date}
                 </span>
               </span>
-              <span className="text-ink-lo shrink-0 text-[10px] font-semibold tracking-[0.08em] uppercase">
+              <span className="text-ink-lo shrink-0 text-xs font-semibold tracking-[0.08em] uppercase">
                 {trip.status}
               </span>
             </button>
@@ -545,7 +545,7 @@ function TripDetail({
                   <span className="text-ink block truncate text-sm">{destination.name}</span>
                   {destination.outside_trip_range ? (
                     <span
-                      className="text-danger-hi block text-[11px]"
+                      className="text-danger-hi block text-xs"
                       data-testid={`trip-destination-outside-range-${destination.id}`}
                     >
                       Dates fall outside this trip&rsquo;s own range.
@@ -554,7 +554,7 @@ function TripDetail({
                 </span>
                 <span
                   className={cn(
-                    "text-ink-lo shrink-0 text-[10px] font-semibold tracking-[0.08em] uppercase",
+                    "text-ink-lo shrink-0 text-xs font-semibold tracking-[0.08em] uppercase",
                   )}
                 >
                   {destination.status}
