@@ -5,7 +5,7 @@
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
-const BASE = "https://creator-hub-hazel.vercel.app";
+const BASE = "https://victor-tracker-at.vercel.app";
 const EMAIL = "ahtuan1701@gmail.com";
 const PASSWORD = process.env.SEED_CREATOR_PASSWORD;
 const SHOTS = "scripts/t072-shots";
