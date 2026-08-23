@@ -204,7 +204,9 @@ def test_a_place_names_its_trip(session: Session) -> None:
     session.commit()
     session.refresh(trip)
 
-    _destination(session, name="Tokyo", status=DestinationStatus.PLANNED, trip_id=trip.id, note=None)
+    _destination(
+        session, name="Tokyo", status=DestinationStatus.PLANNED, trip_id=trip.id, note=None
+    )
 
     profile = build_travel_context(session)
 
