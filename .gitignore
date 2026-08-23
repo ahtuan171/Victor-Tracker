@@ -37,8 +37,20 @@ Thumbs.db
 *.mov
 *.webm
 
-# AI training data
-ai/
+# AI training (ai/) — the tree is source, the artefacts it produces are not.
+#
+# Originally `ai/` wholesale, which also excluded build_dataset.py, run_baseline.py,
+# score_answers.py, the Colab notebook and the README. Those are the module's source and belong in
+# history; the dataset is 40 hand-written examples and is the thing everything else is derived
+# from. What genuinely must not be committed is what training *emits*: merged weights are ~1.2 GB.
+ai/__pycache__/
+ai/**/__pycache__/
+ai/**/checkpoint-*/
+ai/travel-intelligence/
+ai/victor-travel-intelligence*/
+ai/*.zip
+ai/*.safetensors
+ai/*.bin
 
 # Backups
 *.csv
