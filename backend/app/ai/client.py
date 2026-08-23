@@ -128,9 +128,7 @@ async def complete(messages: list[dict[str, str]], *, max_tokens: int = 800) -> 
         raise AIError(f"Could not reach the model provider: {exc}") from exc
 
     if response.status_code == 401:
-        raise AIError(
-            f"{base_url} rejected AI_API_KEY. Check the key and its permissions."
-        )
+        raise AIError(f"{base_url} rejected AI_API_KEY. Check the key and its permissions.")
     if response.status_code == 404:
         raise AIError(
             f"The provider at {base_url} does not serve '{model}'. Pick a different AI_MODEL, or "

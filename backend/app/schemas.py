@@ -46,8 +46,6 @@ class ErrorResponse(BaseModel):
     detail: str
 
 
-
-
 class PreferencesRead(BaseModel):
     """The contract's `Preferences`. Both fields always present, never null.
 
