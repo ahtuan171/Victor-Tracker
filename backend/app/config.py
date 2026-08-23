@@ -8,7 +8,7 @@ The names match `.env.example` at the repository root; that file is the document
 
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -121,6 +121,25 @@ class Settings(BaseSettings):
         description="Model id sent to the provider. Must be one that provider actually serves, and "
         "preferably one without a forced reasoning mode — see app/ai/client.py.",
     )
+
+    @field_validator("ai_base_url", "ai_model", mode="after")
+    @classmethod
+    def _blank_means_unset(cls, value: str, info: ValidationInfo) -> str:
+        """An empty string falls back to the default instead of overriding it.
+
+        `CLAUDE.md` records this trap from `FRONTEND_ORIGIN=""`, which overrode a default, failed
+        `min_length=1`, and stopped the app booting. It reappears here through Docker:
+        `docker-compose.yml` passes `AI_BASE_URL: ${AI_BASE_URL:-}`, so a host without that variable
+        hands the container an empty one — and an empty endpoint would be reported as "not
+        configured" while a perfectly good default sat one line above.
+
+        `ai_api_key` is deliberately excluded: for a credential, blank genuinely does mean unset,
+        and that is exactly what the AI module should refuse on.
+        """
+        if value.strip() or info.field_name is None:
+            return value
+        default = cls.model_fields[info.field_name].default
+        return default if isinstance(default, str) else value
 
 
 @lru_cache
