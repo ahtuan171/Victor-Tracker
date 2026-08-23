@@ -144,6 +144,16 @@ export function TravelLogDrawer({
         <div className="p-4 overflow-y-auto flex-1 space-y-3" data-testid="travel-log-list">
           {filteredEntries.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground" data-testid="travel-log-empty">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same
+                  reasoning as `IntelConsole.tsx`. Decorative (`alt=""`) — the text beside it
+                  already says there is nothing logged yet. */}
+              <img
+                src="/mascot/mascot-confused.svg"
+                alt=""
+                width={88}
+                height={50}
+                className="mx-auto mb-2"
+              />
               <p className="font-semibold text-sm">No places logged yet</p>
               <p className="text-xs mt-1">
                 {statusFilter === "all" && categoryFilter === "all"

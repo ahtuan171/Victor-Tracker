@@ -12,6 +12,16 @@ export function UpcomingList({ entries }: { readonly entries: readonly ScheduleE
   if (entries.length === 0) {
     return (
       <section aria-label="Upcoming" className="px-4 py-6 text-center" data-testid="upcoming-empty">
+        {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same reasoning
+            as `IntelConsole.tsx`. Decorative (`alt=""`) — nothing scheduled yet, so the mascot
+            naps rather than the section saying so twice. */}
+        <img
+          src="/mascot/mascot-asleep.svg"
+          alt=""
+          width={88}
+          height={50}
+          className="mx-auto mb-2"
+        />
         <p className="text-ink text-sm font-semibold">No upcoming travel events</p>
       </section>
     );

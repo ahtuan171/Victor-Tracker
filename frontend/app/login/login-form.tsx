@@ -134,6 +134,11 @@ export function LoginForm() {
             <span className="text-ink-mid text-xs leading-none font-semibold tracking-[0.28em] uppercase">
               Victor Tracker
             </span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- same reasoning as
+                `IntelConsole.tsx`: a ~3 KB local SVG, and `dangerouslyAllowSVG` is not worth turning
+                on for hand-drawn art `next/image` would otherwise skip entirely. Purely a welcome
+                touch — `alt=""` since the wordmark beside it already says what this screen is. */}
+            <img src="/mascot/mascot-coding.svg" alt="" width={40} height={23} />
           </div>
 
           <h1 className="font-display text-ink text-[34px] leading-[0.95] font-bold tracking-[0.03em] uppercase skew-x-[-5deg]">
@@ -234,7 +239,7 @@ export function LoginForm() {
               {pending ? "Signing in…" : "Sign in"}
             </Button>
 
-            <p className="text-ink-lo mt-1 text-center text-xs">One account, one calendar.</p>
+            <p className="text-ink-lo mt-1 text-center text-xs">One account, one map.</p>
           </form>
         </div>
       </div>

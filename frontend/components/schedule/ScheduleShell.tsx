@@ -49,6 +49,18 @@ export function ScheduleShell() {
   const { destinations } = useDestinations();
   const today = useSyncExternalStore(subscribeToNothing, readToday, readNoToday);
 
+  /**
+   * The mascot's caption in the month-nav row (moved here from a foot-of-page "loading" line, at
+   * the owner's request — that version was tied to `useTrips`/`useTravelEvents`'s real
+   * `"loading"` status and a warm local backend resolves that in well under 100ms, faster than a
+   * human notices a flash, so in practice it was never seen). This one is unconditional and sits
+   * beside the month title, where the eye already lands to read "August 2026" — one caption picked
+   * per mount, travel-flavoured rather than Claude Code's own generic verbs.
+   */
+  const [caption] = useState(
+    () => MASCOT_CAPTIONS[Math.floor(Math.random() * MASCOT_CAPTIONS.length)],
+  );
+
   const [period, setPeriod] = useState<DateOnly | null>(null);
   const [filter, setFilter] = useState<ScheduleFilterId>("all");
   const [openDay, setOpenDay] = useState<DateOnly | null>(null);
@@ -131,6 +143,31 @@ export function ScheduleShell() {
         >
           <span aria-hidden="true">‹</span>
         </button>
+
+        {/* The mascot's caption, moved here (from a foot-of-page loading line — see `caption`'s own
+            docstring) at the owner's request: this row sits directly under the month title and
+            directly above the calendar, in view without scrolling on every load, unlike a line at
+            the page's foot that a real load resolves too fast to notice. `min-w-0` on the wrapper
+            plus `truncate` on the caption is what keeps the longest caption
+            ("Counting passport stamps…") from pushing the month-nav buttons toward the screen edge
+            at the 375px floor. */}
+        <p
+          className="text-ink-lo flex min-w-0 flex-1 items-center justify-center gap-1.5 text-xs"
+          data-testid="schedule-mascot-caption"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same
+              reasoning as `IntelConsole.tsx`. Decorative (`alt=""`) — the caption beside it already
+              says what is happening. */}
+          <img
+            src="/mascot/mascot-thinking.svg"
+            alt=""
+            width={24}
+            height={14}
+            className="animate-pulse flex-none"
+          />
+          <span className="animate-pulse truncate">{caption}</span>
+        </p>
+
         <button
           type="button"
           onClick={() => effectivePeriod !== null && setPeriod(shiftPeriod(effectivePeriod, "month", 1))}
@@ -232,6 +269,16 @@ export function ScheduleShell() {
     </div>
   );
 }
+
+/** The mascot's month-nav caption — one picked at random per mount, travel-flavoured rather than
+ * Claude Code's own generic verbs, since this mascot has a place to be going. */
+const MASCOT_CAPTIONS: readonly string[] = [
+  "Charting the route…",
+  "Packing the bags…",
+  "Reading old maps…",
+  "Counting passport stamps…",
+  "Plotting the next stop…",
+];
 
 function subscribeToNothing(): () => void {
   return () => {};

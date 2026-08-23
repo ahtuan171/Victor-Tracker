@@ -67,9 +67,20 @@ export function QuickAdd({ onCreated }: { readonly onCreated: () => void }) {
       data-testid="quick-add"
     >
       {candidate === null ? (
-        // Its own testid namespace: `TripPanel` mounts a second `LocationSearch`, and two
-        // instances sharing one set of testids is a Playwright strict-mode failure.
-        <LocationSearch onSelect={setCandidate} testIdPrefix="quick-add-search" />
+        <>
+          <div className="flex items-center gap-1.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a ~3 KB local SVG, same
+                reasoning as `IntelConsole.tsx`. Decorative: shooting a web is the closest thing
+                this mascot's set has to "marking a new place", which is exactly this flow. */}
+            <img src="/mascot/mascot-webshoot.svg" alt="" width={32} height={18} />
+            <p className="text-ink-lo text-xs leading-none font-semibold tracking-[0.14em] uppercase">
+              Mark a new place
+            </p>
+          </div>
+          {/* Its own testid namespace: `TripPanel` mounts a second `LocationSearch`, and two
+              instances sharing one set of testids is a Playwright strict-mode failure. */}
+          <LocationSearch onSelect={setCandidate} testIdPrefix="quick-add-search" />
+        </>
       ) : (
         <StatusStep
           candidate={candidate}
