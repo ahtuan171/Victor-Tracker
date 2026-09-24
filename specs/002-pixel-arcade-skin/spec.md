@@ -260,9 +260,14 @@ on, confirm actions produce it; confirm the choice survives reopening.
 - **FR-023a**: Sound MUST accompany **only** actions that change stored information — capturing an
   item, saving a change, deleting, moving an item onto a date or back — and **refusals**, which get a
   distinguishable sound of their own. Navigation, changing view, filtering, and opening or closing a
-  panel MUST be silent. The reason is the assumption below: a sound on every tap becomes noise, and
-  noise is what gets the whole feature turned off. Navigation is the most repeated interaction there
-  is, which makes it the most expensive place to put a sound.
+  panel MUST NOT produce those sounds, and MAY produce only a **quiet interface cue**, clearly softer
+  and of a different timbre from any sound that reports a stored change. **Amended 2026-09-23**
+  (owner's decision, UX-polish pass): this requirement previously said such interactions MUST be
+  silent. The distinction it protects is unchanged — the sound that means "stored information
+  changed" is never made by navigation — but the owner chose a product that answers every touch, at
+  the price of the original reasoning: a sound on every tap risks becoming noise, and noise is what
+  gets the whole feature turned off. Every cue, quiet ones included, stays off until sound is turned
+  on (FR-020), so anyone who finds the interface cues tiresome has one control that ends them.
 
 **Appearance must not be the only carrier of meaning**
 
@@ -352,8 +357,9 @@ in the Input description above, not an oversight.
 - **SC-014**: Across every screen and every overlay, zero pieces of text render below 12px, and zero
   pieces of content text render below 16px.
 - **SC-015**: With sound on, a complete pass through every screen produces sound only on actions that
-  changed stored information and on refusals — zero sounds from navigating, filtering, changing view,
-  or opening a panel.
+  changed stored information and on refusals, plus quiet interface cues on navigating, filtering,
+  changing view, or opening a panel — **zero** sounds of the stored-change kind from those
+  interactions. With sound off, zero sounds of any kind. *(Amended 2026-09-23 together with FR-023a.)*
 
 ## Assumptions
 

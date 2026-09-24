@@ -166,6 +166,7 @@ the choice survives reopening.
 - [x] T039 [US4] Wire the cues to exactly the actions FR-023a names — capture, save, delete, move to a date or back — plus a **distinguishable** cue for refusals. Navigation, view changes, filtering and panel toggles get nothing.
 - [x] T040 [US4] Add the sound control to the drawer, persisted through `PATCH /preferences` (FR-022). Off is immediate.
 - [x] T041 [US4] Add `frontend/tests/e2e/sound.spec.ts` against a **stubbed `AudioContext`**, counting `createOscillator` calls per interaction: a data-changing action produces exactly one cue, a navigation interaction produces **zero** (SC-015), and a fresh account produces zero across a complete pass (SC-009).
+  - *Amended 2026-09-23 (T039 and T041 as written are historical):* FR-023a now permits quiet interface cues on navigation and panel toggles, so T039's "get nothing" and T041's "zero" no longer hold. `sound.spec.ts` now counts cues (grouped by waveform into data and interface cues) instead of `createOscillator` calls, and asserts navigation produces no *data* cue.
 
 ---
 
