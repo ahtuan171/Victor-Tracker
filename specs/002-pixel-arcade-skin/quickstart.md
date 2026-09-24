@@ -180,8 +180,9 @@ Then the three that are about not trapping anyone:
    one short cue.
 3. **Provoke a refusal** — move an item past `idea` with no platform. A **distinguishable** cue.
 4. **Navigate only.** Period arrows, month/week toggle, platform filter, open and close a panel.
-   **Silence** (FR-023a, SC-015). This is the check that keeps the feature from becoming the noise
-   that gets it turned off.
+   At most a **quiet interface cue** — never the cue a save or a delete makes (FR-023a, SC-015 as
+   amended 2026-09-23; these were silent before). This is the check that keeps a navigation from
+   being mistaken for a stored change.
 5. **Turn it off.** Immediately silent, and still silent after reopening (FR-022).
 6. **Mute the device** and repeat step 2. Every action still does exactly what it did (FR-023) — no
    code path may branch on whether a sound was heard.

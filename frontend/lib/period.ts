@@ -200,3 +200,22 @@ export function formatDateOnlyShort(date: DateOnly): string {
   const parsed = parseDateOnly(date);
   return `${parsed.getDate()} ${short(parsed)}`;
 }
+
+const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** `"Tuesday, 23 September 2026"` — for a sheet title where the full date has room to breathe. */
+export function formatDateOnlyLong(date: DateOnly): string {
+  const parsed = parseDateOnly(date);
+  return `${FULL_WEEKDAY_NAMES[parsed.getDay()]}, ${parsed.getDate()} ${MONTH_NAMES[parsed.getMonth()]} ${parsed.getFullYear()}`;
+}
+
+/** `"3 – 9 Oct 2026"`, `"28 Sep – 4 Oct 2026"` — a trip's range, compact enough for a row. */
+export function formatDateRange(start: DateOnly, end: DateOnly): string {
+  const a = parseDateOnly(start);
+  const b = parseDateOnly(end);
+  if (start === end) return `${a.getDate()} ${short(a)} ${a.getFullYear()}`;
+  const sameYear = a.getFullYear() === b.getFullYear();
+  const sameMonth = sameYear && a.getMonth() === b.getMonth();
+  const head = sameMonth ? `${a.getDate()}` : `${a.getDate()} ${short(a)}${sameYear ? "" : ` ${a.getFullYear()}`}`;
+  return `${head} – ${b.getDate()} ${short(b)} ${b.getFullYear()}`;
+}

@@ -5,9 +5,15 @@ import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { logout, updatePreferences, type Theme } from "@/lib/api";
-import { isSoundEnabled, isSoundEnabledOnServer, setSoundEnabled, subscribeSoundEnabled } from "@/lib/sound";
-import { applyTheme, readThemeCookie, writeThemeCookie } from "@/lib/theme";
+import { getPreferences, logout, updatePreferences, type Theme } from "@/lib/api";
+import {
+  isSoundEnabled,
+  isSoundEnabledOnServer,
+  playCue,
+  setSoundEnabled,
+  subscribeSoundEnabled,
+} from "@/lib/sound";
+import { applyTheme, readThemeCookie, reconcileTheme, writeThemeCookie } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -123,11 +129,29 @@ export function NavDrawer() {
    */
   const soundEnabled = useSyncExternalStore(subscribeSoundEnabled, isSoundEnabled, isSoundEnabledOnServer);
 
+  /**
+   * Mount-time preference reconciliation — one `GET /preferences` read reconciles the theme cookie
+   * against the account's own value and loads the sound toggle (which starts `false`). Lives here
+   * because this drawer is in the header of every surface; when it lived in `MapShell`, opening
+   * `/schedule` or `/intel` directly left sound silently off. Failures are swallowed — the
+   * cookie-derived theme and sound-off default are stale at worst, never wrong.
+   */
+  useEffect(() => {
+    void getPreferences()
+      .then((preferences) => {
+        reconcileTheme(preferences.theme);
+        setSoundEnabled(preferences.sound_enabled);
+      })
+      .catch(() => {});
+  }, []);
+
   function selectSound(next: boolean): void {
     if (next === soundEnabled) return;
     // Applied immediately (T040, "off is immediate") — the same rule the theme control follows, and
     // for the same reason: the request's outcome does not gate what this device already shows.
     setSoundEnabled(next);
+    // Turning sound on answers with a sound, so the toggle proves itself.
+    if (next) playCue("success");
     void updatePreferences({ sound_enabled: next }).catch((error: unknown) => {
       console.error("[sound] failed to save the account's preference", error);
     });
@@ -190,7 +214,10 @@ export function NavDrawer() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          playCue("open");
+          setOpen(true);
+        }}
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={panelId}
@@ -213,7 +240,7 @@ export function NavDrawer() {
            * click would have to guess which one a tap meant.
            */}
           <div
-            className="fixed inset-0 z-[70] bg-black/40"
+            className="animate-in fade-in fixed inset-0 z-[70] bg-black/40 duration-200"
             aria-hidden="true"
             onClick={() => setOpen(false)}
             data-testid="nav-drawer-scrim"
@@ -226,7 +253,7 @@ export function NavDrawer() {
             // meets the rest of the screen — carries the brand red rather than the neutral hairline,
             // 2px rather than 1px. `shadow-e2` already gives the panel its elevation; this is the
             // colour half of the treatment, not a second shadow layered on top of it.
-            className="bg-surface-1 fixed inset-y-0 right-0 z-[80] flex w-[260px] max-w-[80vw] flex-col border-l-2 border-l-brand shadow-e2"
+            className="bg-surface-1 animate-in slide-in-from-right fixed inset-y-0 right-0 z-[80] flex w-[260px] duration-300 ease-out max-w-[80vw] flex-col border-l-2 border-l-brand shadow-e2"
             data-testid="nav-drawer-panel"
           >
             <header className="border-hairline flex items-center justify-between gap-2 border-b px-4 pt-5 pb-3">

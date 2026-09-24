@@ -1,5 +1,6 @@
 "use client";
 
+import { daysBetween, type DateOnly } from "@/lib/dates";
 import { formatDateOnlyShort } from "@/lib/period";
 import { EVENT_TYPE_SYMBOL, TRIP_SYMBOL, type ScheduleEntry } from "@/lib/schedule";
 
@@ -8,7 +9,15 @@ import { EVENT_TYPE_SYMBOL, TRIP_SYMBOL, type ScheduleEntry } from "@/lib/schedu
  * useful empty state rather than invented placeholder data — met here by rendering nothing but the
  * empty state itself when `entries` is empty.
  */
-export function UpcomingList({ entries }: { readonly entries: readonly ScheduleEntry[] }) {
+export function UpcomingList({
+  entries,
+  today,
+  onOpen,
+}: {
+  readonly entries: readonly ScheduleEntry[];
+  readonly today: DateOnly | null;
+  readonly onOpen: (entry: ScheduleEntry) => void;
+}) {
   if (entries.length === 0) {
     return (
       <section aria-label="Upcoming" className="px-4 py-6 text-center" data-testid="upcoming-empty">
@@ -33,21 +42,37 @@ export function UpcomingList({ entries }: { readonly entries: readonly ScheduleE
         Upcoming
       </h2>
       <ul className="flex flex-col">
-        {entries.map((entry) => (
-          <li
-            key={`${entry.kind}-${entry.refId}`}
-            className="border-hairline flex items-center gap-3 border-t px-4 py-2.5"
-          >
-            <span className="text-ink-lo w-12 flex-none text-xs font-semibold tracking-[0.04em]">
-              {formatDateOnlyShort(entry.date)}
-            </span>
-            <span aria-hidden="true" className="text-ink-mid flex-none">
-              {entry.kind === "trip" ? TRIP_SYMBOL : EVENT_TYPE_SYMBOL[entry.kind]}
-            </span>
-            <span className="text-ink truncate text-sm">{entry.title}</span>
+        {entries.map((entry, index) => (
+          <li key={`${entry.kind}-${entry.refId}`} className="border-hairline border-t">
+            <button
+              type="button"
+              onClick={() => onOpen(entry)}
+              className="focus-ring-inset hover:bg-surface-2 anim-fade-up flex w-full items-center gap-3 px-4 py-2.5 text-left"
+              style={{ animationDelay: `${index * 30}ms` }}
+            >
+              <span className="text-ink-lo w-12 flex-none text-xs font-semibold tracking-[0.04em]">
+                {formatDateOnlyShort(entry.date)}
+              </span>
+              <span aria-hidden="true" className="text-ink-mid flex-none">
+                {entry.kind === "trip" ? TRIP_SYMBOL : EVENT_TYPE_SYMBOL[entry.kind]}
+              </span>
+              <span className="text-ink min-w-0 flex-1 truncate text-sm">{entry.title}</span>
+              {today !== null ? (
+                <span className="text-ink-lo flex-none text-xs">{relativeDay(today, entry.date)}</span>
+              ) : null}
+            </button>
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+function relativeDay(today: DateOnly, date: DateOnly): string {
+  const days = daysBetween(today, date);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days < 7) return `In ${days} days`;
+  if (days < 14) return "Next week";
+  return `In ${Math.round(days / 7)} wks`;
 }

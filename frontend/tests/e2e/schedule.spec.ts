@@ -209,7 +209,7 @@ test("adding a travel event to a day shows it on that day, editable and deletabl
   // Open the 23rd via the month grid's own cell — August 2026 draws in the current month by
   // default since the clock is pinned to 2026-08-04.
   await page.locator('[data-testid="schedule-day-cell"][data-date="2026-08-23"]').click();
-  await expect(page.getByTestId("day-detail-title")).toHaveText("2026-08-23");
+  await expect(page.getByTestId("day-detail-title")).toHaveText("Sunday, 23 August 2026");
 
   await page.getByTestId("day-detail-add-entry").click();
   await page.getByTestId("new-entry-activity").click();
@@ -219,24 +219,28 @@ test("adding a travel event to a day shows it on that day, editable and deletabl
   await page.getByTestId("event-form-date").fill("2026-08-23");
   await page.getByTestId("event-form-save").click();
 
-  // Saving closes only the event form — the Day Detail drawer underneath stays open and now
-  // shows the new entry, so the rest of this flow works inside it rather than re-opening the day
-  // through the calendar cell (which the drawer's own overlay still covers).
-  await expect(page.getByTestId("day-detail-list")).toContainText("Shibuya");
-  await expect(page.locator('[data-testid="schedule-day-cell"][data-date="2026-08-23"]')).toContainText(
-    "Shibuya",
-  );
+  // Saving steps the whole way out: the Day Detail drawer already stepped aside when the entry
+  // form opened (three stacked sheets is the thing that was removed), so the new entry shows on the
+  // calendar cell itself and the day is reopened from there.
+  const cell = page.locator('[data-testid="schedule-day-cell"][data-date="2026-08-23"]');
+  await expect(cell).toContainText("Shibuya");
 
-  // Edit the title, and confirm the change round-trips back into the still-open drawer.
+  // Edit the title, and confirm the change round-trips back into the day.
+  await cell.click();
   await page.getByTestId(/^day-detail-event-/).click();
   await page.getByTestId("event-form-title").fill("Shibuya Crossing");
   await page.getByTestId("event-form-save").click();
-  await expect(page.getByTestId("day-detail-list")).toContainText("Shibuya Crossing");
+  await expect(cell).toContainText("Shibuya Crossing");
 
-  // Delete it, and the day goes empty.
+  // Delete it — the first tap arms the button, the second confirms — and the entry leaves the day.
+  await cell.click();
   await page.getByTestId(/^day-detail-event-/).click();
-  await page.getByTestId("event-form-delete").click();
-  await expect(page.getByTestId("day-detail-empty")).toBeVisible();
+  // `dispatchEvent`, not `click`: under `next dev` the overlay's portal sits over the bottom-left of
+  // the sheet at 375px (see `pipeline.spec.ts`); CI runs the production bundle and never has it.
+  await page.getByTestId("event-form-delete").dispatchEvent("click");
+  await expect(page.getByTestId("event-form-delete")).toHaveText(/tap to confirm/i);
+  await page.getByTestId("event-form-delete").dispatchEvent("click");
+  await expect(cell).not.toContainText("Shibuya");
 });
 
 test("the filter row narrows the calendar and the Upcoming list to one kind of entry", async ({

@@ -180,3 +180,23 @@ function parseParts(value: string): Date | null {
 function pad(value: number, width: number): string {
   return String(value).padStart(width, "0");
 }
+
+/** `date` shifted by `days` calendar days (negative goes back). */
+export function addDaysDateOnly(date: DateOnly, days: number): DateOnly {
+  const parsed = parseDateOnly(date);
+  parsed.setDate(parsed.getDate() + days);
+  return toDateOnly(parsed);
+}
+
+/**
+ * Whole calendar days from `a` to `b` (positive when `b` is later). Rounded, so a DST shift inside
+ * the span — a 23- or 25-hour day — still counts as one day.
+ */
+export function daysBetween(a: DateOnly, b: DateOnly): number {
+  return Math.round((parseDateOnly(b).getTime() - parseDateOnly(a).getTime()) / 86_400_000);
+}
+
+/** `true` when `date` falls within `[start, end]`, both ends inclusive. */
+export function isWithinDateOnly(date: DateOnly, start: DateOnly, end: DateOnly): boolean {
+  return date >= start && date <= end;
+}

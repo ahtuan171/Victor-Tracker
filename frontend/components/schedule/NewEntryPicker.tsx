@@ -36,19 +36,20 @@ export function NewEntryPicker({
           <button
             type="button"
             onClick={onPickTrip}
-            className="border-hairline bg-surface-2 text-ink focus-ring flex h-12 items-center gap-2.5 rounded-sm border px-3.5 text-sm font-semibold tracking-[0.04em] uppercase"
+            className="border-brand bg-brand/15 text-ink focus-ring hover:bg-brand/25 anim-fade-up flex h-12 items-center gap-2.5 rounded-sm border px-3.5 text-sm font-semibold tracking-[0.04em] uppercase"
             data-testid="new-entry-trip"
           >
             <span aria-hidden="true">{TRIP_SYMBOL}</span>
             Trip
           </button>
 
-          {TRAVEL_EVENT_TYPES.map((eventType) => (
+          {TRAVEL_EVENT_TYPES.map((eventType, index) => (
             <button
               key={eventType}
               type="button"
               onClick={() => onPickEventType(eventType)}
-              className="border-hairline bg-surface-2 text-ink focus-ring flex h-12 items-center gap-2.5 rounded-sm border px-3.5 text-sm font-semibold tracking-[0.04em] uppercase"
+              style={{ animationDelay: `${(index + 1) * 35}ms` }}
+              className="border-hairline bg-surface-2 text-ink focus-ring hover:bg-surface-3 anim-fade-up flex h-12 items-center gap-2.5 rounded-sm border px-3.5 text-sm font-semibold tracking-[0.04em] uppercase"
               data-testid={`new-entry-${eventType}`}
             >
               <span aria-hidden="true">{EVENT_TYPE_SYMBOL[eventType]}</span>

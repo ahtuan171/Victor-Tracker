@@ -27,6 +27,9 @@ import {
 } from "@/lib/api";
 import type { TripsStatus } from "@/lib/trips";
 import { playCue } from "@/lib/sound";
+import { DateInput } from "@/components/ui/date-input";
+import { addDaysDateOnly, daysBetween } from "@/lib/dates";
+import { formatDateRange } from "@/lib/period";
 import { cn } from "@/lib/utils";
 
 import { LocationSearch } from "./LocationSearch";
@@ -98,7 +101,13 @@ export function TripPanel({
   async function submitCreate(): Promise<void> {
     if (creatingSubmitting) return;
     if (createDraft.name.trim() === "" || createDraft.start_date === "" || createDraft.end_date === "") {
+      playCue("refuse");
       setCreateError("Name, start date and end date are all required.");
+      return;
+    }
+    if (createDraft.end_date < createDraft.start_date) {
+      playCue("refuse");
+      setCreateError("The trip has to end on or after the day it starts.");
       return;
     }
 
@@ -111,7 +120,7 @@ export function TripPanel({
         end_date: createDraft.end_date,
         status: createStatus,
       });
-      playCue("save");
+      playCue("success");
       reload();
       setCreating(false);
       setCreateDraft({ name: "", start_date: "", end_date: "" });
@@ -256,22 +265,31 @@ function TripList({
             />
           </div>
           <div className="flex gap-2">
-            <input
-              id={startDateId}
-              type="date"
-              value={createDraft.start_date}
-              onChange={(event) => onDraftChange({ ...createDraft, start_date: event.target.value })}
-              className="border-hairline bg-surface-3 text-ink focus-ring h-11 flex-1 rounded-sm border px-3 text-sm"
-              data-testid="trip-start-date-input"
-            />
-            <input
-              id={endDateId}
-              type="date"
-              value={createDraft.end_date}
-              onChange={(event) => onDraftChange({ ...createDraft, end_date: event.target.value })}
-              className="border-hairline bg-surface-3 text-ink focus-ring h-11 flex-1 rounded-sm border px-3 text-sm"
-              data-testid="trip-end-date-input"
-            />
+            <div className="min-w-0 flex-1">
+              <label htmlFor={startDateId} className="text-ink-mid mb-1 block text-xs font-semibold uppercase">
+                Start
+              </label>
+              <DateInput
+                id={startDateId}
+                value={createDraft.start_date}
+                onChange={(event) => onDraftChange(withStart(createDraft, event.target.value))}
+                className="h-11 text-sm"
+                data-testid="trip-start-date-input"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label htmlFor={endDateId} className="text-ink-mid mb-1 block text-xs font-semibold uppercase">
+                End
+              </label>
+              <DateInput
+                id={endDateId}
+                value={createDraft.end_date}
+                {...(createDraft.start_date !== "" ? { min: createDraft.start_date } : {})}
+                onChange={(event) => onDraftChange({ ...createDraft, end_date: event.target.value })}
+                className="h-11 text-sm"
+                data-testid="trip-end-date-input"
+              />
+            </div>
           </div>
           <div>
             <label htmlFor={statusId} className="text-ink-mid mb-1 block text-xs font-semibold uppercase">
@@ -334,7 +352,7 @@ function TripList({
               <span className="min-w-0 flex-1">
                 <span className="text-ink block truncate text-sm font-semibold">{trip.name}</span>
                 <span className="text-ink-mid block text-xs">
-                  {trip.start_date} – {trip.end_date}
+                  {formatDateRange(trip.start_date, trip.end_date)}
                 </span>
               </span>
               <span className="text-ink-lo shrink-0 text-xs font-semibold tracking-[0.08em] uppercase">
@@ -472,18 +490,19 @@ function TripDetail({
         </div>
 
         <div className="flex gap-2">
-          <input
-            type="date"
+          <DateInput
+            aria-label="Start date"
             value={draft.start_date}
-            onChange={(event) => setDraft((d) => ({ ...d, start_date: event.target.value }))}
-            className="border-hairline bg-surface-3 text-ink focus-ring h-11 flex-1 rounded-sm border px-3 text-sm"
+            onChange={(event) => setDraft((d) => withStart(d, event.target.value))}
+            className="h-11 min-w-0 flex-1 text-sm"
             data-testid="trip-detail-start-date-input"
           />
-          <input
-            type="date"
+          <DateInput
+            aria-label="End date"
             value={draft.end_date}
+            min={draft.start_date}
             onChange={(event) => setDraft((d) => ({ ...d, end_date: event.target.value }))}
-            className="border-hairline bg-surface-3 text-ink focus-ring h-11 flex-1 rounded-sm border px-3 text-sm"
+            className="h-11 min-w-0 flex-1 text-sm"
             data-testid="trip-detail-end-date-input"
           />
         </div>
@@ -642,4 +661,21 @@ function TripDetail({
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.detail;
   return "Something went wrong. Try again.";
+}
+
+/**
+ * Move a draft's start date and carry the end date along, keeping the trip's length — so pushing a
+ * trip later can never leave its end before its start.
+ */
+function withStart<T extends { start_date: string; end_date: string }>(draft: T, next: string): T {
+  if (next === "") return { ...draft, start_date: "" };
+  if (draft.start_date !== "" && draft.end_date !== "" && draft.start_date <= draft.end_date) {
+    return {
+      ...draft,
+      start_date: next,
+      end_date: addDaysDateOnly(next, daysBetween(draft.start_date, draft.end_date)),
+    };
+  }
+  if (draft.end_date === "" || draft.end_date < next) return { ...draft, start_date: next, end_date: next };
+  return { ...draft, start_date: next };
 }

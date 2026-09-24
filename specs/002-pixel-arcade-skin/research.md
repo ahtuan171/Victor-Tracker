@@ -179,7 +179,9 @@ cannot hear anything. The suite will **stub `AudioContext` in the page** and cou
 calls per interaction — which asserts the real module's real decisions right up to the browser
 boundary, and is a different thing from asserting a mock the module was written around. The two cases
 worth pinning are the ones FR-023a is about: a data-changing action produces exactly one cue, and a
-navigation interaction produces zero.
+navigation interaction produces no cue of the stored-change kind. *(Amended 2026-09-23: it produced
+zero cues of any kind, and a cue may now be several oscillators — so the suite counts cues, grouped
+by waveform into data and interface cues, not `createOscillator` calls.)*
 
 **Alternative considered**: short `.mp3`/`.ogg` assets, which is what an arcade cabinet actually
 sounds like. Rejected on cost rather than on quality — cues are 40–120ms, and the synthesis is a

@@ -21,12 +21,25 @@ not silently ignored.
   <img src="docs/screenshots/02-map-place-confirm.png" width="100%" alt="Tapping a pin brings up a confirmation card before opening the full detail" />
 </p>
 
+**A collection you can read in order.** The map is organised by place; a trip is remembered by
+time. `Collection` lists the same destinations newest-first — filter by status or category, tap an
+entry and the map flies to its pin and opens it. It's a second presentation of what's already
+loaded, so there's nothing extra to keep in sync.
+
+<p align="center">
+  <img src="docs/screenshots/07-collection.png" width="100%" alt="The Travel Collection: every place newest-first, filterable by status and category" />
+</p>
+
 **A schedule for what's ahead.** `/schedule` lays Trips and travel events — flights, stays,
 activities, food, notes — onto a real month calendar, with a trip timeline and a per-day detail
-sheet. It's a second view of the same data the map holds, not a separate thing to keep in sync.
+sheet. A new entry joins whichever Trip covers its date, and deleting one takes two taps. It's a
+second view of the same data the map holds, not a separate thing to keep in sync.
 
 <p align="center">
   <img src="docs/screenshots/03-schedule.png" width="100%" alt="The travel schedule calendar with trips and events marked" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/08-day-detail.png" width="100%" alt="A day's detail sheet: the trip it falls in, then its entries in time order" />
 </p>
 
 **An AI console that reads your actual trips.** `/intel` is a chat interface backed by any
@@ -42,6 +55,11 @@ marked as visited" by naming your actual places, not by guessing.
 **One privacy line, drawn on purpose and enforced by tests.** The AI reads everything about your
 destinations and trips *except* photographs and personal notes — those never leave the database.
 `backend/tests/test_ai_context.py` asserts the absence, not just the presence, of that boundary.
+
+**Dark or light, and sound only if you ask.** The menu holds a theme switch and an optional sound
+setting — off until you turn it on, remembered against the account, and paired with a small haptic
+tick on phones that support it. Saves and refusals get their own cues; navigating only ever gets a
+quieter one.
 
 <p align="center">
   <img src="docs/screenshots/06-login.png" width="100%" alt="The sign-in screen" />
@@ -95,7 +113,7 @@ fallback behaves.
 
 ```bash
 cd backend && uv run pytest                    # 291 tests
-cd frontend && pnpm exec playwright test        # ~356 tests across four projects
+cd frontend && pnpm exec playwright test        # 356 tests across four projects
 ```
 
 ## Project layout

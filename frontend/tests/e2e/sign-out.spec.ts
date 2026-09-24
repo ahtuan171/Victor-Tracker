@@ -52,6 +52,10 @@ async function openMap(page: Page, baseURL: string | undefined): Promise<void> {
 async function openDrawer(page: Page): Promise<void> {
   await page.getByTestId("nav-drawer-trigger").click();
   await page.getByTestId("nav-drawer-panel").waitFor();
+  // The panel slides in from the right; a box measured mid-slide reads a position it never rests at.
+  await page
+    .getByTestId("nav-drawer-panel")
+    .evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
 }
 
 /**
