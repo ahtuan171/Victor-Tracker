@@ -4,11 +4,14 @@ import { expect, test, type Page, type Route } from "@playwright/test";
  * Sound feedback (T041, FR-020–FR-023a, SC-009, SC-015), at the 375x667 floor.
  *
  * Playwright cannot hear anything (research.md R-004), so every test here stubs `AudioContext` in
- * the page — before any application script runs, via `addInitScript` — and counts
- * `createOscillator()` calls rather than asserting audio. That asserts the real module's real
- * decisions right up to the browser boundary: if `lib/sound.ts` ever called `createOscillator` twice
- * for one cue, or once for a navigation that FR-023a forbids sound on, this file is what would catch
- * it. The proxy is stubbed, as in every other file here — CI runs the production bundle with no
+ * the page — before any application script runs, via `addInitScript` — and counts **cues** rather
+ * than asserting audio. A cue is every oscillator one `playCue` call creates (they are created
+ * synchronously, so one microtask batch is one cue), classified by waveform: `triangle` is a UI
+ * cue (navigation, opening/closing a panel, selecting), anything else is a data cue (`success`,
+ * `save`, `delete`, `refuse`). That asserts the real module's real decisions right up to the browser
+ * boundary: if a data-changing action played two cues, or a navigation played a data cue, this file
+ * is what would catch it. FR-023a as amended (2026-09-23) allows quiet UI cues, so "silent" is
+ * asserted for **data** cues on navigation, and for **everything** only while sound is off. The proxy is stubbed, as in every other file here — CI runs the production bundle with no
  * FastAPI behind it.
  *
  * **Rewritten 2026-08-22** against `/map` (`QuickAdd`, `DestinationSheet`) — Content Calendar
@@ -140,17 +143,29 @@ async function stubDestinations(page: Page, initial: StubDestination[] = []): Pr
 }
 
 /**
- * Stub `AudioContext` before any page script runs, and expose a counter the test can poll.
- * `createOscillator` is the call `lib/sound.ts` makes exactly once per `playCue` — see that file's
- * own "one oscillator per cue" note — so counting it is counting cues.
+ * Stub `AudioContext` before any page script runs, and expose two counters the test can poll: data
+ * cues and UI cues. `lib/sound.ts` creates a cue's oscillators synchronously inside one `playCue`
+ * call and sets each one's waveform straight after creating it, so the first waveform set in a
+ * microtask batch classifies — and counts — the whole cue.
  */
 async function stubAudioContext(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    (window as unknown as { __oscillatorCalls: number }).__oscillatorCalls = 0;
+    const counters = window as unknown as { __dataCues: number; __uiCues: number; __cueOpen: boolean };
+    counters.__dataCues = 0;
+    counters.__uiCues = 0;
+    counters.__cueOpen = false;
 
     class StubOscillator {
-      type = "square";
-      frequency = { setValueAtTime() {}, linearRampToValueAtTime() {} };
+      frequency = { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} };
+      set type(waveform: string) {
+        if (counters.__cueOpen) return;
+        counters.__cueOpen = true;
+        queueMicrotask(() => {
+          counters.__cueOpen = false;
+        });
+        if (waveform === "triangle") counters.__uiCues += 1;
+        else counters.__dataCues += 1;
+      }
       connect() {}
       start() {}
       stop() {}
@@ -164,8 +179,8 @@ async function stubAudioContext(page: Page): Promise<void> {
     class StubAudioContext {
       state = "running";
       currentTime = 0;
+      destination = {};
       createOscillator() {
-        (window as unknown as { __oscillatorCalls: number }).__oscillatorCalls += 1;
         return new StubOscillator();
       }
       createGain() {
@@ -181,8 +196,14 @@ async function stubAudioContext(page: Page): Promise<void> {
   });
 }
 
-async function oscillatorCalls(page: Page): Promise<number> {
-  return page.evaluate(() => (window as unknown as { __oscillatorCalls?: number }).__oscillatorCalls ?? 0);
+/** Cues that accompany a change to stored information, or a refusal of one. */
+async function dataCues(page: Page): Promise<number> {
+  return page.evaluate(() => (window as unknown as { __dataCues?: number }).__dataCues ?? 0);
+}
+
+/** Quiet cues for navigating, selecting and opening or closing a panel. */
+async function uiCues(page: Page): Promise<number> {
+  return page.evaluate(() => (window as unknown as { __uiCues?: number }).__uiCues ?? 0);
 }
 
 async function openMap(page: Page, baseURL: string | undefined): Promise<void> {
@@ -241,7 +262,8 @@ test("a fresh account, sound never turned on, produces zero sound across a full 
   await expect(page.getByTestId("nav-drawer-panel")).toBeVisible();
   await page.getByTestId("nav-drawer-close").click();
 
-  expect(await oscillatorCalls(page)).toBe(0);
+  expect(await dataCues(page)).toBe(0);
+  expect(await uiCues(page)).toBe(0);
 });
 
 test("with sound on, creating a Destination produces exactly one cue", async ({ page, baseURL }) => {
@@ -250,12 +272,14 @@ test("with sound on, creating a Destination produces exactly one cue", async ({ 
   await openMap(page, baseURL);
   await turnSoundOn(page);
 
-  expect(await oscillatorCalls(page)).toBe(0);
+  // Turning sound on answers with one cue of its own, so the toggle proves itself; count from there.
+  const before = await dataCues(page);
+  expect(before).toBe(1);
 
   await createViaQuickAdd(page);
   await expect(page.getByTestId("destination-pin")).toHaveCount(1);
 
-  expect(await oscillatorCalls(page)).toBe(1);
+  expect(await dataCues(page)).toBe(before + 1);
 });
 
 test("with sound on, saving an edit produces exactly one cue", async ({ page, baseURL }) => {
@@ -265,13 +289,13 @@ test("with sound on, saving an edit produces exactly one cue", async ({ page, ba
   await turnSoundOn(page);
 
   await openExistingDestination(page);
-  const before = await oscillatorCalls(page);
+  const before = await dataCues(page);
 
   await page.getByTestId("destination-name-input").fill("Porto (renamed)");
   await page.getByTestId("destination-save").click();
   await expect(page.getByTestId("destination-name-input")).toHaveValue("Porto (renamed)");
 
-  expect(await oscillatorCalls(page)).toBe(before + 1);
+  expect(await dataCues(page)).toBe(before + 1);
 });
 
 test("with sound on, deleting a Destination produces exactly one cue", async ({ page, baseURL }) => {
@@ -282,12 +306,12 @@ test("with sound on, deleting a Destination produces exactly one cue", async ({ 
 
   await openExistingDestination(page);
   await page.getByTestId("destination-delete").click();
-  const before = await oscillatorCalls(page);
+  const before = await dataCues(page);
 
   await page.getByTestId("destination-delete-confirm-action").click();
   await expect(page.getByTestId("destination-sheet-close")).toBeHidden();
 
-  expect(await oscillatorCalls(page)).toBe(before + 1);
+  expect(await dataCues(page)).toBe(before + 1);
 });
 
 test("with sound on, a refusal produces a cue distinguishable from a success (FR-023a)", async ({
@@ -322,7 +346,7 @@ test("with sound on, a refusal produces a cue distinguishable from a success (FR
   await turnSoundOn(page);
 
   await openExistingDestination(page);
-  const before = await oscillatorCalls(page);
+  const before = await dataCues(page);
 
   await page.getByTestId("destination-name-input").fill("");
   await page.getByTestId("destination-save").click();
@@ -330,10 +354,10 @@ test("with sound on, a refusal produces a cue distinguishable from a success (FR
 
   // Exactly one cue for the refusal — not zero (FR-023a promises a sound here too) and not two (a
   // stray success cue alongside it would make the two indistinguishable in count, even before pitch).
-  expect(await oscillatorCalls(page)).toBe(before + 1);
+  expect(await dataCues(page)).toBe(before + 1);
 });
 
-test("with sound on, navigation alone produces zero sound (FR-023a, SC-015)", async ({
+test("with sound on, navigation alone produces no data cue (FR-023a, SC-015)", async ({
   page,
   baseURL,
 }) => {
@@ -342,7 +366,7 @@ test("with sound on, navigation alone produces zero sound (FR-023a, SC-015)", as
   await openMap(page, baseURL);
   await turnSoundOn(page);
 
-  const before = await oscillatorCalls(page);
+  const before = await dataCues(page);
 
   // Status filter.
   await page.getByTestId("status-filter-visited").click();
@@ -357,7 +381,9 @@ test("with sound on, navigation alone produces zero sound (FR-023a, SC-015)", as
   await page.getByTestId("nav-drawer-trigger").click();
   await page.getByTestId("nav-drawer-close").click();
 
-  expect(await oscillatorCalls(page)).toBe(before);
+  // FR-023a as amended: navigation may answer with a quiet UI cue, but never with the cue that
+  // means "stored information changed" — that distinction is what the sound is for.
+  expect(await dataCues(page)).toBe(before);
 });
 
 test("turning sound off is immediate, and stays silent afterwards", async ({ page, baseURL }) => {
@@ -366,18 +392,25 @@ test("turning sound off is immediate, and stays silent afterwards", async ({ pag
   await openMap(page, baseURL);
   await turnSoundOn(page);
 
+  const created = await dataCues(page);
   await createViaQuickAdd(page);
-  expect(await oscillatorCalls(page)).toBe(1);
+  await expect(page.getByTestId("destination-pin")).toHaveCount(1);
+  expect(await dataCues(page)).toBe(created + 1);
 
   await page.getByTestId("nav-drawer-trigger").click();
   await page.getByTestId("sound-option-off").click();
   await page.getByTestId("nav-drawer-close").click();
 
-  const before = await oscillatorCalls(page);
+  // Off is immediate for every kind of cue, UI ones included.
+  const data = await dataCues(page);
+  const ui = await uiCues(page);
   await page.getByTestId("open-trips").click();
   await page.getByTestId("trip-panel-close").click();
+  await createViaQuickAdd(page);
+  await expect(page.getByTestId("destination-pin")).toHaveCount(2);
 
-  expect(await oscillatorCalls(page)).toBe(before);
+  expect(await dataCues(page)).toBe(data);
+  expect(await uiCues(page)).toBe(ui);
 });
 
 test("the sound control reflects the account's own choice once it has loaded (FR-022)", async ({
@@ -413,5 +446,5 @@ test("the sound control reflects the account's own choice once it has loaded (FR
   await createViaQuickAdd(page);
   await expect(page.getByTestId("destination-pin")).toHaveCount(1);
 
-  expect(await oscillatorCalls(page)).toBe(1);
+  expect(await dataCues(page)).toBe(1);
 });

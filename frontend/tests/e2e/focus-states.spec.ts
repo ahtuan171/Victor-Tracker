@@ -342,6 +342,10 @@ test("the focus ring is painted on the nav drawer's own controls", async ({ page
   await openMap(page, baseURL, [aDestination()]);
   await page.getByTestId("nav-drawer-trigger").click();
   await page.getByTestId("nav-drawer-panel").waitFor();
+  // Let the slide-in finish: a control measured mid-slide sits off screen and clips to zero width.
+  await page
+    .getByTestId("nav-drawer-panel")
+    .evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
 
   // Checked here rather than in the sweep above because both controls exist only once the drawer is
   // open, and opening it would put the scrim over every control that sweep already checks, breaking
