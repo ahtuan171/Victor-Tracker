@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 
+import { DateInput } from "@/components/ui/date-input";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import {
   ApiError,
@@ -10,9 +11,13 @@ import {
   updateTravelEvent,
   type TravelEvent,
   type TravelEventType,
+  type Trip,
 } from "@/lib/api";
-import type { DateOnly } from "@/lib/dates";
+import { isWithinDateOnly, type DateOnly } from "@/lib/dates";
+import { formatDateRange } from "@/lib/period";
 import { EVENT_TYPE_LABEL, EVENT_TYPE_SYMBOL } from "@/lib/schedule";
+import { playCue } from "@/lib/sound";
+import { cn } from "@/lib/utils";
 
 /**
  * §14.2–14.6's progressive event forms, built as one shared component rather than five near-
@@ -43,6 +48,7 @@ export function EventFormSheet({
   initialEvent,
   defaultDate,
   defaultTripId,
+  trips,
   onSaved,
   onDeleted,
 }: {
@@ -52,7 +58,9 @@ export function EventFormSheet({
   readonly initialEvent?: TravelEvent;
   readonly defaultDate?: DateOnly;
   readonly defaultTripId?: number | null;
-  readonly onSaved: () => void;
+  /** Every Trip, so the entry can be attached to one — auto-picked from the date by default. */
+  readonly trips: readonly Trip[];
+  readonly onSaved: (event: TravelEvent) => void;
   readonly onDeleted?: () => void;
 }) {
   const titleId = useId();
@@ -69,12 +77,32 @@ export function EventFormSheet({
   const [notes, setNotes] = useState(initialEvent?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
+  /**
+   * `"auto"` follows the date — the entry joins whichever Trip covers it — until the owner picks a
+   * Trip (or "No trip") by hand. Before this, every entry was saved with `trip_id: null`, so the
+   * Trip Timeline's flight/stay/event counts were always zero.
+   */
+  const [tripChoice, setTripChoice] = useState<"auto" | number | null>(
+    initialEvent ? initialEvent.trip_id : (defaultTripId ?? "auto"),
+  );
 
   const trimmedTitle = title.trim();
   const valid = trimmedTitle !== "" && date !== "";
+  const autoTrip = date === "" ? null : (trips.find((trip) => isWithinDateOnly(date, trip.start_date, trip.end_date)) ?? null);
+  const tripId = tripChoice === "auto" ? (autoTrip?.id ?? null) : tripChoice;
+
+  function refuse(message: string): void {
+    playCue("refuse");
+    setError(message);
+    setShakeKey((key) => key + 1);
+  }
 
   async function save(): Promise<void> {
-    if (!valid || saving) return;
+    if (saving) return;
+    if (trimmedTitle === "") return refuse("Give this entry a title.");
+    if (date === "") return refuse("Pick a date.");
 
     setSaving(true);
     setError(null);
@@ -90,18 +118,18 @@ export function EventFormSheet({
       booking_reference: blankToNull(bookingReference),
       category: blankToNull(category),
       notes: blankToNull(notes),
+      trip_id: tripId,
     };
 
     try {
-      if (initialEvent) {
-        await updateTravelEvent(initialEvent.id, body);
-      } else {
-        await createTravelEvent({ ...body, trip_id: defaultTripId ?? null });
-      }
+      const saved = initialEvent
+        ? await updateTravelEvent(initialEvent.id, body)
+        : await createTravelEvent(body);
+      playCue(initialEvent ? "save" : "success");
       onOpenChange(false);
-      onSaved();
+      onSaved(saved);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.detail : "Could not save that entry. Try again.");
+      refuse(caught instanceof ApiError ? caught.detail : "Could not save that entry. Try again.");
     } finally {
       setSaving(false);
     }
@@ -109,15 +137,22 @@ export function EventFormSheet({
 
   async function remove(): Promise<void> {
     if (!initialEvent || saving) return;
+    if (!confirmingDelete) {
+      playCue("tap");
+      setConfirmingDelete(true);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await deleteTravelEvent(initialEvent.id);
+      playCue("delete");
       onOpenChange(false);
       onDeleted?.();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.detail : "Could not delete that entry. Try again.");
+      refuse(caught instanceof ApiError ? caught.detail : "Could not delete that entry. Try again.");
       setSaving(false);
+      setConfirmingDelete(false);
     }
   }
 
@@ -129,6 +164,12 @@ export function EventFormSheet({
         className="bg-surface-1 border-hairline max-h-[85dvh] gap-0 overflow-y-auto p-0 shadow-e2"
         aria-describedby={errorId}
       >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
         <div className="flex items-center gap-2.5 px-4 pt-4">
           <span className="bg-ink-lo/50 h-[3px] w-[34px] rounded-sm" aria-hidden="true" />
           <SheetTitle className="text-ink leading-none tracking-[0.18em]">
@@ -140,7 +181,7 @@ export function EventFormSheet({
           <Field label="Title">
             <input
               id={titleId}
-              autoFocus
+              autoFocus={!initialEvent}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
@@ -199,21 +240,18 @@ export function EventFormSheet({
           ) : null}
 
           <div className="flex gap-3">
-            <Field label={eventType === "stay" ? "Check-in" : "Date"} className="flex-1">
-              <input
-                type="date"
+            <Field label={eventType === "stay" ? "Check-in" : "Date"} className="min-w-0 flex-1">
+              <DateInput
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
-                className="border-hairline bg-surface-3 text-ink focus-ring h-12 w-full rounded-sm border px-3 text-base"
                 data-testid="event-form-date"
               />
             </Field>
-            <Field label="Time" className="flex-1">
-              <input
+            <Field label="Time" className="min-w-0 flex-1">
+              <DateInput
                 type="time"
                 value={time}
                 onChange={(event) => setTime(event.target.value)}
-                className="border-hairline bg-surface-3 text-ink focus-ring h-12 w-full rounded-sm border px-3 text-base"
                 data-testid="event-form-time"
               />
             </Field>
@@ -232,6 +270,30 @@ export function EventFormSheet({
             </Field>
           ) : null}
 
+          {trips.length > 0 ? (
+            <Field label="Trip">
+              <select
+                value={tripChoice === "auto" ? "auto" : tripChoice === null ? "none" : String(tripChoice)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setTripChoice(value === "auto" ? "auto" : value === "none" ? null : Number(value));
+                }}
+                className="border-hairline bg-surface-3 text-ink focus-ring h-12 w-full rounded-sm border px-3 text-base"
+                data-testid="event-form-trip"
+              >
+                <option value="auto">
+                  {autoTrip ? `Auto · ${autoTrip.destination ?? autoTrip.name}` : "Auto · no trip covers this date"}
+                </option>
+                <option value="none">No trip</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.destination ?? trip.name} ({formatDateRange(trip.start_date, trip.end_date)})
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
           <Field label={eventType === "note" ? "Content" : "Notes"}>
             <textarea
               value={notes}
@@ -244,9 +306,10 @@ export function EventFormSheet({
           </Field>
 
           <SheetDescription
+            key={shakeKey}
             id={errorId}
             role={error !== null ? "alert" : undefined}
-            className={error !== null ? "text-danger-hi text-xs leading-relaxed" : "sr-only"}
+            className={error !== null ? "text-danger-hi anim-shake text-xs leading-relaxed" : "sr-only"}
           >
             {error ?? ""}
           </SheetDescription>
@@ -257,16 +320,23 @@ export function EventFormSheet({
             <button
               type="button"
               onClick={() => void remove()}
+              onBlur={() => setConfirmingDelete(false)}
               disabled={saving}
-              className="border-hairline text-danger-hi focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase disabled:opacity-50"
+              className={cn(
+                "focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase disabled:opacity-50",
+                confirmingDelete ? "bg-danger border-danger text-white" : "border-hairline text-danger-hi",
+              )}
               data-testid="event-form-delete"
             >
-              Delete
+              {confirmingDelete ? "Tap to confirm" : "Delete"}
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                playCue("close");
+                onOpenChange(false);
+              }}
               className="border-hairline text-ink-mid focus-ring h-12 flex-none rounded-sm border px-4.5 text-xs font-semibold tracking-[0.16em] uppercase"
               data-testid="event-form-cancel"
             >
@@ -275,15 +345,19 @@ export function EventFormSheet({
           )}
 
           <button
-            type="button"
-            onClick={() => void save()}
-            disabled={!valid || saving}
-            className="bg-brand focus-ring h-12 flex-1 rounded-none text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50"
+            type="submit"
+            disabled={saving}
+            aria-disabled={!valid}
+            className={cn(
+              "bg-brand focus-ring h-12 flex-1 rounded-none text-sm font-semibold tracking-[0.16em] text-white uppercase shadow-e1 disabled:opacity-50",
+              !valid && "opacity-60",
+            )}
             data-testid="event-form-save"
           >
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+        </form>
       </SheetContent>
     </Sheet>
   );

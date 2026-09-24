@@ -28,6 +28,7 @@ import {
 import type { DateOnly } from "@/lib/dates";
 import { CATEGORY_LABEL, isCurrentlyTraveling, pinTreatment } from "@/lib/map";
 import { playCue } from "@/lib/sound";
+import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 
 import { PlannedPanel } from "./PlannedPanel";
@@ -320,9 +321,8 @@ export function DestinationSheet({
                   Dates
                 </span>
                 <div className="flex gap-2">
-                  <input
+                  <DateInput
                     id={startDateId}
-                    type="date"
                     value={draft.start_date ?? ""}
                     onChange={(event) =>
                       setDraft((previous) =>
@@ -334,9 +334,8 @@ export function DestinationSheet({
                     className="border-hairline bg-surface-3 text-ink focus-ring h-12 flex-1 rounded-sm border px-3 text-sm"
                     data-testid="destination-start-date-input"
                   />
-                  <input
+                  <DateInput
                     id={endDateId}
-                    type="date"
                     value={draft.end_date ?? ""}
                     onChange={(event) =>
                       setDraft((previous) =>

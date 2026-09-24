@@ -128,7 +128,7 @@ function StatusStep({
         // same row here, but omission is what "not part of this flow" actually means.
         ...(tripId === null ? {} : { trip_id: tripId }),
       });
-      playCue("save");
+      playCue("success");
       onCreated();
     } catch (err: unknown) {
       playCue("refuse");

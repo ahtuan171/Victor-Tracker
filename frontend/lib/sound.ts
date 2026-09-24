@@ -1,10 +1,9 @@
 /**
  * Sound cues, synthesised in the browser (T038, research.md R-004, FR-020–FR-023a).
  *
- * Five short cues generated with the Web Audio API — one oscillator through a gain envelope per
- * call — created lazily on the first cue that is actually wanted. No audio files, no `<audio>`
- * elements, no library: R-004 rejected an asset set on cost, not on quality, given the cold path
- * already measured 44s at T072 and this product adds no bytes to it.
+ * Short cues generated with the Web Audio API — each a phrase of one to four oscillator notes
+ * through a gain envelope — created lazily on the first cue that is actually wanted. No audio
+ * files, no `<audio>` elements, no library: nothing is added to the cold-start path.
  *
  * ## Enabled state lives here, not in a component
  *
@@ -30,8 +29,23 @@
  * played.
  */
 
-/** FR-023a's five cues: one per data-changing action, plus the refusal every one of them can meet. */
-export type SoundCue = "capture" | "save" | "delete" | "move" | "refuse";
+/**
+ * Data cues (one per data-changing action, plus the refusal every one of them can meet) and UI
+ * cues (quieter, for navigation and selection — so the app responds to every touch, not only to
+ * writes).
+ */
+export type SoundCue =
+  | "capture"
+  | "save"
+  | "delete"
+  | "move"
+  | "refuse"
+  | "success"
+  | "tap"
+  | "select"
+  | "open"
+  | "close"
+  | "page";
 
 let enabled = false;
 let context: AudioContext | null = null;
@@ -78,44 +92,57 @@ export function subscribeSoundEnabled(listener: () => void): () => void {
  * surface as an error the caller has to handle (FR-023).
  */
 export function playCue(cue: SoundCue): void {
+  vibrateFor(cue);
   if (!enabled) return;
 
   try {
     const ctx = ensureContext();
     if (ctx === null) return;
-
-    const { frequencies, duration, type } = CUES[cue];
-    const now = ctx.currentTime;
-
-    const oscillator = ctx.createOscillator();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequencies[0]!, now);
-    for (let step = 1; step < frequencies.length; step += 1) {
-      oscillator.frequency.linearRampToValueAtTime(
-        frequencies[step]!,
-        now + (duration * step) / frequencies.length,
-      );
-    }
-
-    // A short attack/decay envelope rather than a hard on/off, which would click. Peaked well under
-    // full scale — these accompany a tap, not announce one across a room.
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.start(now);
-    oscillator.stop(now + duration);
-
-    // Autoplay policy requires the context to have been created or resumed as a result of a user
-    // gesture — satisfied by construction, per R-004: every caller of `playCue` sits at the end of a
-    // save/delete/capture/drag handler, which is always gesture-initiated, even once the outcome it
-    // reports (success or refusal) arrives after an `await`.
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+
+    const { notes, type, gain: peak } = CUES[cue];
+    const start = ctx.currentTime + 0.005;
+
+    for (const note of notes) {
+      const at = start + note.at;
+      const oscillator = ctx.createOscillator();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(note.from, at);
+      if (note.to !== undefined) {
+        oscillator.frequency.exponentialRampToValueAtTime(note.to, at + note.length);
+      }
+
+      // A short attack/decay envelope rather than a hard on/off, which would click.
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(peak, at + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + note.length);
+
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(at);
+      oscillator.stop(at + note.length + 0.02);
+    }
   } catch {
     // FR-023: swallowed. Nothing here may become a visible error.
+  }
+}
+
+/**
+ * A tiny haptic tick on phones that support it, following the same sound toggle — a phone on
+ * silent still gets a physical confirmation that a save landed. UI cues stay silent here; buzzing
+ * on every tap is noise.
+ */
+function vibrateFor(cue: SoundCue): void {
+  if (!enabled) return;
+  const pattern = HAPTICS[cue];
+  if (pattern === undefined) return;
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    // Ignored, as with sound.
   }
 }
 
@@ -132,20 +159,64 @@ function ensureContext(): AudioContext | null {
   return context;
 }
 
+interface Note {
+  /** Seconds after the cue starts. */
+  readonly at: number;
+  readonly from: number;
+  /** Glide target, if the note bends. */
+  readonly to?: number;
+  readonly length: number;
+}
+
 /**
- * One oscillator per cue (never more), which is what makes "a data-changing action produces exactly
- * one cue" (T041) the same fact as "exactly one `createOscillator` call" — distinctness comes from
- * each cue's own frequency contour, not from stacking tones. `square` for every success cue matches
- * the pixel-arcade language the rest of this iteration draws in; `refuse` is `sawtooth` and the only
+ * The pixel-arcade palette: `square` for success cues, `triangle` (softer) for UI cues so they sit
+ * under the data cues rather than competing with them, and `sawtooth` only for `refuse` — the one
  * cue that falls in pitch and lingers, so it cannot be mistaken for a success even in isolation.
  */
 const CUES: Record<
   SoundCue,
-  { readonly frequencies: readonly number[]; readonly duration: number; readonly type: OscillatorType }
+  { readonly notes: readonly Note[]; readonly type: OscillatorType; readonly gain: number }
 > = {
-  capture: { frequencies: [392, 784], duration: 0.09, type: "square" },
-  save: { frequencies: [523, 784], duration: 0.07, type: "square" },
-  move: { frequencies: [523, 659], duration: 0.055, type: "square" },
-  delete: { frequencies: [587, 294], duration: 0.13, type: "square" },
-  refuse: { frequencies: [220, 165], duration: 0.16, type: "sawtooth" },
+  capture: { type: "square", gain: 0.12, notes: [{ at: 0, from: 392, to: 784, length: 0.09 }] },
+  save: {
+    type: "square",
+    gain: 0.1,
+    notes: [
+      { at: 0, from: 659, length: 0.06 },
+      { at: 0.06, from: 988, length: 0.09 },
+    ],
+  },
+  success: {
+    type: "square",
+    gain: 0.09,
+    notes: [
+      { at: 0, from: 523, length: 0.07 },
+      { at: 0.07, from: 659, length: 0.07 },
+      { at: 0.14, from: 784, length: 0.07 },
+      { at: 0.21, from: 1047, length: 0.16 },
+    ],
+  },
+  move: { type: "square", gain: 0.1, notes: [{ at: 0, from: 523, to: 659, length: 0.055 }] },
+  delete: {
+    type: "square",
+    gain: 0.1,
+    notes: [
+      { at: 0, from: 587, length: 0.07 },
+      { at: 0.07, from: 392, to: 196, length: 0.14 },
+    ],
+  },
+  refuse: { type: "sawtooth", gain: 0.08, notes: [{ at: 0, from: 220, to: 150, length: 0.18 }] },
+  tap: { type: "triangle", gain: 0.06, notes: [{ at: 0, from: 1200, length: 0.025 }] },
+  select: { type: "triangle", gain: 0.07, notes: [{ at: 0, from: 880, to: 1320, length: 0.045 }] },
+  open: { type: "triangle", gain: 0.06, notes: [{ at: 0, from: 330, to: 660, length: 0.09 }] },
+  close: { type: "triangle", gain: 0.05, notes: [{ at: 0, from: 660, to: 330, length: 0.08 }] },
+  page: { type: "triangle", gain: 0.05, notes: [{ at: 0, from: 520, to: 780, length: 0.05 }] },
+};
+
+const HAPTICS: Partial<Record<SoundCue, number | number[]>> = {
+  save: 12,
+  success: [12, 40, 18],
+  capture: 12,
+  delete: [20, 30, 20],
+  refuse: [30, 40, 30],
 };
